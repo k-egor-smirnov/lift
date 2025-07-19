@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { TaskCategory } from '../shared/domain/types';
 import { TaskList } from '../features/tasks/presentation/components/TaskList';
-import { CreateTaskModal } from '../features/tasks/presentation/components/CreateTaskModal';
+import { CreateTaskModal } from './components/CreateTaskModal';
 import { TodayView } from '../features/today/presentation/components/TodayView';
+import { Sidebar } from './components/Sidebar';
+import { Header } from './components/Header';
 import { createTaskViewModel, TaskViewModelDependencies } from '../features/tasks/presentation/view-models/TaskViewModel';
 import { TodayViewModelDependencies } from '../features/today/presentation/view-models/TodayViewModel';
 
@@ -52,8 +54,8 @@ const taskViewModel = createTaskViewModel(taskDependencies);
 
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [filter, setFilter] = useState<{ category?: TaskCategory }>({});
-  const [activeTab, setActiveTab] = useState<'tasks' | 'today'>('tasks');
+  const [activeView, setActiveView] = useState<'today' | TaskCategory>('today');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
 
   // Subscribe to the view model state
@@ -63,7 +65,6 @@ export const MVPApp: React.FC = () => {
     error,
     getFilteredTasks,
     getTasksByCategory,
-    getOverdueCount,
     loadTasks,
     createTask,
     completeTask,
@@ -89,10 +90,14 @@ export const MVPApp: React.FC = () => {
     initializeApp();
   }, [loadTasks]);
 
-  // Update view model filter when local filter changes
+  // Update view model filter when active view changes
   useEffect(() => {
-    setViewModelFilter(filter);
-  }, [filter, setViewModelFilter]);
+    if (activeView === 'today') {
+      setViewModelFilter({});
+    } else {
+      setViewModelFilter({ category: activeView });
+    }
+  }, [activeView, setViewModelFilter]);
 
   const handleCreateTask = async (title: string, category: TaskCategory): Promise<boolean> => {
     const success = await createTask({ title, category });
@@ -130,199 +135,83 @@ export const MVPApp: React.FC = () => {
     }
   };
 
-  const filteredTasks = getFilteredTasks();
+  const handleViewChange = (view: 'today' | TaskCategory) => {
+    setActiveView(view);
+  };
+
+  const handleNewTask = () => {
+    setIsCreateModalOpen(true);
+  };
+
+  const handleMobileMenuClose = () => {
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleMobileMenuToggle = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
   const tasksByCategory = getTasksByCategory();
-  const overdueCount = getOverdueCount();
+  const taskCounts: Record<TaskCategory, number> = {
+    [TaskCategory.INBOX]: tasksByCategory[TaskCategory.INBOX]?.length || 0,
+    [TaskCategory.SIMPLE]: tasksByCategory[TaskCategory.SIMPLE]?.length || 0,
+    [TaskCategory.FOCUS]: tasksByCategory[TaskCategory.FOCUS]?.length || 0,
+  };
 
   // Show loading state while database is initializing
   if (!isDbReady) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Initializing database...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+          <p className="text-muted-foreground">Initializing database...</p>
         </div>
       </div>
     );
   }
 
+  // Get the current category for modal
+  const currentCategory = activeView === 'today' ? TaskCategory.INBOX : activeView;
+  const hideCategorySelection = activeView !== 'today';
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Daily Todo PWA - MVP</h1>
-            <p className="mt-2 text-gray-600">
-              Manage your tasks and daily selections
-            </p>
-          </div>
-          <div className="mt-4 sm:mt-0">
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              data-testid="new-task-button"
-            >
-              <svg className="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New Task
-            </button>
-          </div>
-        </div>
+    <div className="min-h-screen bg-background">
+      {/* Sidebar */}
+      <Sidebar
+        activeView={activeView}
+        onViewChange={handleViewChange}
+        taskCounts={taskCounts}
+        isMobileMenuOpen={isMobileMenuOpen}
+        onMobileMenuClose={handleMobileMenuClose}
+      />
 
-        {/* Navigation Tabs */}
-        <div className="mt-6">
-          <nav className="flex space-x-8" aria-label="Tabs">
-            <button
-              onClick={() => setActiveTab('tasks')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'tasks'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-              data-testid="all-tasks-tab"
-            >
-              📝 All Tasks
-            </button>
-            <button
-              onClick={() => setActiveTab('today')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'today'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-              data-testid="today-tab"
-            >
-              ☀️ Today
-            </button>
-          </nav>
-        </div>
-
-        {/* Stats */}
-        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="text-2xl">📝</div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Tasks</dt>
-                    <dd className="text-lg font-medium text-gray-900" data-testid="total-tasks-count">{tasks.length}</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="text-2xl">📥</div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Inbox</dt>
-                    <dd className="text-lg font-medium text-gray-900">{tasksByCategory[TaskCategory.INBOX]?.length || 0}</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="text-2xl">🎯</div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Focus</dt>
-                    <dd className="text-lg font-medium text-gray-900">{tasksByCategory[TaskCategory.FOCUS]?.length || 0}</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="text-2xl">⚠️</div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Overdue</dt>
-                    <dd className="text-lg font-medium text-gray-900">{overdueCount}</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Conditional Content */}
-      {activeTab === 'today' ? (
-        <TodayView 
-          dependencies={todayDependencies}
-          onEditTask={handleEditTask}
-          onDeleteTask={handleDeleteTask}
+      {/* Main Content */}
+      <div className="md:ml-64">
+        {/* Header */}
+        <Header
+          activeView={activeView}
+          onNewTask={handleNewTask}
+          onMobileMenuToggle={handleMobileMenuToggle}
         />
-      ) : (
-        <>
-          {/* Filters */}
-          <div className="mb-6">
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setFilter({})}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                  !filter.category
-                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                    : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
-                }`}
-                data-testid="filter-all"
-              >
-                All Tasks
-              </button>
-              {Object.values(TaskCategory).map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setFilter({ category })}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                    filter.category === category
-                      ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                      : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
-                  }`}
-                  data-testid={`filter-${category.toLowerCase()}`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
 
+        {/* Content */}
+        <main className="p-6">
           {/* Error Message */}
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4" data-testid="error-message">
+            <div className="mb-6 bg-destructive/10 border border-destructive/20 rounded-md p-4" data-testid="error-message">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="h-5 w-5 text-destructive" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-red-800">{error}</p>
+                  <p className="text-sm text-destructive">{error}</p>
                 </div>
                 <div className="ml-auto pl-3">
                   <button
                     onClick={clearError}
-                    className="text-red-400 hover:text-red-600"
+                    className="text-destructive/60 hover:text-destructive"
                   >
                     <span className="sr-only">Dismiss</span>
                     <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -337,32 +226,44 @@ export const MVPApp: React.FC = () => {
           {/* Loading State */}
           {loading && (
             <div className="text-center py-12" data-testid="loading-state">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-gray-600">Loading tasks...</p>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <p className="mt-2 text-muted-foreground">Loading tasks...</p>
             </div>
           )}
 
-          {/* Task List */}
+          {/* Content based on active view */}
           {!loading && (
-            <TaskList
-              tasks={filteredTasks}
-              groupByCategory={!filter.category}
-              showTodayButton={true}
-              onComplete={handleCompleteTask}
-              onEdit={handleEditTask}
-              onDelete={handleDeleteTask}
-              onAddToToday={handleAddToToday}
-              emptyMessage={filter.category ? `No ${filter.category.toLowerCase()} tasks found` : 'No tasks found'}
-            />
+            <>
+              {activeView === 'today' ? (
+                <TodayView 
+                  dependencies={todayDependencies}
+                  onEditTask={handleEditTask}
+                  onDeleteTask={handleDeleteTask}
+                />
+              ) : (
+                <TaskList
+                  tasks={getFilteredTasks()}
+                  groupByCategory={false}
+                  showTodayButton={true}
+                  onComplete={handleCompleteTask}
+                  onEdit={handleEditTask}
+                  onDelete={handleDeleteTask}
+                  onAddToToday={handleAddToToday}
+                  emptyMessage={`No ${activeView.toLowerCase()} tasks found`}
+                />
+              )}
+            </>
           )}
-        </>
-      )}
+        </main>
+      </div>
 
       {/* Create Task Modal */}
       <CreateTaskModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateTask}
+        initialCategory={currentCategory}
+        hideCategorySelection={hideCategorySelection}
       />
     </div>
   );
