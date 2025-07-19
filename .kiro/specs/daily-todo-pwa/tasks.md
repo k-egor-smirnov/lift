@@ -26,10 +26,22 @@
     - _Requirements: 1.3, 2.5, 11.5, 11.6_
 
   - [x] 2.3 Create domain events system
+
     - Implement DomainEvent base class and specific events (TaskCreated, TaskCompleted, etc.)
     - Create EventBus interface with publish/subscribe methods
     - Write unit tests for event creation and bus functionality
     - _Requirements: 9.4_
+
+  - [ ] 2.4 Implement persistent EventBus with delivery guarantees
+    - Create EventStoreRecord, HandledEventRecord, and LockRecord schemas
+    - Update TodoDatabase to version 2 with eventStore, handledEvents, and locks tables
+    - Implement PersistentEventBus with at-least-once processing guarantees
+    - Add per-aggregate ordered processing with aggregateId serialization
+    - Implement retry mechanism with exponential backoff + jitter
+    - Add multi-tab coordination using Web Locks API with database fallback
+    - Create EventHandler interface with unique IDs for idempotency tracking
+    - Write comprehensive tests for event processing, retry logic, and ordering
+    - _Requirements: 9.4, 10.1, 10.4_
 
 - [x] 3. Set up local storage infrastructure
 
@@ -56,14 +68,15 @@
     - Write integration tests for daily selection operations
     - _Requirements: 2.1, 2.3, 15.1, 15.3_
 
-- [ ] 4. Create application layer use cases
+- [-] 4. Create application layer use cases
 
-  - [ ] 4.1 Implement task management use cases
+  - [x] 4.1 Implement task management use cases
 
-    - Create CreateTaskUseCase with validation and event publishing
-    - Implement CompleteTaskUseCase with statistics capture and event publishing
-    - Add UpdateTaskUseCase for title and category changes
-    - Write unit tests for all use cases with mocked dependencies
+    - Create CreateTaskUseCase with validation and transactional event publishing
+    - Implement CompleteTaskUseCase with transactional updates (task + syncQueue + events)
+    - Add UpdateTaskUseCase for title and category changes with event publishing
+    - Ensure all UseCase transactions include tasks, syncQueue, and eventStore tables
+    - Write unit tests for all use cases with mocked dependencies and transaction verification
     - _Requirements: 11.1, 11.3, 11.4, 11.5_
 
   - [ ] 4.2 Implement daily selection use cases
@@ -132,6 +145,24 @@
     - Add daily/weekly/monthly statistics aggregation
     - Create nightly snapshot system for stats_daily table
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.6_
+
+  - [ ] 7.3 Implement event handlers for statistics and logging
+
+    - Create TaskLogEventHandler with idempotent UPSERT operations
+    - Implement StatsUpdateHandler with existing record checks and timestamp validation
+    - Add NotificationHandler for overdue task notifications
+    - Ensure all handlers follow idempotency patterns (UPSERT, existing checks, handledEvents)
+    - Write unit tests for handler idempotency and error scenarios
+    - _Requirements: 3.1, 8.1, 8.2, 9.4_
+
+  - [ ] 7.4 Implement event processing monitoring and cleanup
+
+    - Create EventMonitor with processing statistics (pending, processing, done, dead)
+    - Implement EventCleanupService for processed events cleanup (30+ days old)
+    - Add dead letter queue management with reprocessing capabilities
+    - Create event processing dashboard for debugging and monitoring
+    - Write integration tests for monitoring and cleanup functionality
+    - _Requirements: 9.4, 10.1, 10.4_
 
   - [ ] 7.2 Create statistics UI components
     - Build StatisticsView with period selection (day/week/month)

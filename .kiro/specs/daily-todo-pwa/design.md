@@ -108,37 +108,21 @@ features/tasks/
 4. **Repository** - доступ к данным
 
 ```typescript
-// 1. View - чистый React компонент
+// View → ViewModel → UseCase → Repository
 const TaskList = () => {
-  const { tasks, createTask, completeTask } = useTaskViewModel();
-  
-  return (
-    <div>
-      {tasks.map(task => (
-        <TaskCard key={task.id} task={task} onComplete={completeTask} />
-      ))}
-    </div>
-  );
+  const { tasks, createTask } = useTaskViewModel();
+  return <div>{/* JSX */}</div>;
 };
 
-// 2. ViewModel - Zustand store
-const useTaskViewModel = create<TaskViewModelState>((set, get) => ({
+const useTaskViewModel = create((set) => ({
   tasks: [],
-  loading: false,
-  
-  createTask: async (title: string, category: TaskCategory) => {
-    set({ loading: true });
-    await createTaskUseCase.execute({ title, category });
-    // Refresh tasks
-    set({ loading: false });
+  createTask: async (title) => {
+    await createTaskUseCase.execute({ title });
   }
 }));
 
-// 3. Use Case - бизнес-логика
 class CreateTaskUseCase {
-  constructor(private taskRepo: TaskRepository) {}
-  
-  async execute(request: CreateTaskRequest): Promise<void> {
+  async execute(request): Promise<void> {
     const task = new Task(/* ... */);
     await this.taskRepo.save(task);
   }
@@ -184,28 +168,367 @@ interface DailySelectionEntry {
 
 ### Event System
 
+#### Event Processing Guarantees
+
+Система событий обеспечивает следующие гарантии:
+
+1. **At-least-once processing** - каждое событие будет обработано минимум один раз
+2. **Per-aggregate ordered processing** - события от одной сущности обрабатываются в порядке генерации (достигается сериализацией по aggregateId)
+3. **Durability** - события персистируются до успешной обработки
+4. **Retry with backoff** - автоматические повторы с экспоненциальной задержкой
+5. **Dead letter handling** - обработка событий, которые не удалось доставить
+6. **Idempotent handlers** - обработчики могут вызываться повторно и должны быть идемпотентны
+7. **Post-commit processing** - обработка начинается после commit транзакции, породившей событие
+
+**Ограничения:**
+- Нет exactly-once гарантий
+- Нет глобального порядка между разными aggregates
+- Возможны задержки при backoff
+- Возможна повторная обработка событий
+- Статистика и производные данные вычисляются из событий; при сбое возможен lag, но будут догнаны при рестарте (replay pending events)
+
+#### Event Store Schema
+
 ```typescript
-interface EventBus {
-  publish(events: DomainEvent[]): Promise<void>;
-  subscribe<T extends DomainEvent>(eventType: string, handler: (event: T) => void): void;
+interface EventStoreRecord {
+  id: string; // ULID (primary key)
+  aggregateId: string;
+  aggregateType: string;
+  eventType: string;
+  eventData: string;
+  createdAt: number; // Date.now()
+  status: 'pending' | 'processing' | 'done' | 'dead';
+  attemptCount: number;
+  nextAttemptAt?: number;
+  lastError?: string;
 }
 
-// UseCase оборачивает доменные вызовы и публикует события батчем
+interface HandledEventRecord {
+  eventId: string;
+  handlerId: string;
+  processedAt: number;
+}
+
+interface LockRecord {
+  id: string;
+  expiresAt: number;
+}
+
+// Обновляем TodoDatabase
+class TodoDatabase extends Dexie {
+  tasks!: Table<TaskRecord>;
+  dailySelectionEntries!: Table<DailySelectionEntryRecord>;
+  taskLogs!: Table<TaskLogRecord>;
+  userSettings!: Table<UserSettingsRecord>;
+  syncQueue!: Table<SyncQueueRecord>;
+  statsDaily!: Table<StatsDailyRecord>;
+  eventStore!: Table<EventStoreRecord>;
+  handledEvents!: Table<HandledEventRecord>;
+  locks!: Table<LockRecord>;
+
+  constructor() {
+    super('TodoDatabase');
+    
+    // Migration from version 1 to 2
+    this.version(1).stores({
+      tasks: '++id, category, status, createdAt, updatedAt, deletedAt, inboxEnteredAt',
+      dailySelectionEntries: '++[date+taskId], date, taskId, completedFlag',
+      taskLogs: '++id, taskId, type, createdAt',
+      userSettings: '++key',
+      syncQueue: '++id, entityType, entityId, operation, attemptCount, createdAt',
+      statsDaily: '++date, simpleCompleted, focusCompleted, inboxReviewed'
+    });
+
+    this.version(2).stores({
+      tasks: 'id, category, status, createdAt, updatedAt, deletedAt, inboxEnteredAt',
+      dailySelectionEntries: '[date+taskId], date, taskId, completedFlag',
+      taskLogs: 'id, taskId, type, createdAt',
+      userSettings: 'key',
+      syncQueue: 'id, entityType, entityId, operation, attemptCount, createdAt, nextAttemptAt',
+      statsDaily: 'date, simpleCompleted, focusCompleted, inboxReviewed',
+      eventStore: 'id, status, aggregateId, aggregateId+createdAt, nextAttemptAt, attemptCount',
+      handledEvents: '[eventId+handlerId], eventId, handlerId',
+      locks: 'id, expiresAt'
+    }).upgrade(trans => {
+      // Data migration logic if needed
+      console.log('Upgrading database to version 2');
+    });
+  }
+}
+```
+
+#### Persistent EventBus Implementation
+
+```typescript
+interface EventHandler {
+  id: string;
+  handle(event: DomainEvent): Promise<void>;
+}
+
+interface EventBus {
+  publishAll(events: DomainEvent[]): Promise<void>;
+  subscribe<T extends DomainEvent>(eventType: string, handler: EventHandler): EventSubscription;
+  startProcessingLoop(): void;
+}
+
+class PersistentEventBus implements EventBus {
+  private readonly MAX_RETRY_ATTEMPTS = 5;
+  private readonly RETRY_BASE_DELAY = 1000; // ms
+
+  async publishAll(events: DomainEvent[]): Promise<void> {
+    // Только сохраняем события в транзакции, не обрабатываем
+    const eventRecords = events.map(event => ({
+      id: ulid(),
+      aggregateId: event.aggregateId,
+      eventType: event.eventType,
+      eventData: JSON.stringify(event),
+      createdAt: Date.now(),
+      status: 'pending' as const,
+      attemptCount: 0
+    }));
+
+    await this.database.eventStore.bulkAdd(eventRecords);
+
+    // Запускаем обработку после commit транзакции
+    if (Dexie.currentTransaction) {
+      Dexie.currentTransaction.on('complete', () => {
+        queueMicrotask(() => this.processNextBatch());
+      });
+    }
+  }
+
+  private async processNextBatch(): Promise<void> {
+    // Получаем pending события, группируем по aggregateId для порядка
+    // Обрабатываем handlers последовательно с проверкой handledEvents
+    // Retry с exponential backoff + jitter при ошибках
+  }
+
+  private async executeHandler(handler: EventHandler, event: DomainEvent, eventId: string): Promise<void> {
+    // Проверяем handledEvents для идемпотентности
+    const alreadyHandled = await this.database.handledEvents
+      .where(['eventId', 'handlerId'])
+      .equals([eventId, handler.id])
+      .first();
+
+    if (alreadyHandled) return;
+
+    await handler.handle(event);
+    
+    // Записываем успешную обработку
+    await this.database.handledEvents.add({
+      eventId, handlerId: handler.id, processedAt: Date.now()
+    });
+  }
+}
+```
+
+#### Transactional Event Publishing
+
+```typescript
+// UseCase с транзакционной публикацией событий
 class CompleteTaskUseCase {
   constructor(
     private taskRepo: TaskRepository,
-    private eventBus: EventBus
+    private eventBus: EventBus,
+    private database: TodoDatabase
   ) {}
 
   async execute(taskId: TaskId): Promise<Result<void, DomainError>> {
-    const task = await this.taskRepo.findById(taskId);
-    if (!task) return Result.error(new TaskNotFoundError(taskId));
+    // Используем транзакцию для атомарности
+    return await this.database.transaction('rw', 
+      [this.database.tasks, this.database.syncQueue, this.database.eventStore], 
+      async () => {
+        const task = await this.taskRepo.findById(taskId);
+        if (!task) return Result.error(new TaskNotFoundError(taskId));
 
-    const events = task.complete();
-    await this.taskRepo.save(task);
-    await this.eventBus.publish(events);
+        const events = task.complete();
+        
+        // Сохраняем изменения и события в одной транзакции
+        // 1. Mutate task
+        await this.taskRepo.save(task);
+        
+        // 2. Add syncQueue entry
+        await this.database.syncQueue.add({
+          id: ulid(),
+          entityType: 'task',
+          entityId: task.id.value,
+          operation: 'update',
+          payloadHash: hashObject(task),
+          attemptCount: 0,
+          createdAt: new Date(),
+          nextAttemptAt: Date.now()
+        });
+        
+        // 3. Add eventStore records
+        await this.eventBus.publishAll(events);
+        
+        // Никаких обработчиков внутри транзакции
+        return Result.ok();
+      }
+    );
+  }
+}
+```
+
+#### Event Processing Monitoring
+
+```typescript
+interface EventProcessingStats {
+  totalEvents: number;
+  pendingEvents: number;
+  processingEvents: number;
+  doneEvents: number;
+  deadLetterEvents: number;
+  averageProcessingTime: number;
+}
+
+class EventMonitor {
+  constructor(private database: TodoDatabase) {}
+
+  async getProcessingStats(): Promise<EventProcessingStats> {
+    const [total, pending, processing, done, deadLetter] = await Promise.all([
+      this.database.eventStore.count(),
+      this.database.eventStore.where('status').equals('pending').count(),
+      this.database.eventStore.where('status').equals('processing').count(),
+      this.database.eventStore.where('status').equals('done').count(),
+      this.database.eventStore.where('status').equals('dead').count()
+    ]);
+
+    return {
+      totalEvents: total,
+      pendingEvents: pending,
+      processingEvents: processing,
+      doneEvents: done,
+      deadLetterEvents: deadLetter,
+      averageProcessingTime: 0 // TODO: implement timing with startedAt/finishedAt
+    };
+  }
+
+  async getDeadLetterEvents(): Promise<EventStoreRecord[]> {
+    return await this.database.eventStore
+      .where('status')
+      .equals('dead')
+      .toArray();
+  }
+
+  async reprocessDeadLetterEvent(eventId: string): Promise<void> {
+    await this.database.eventStore.update(eventId, {
+      status: 'pending' as const,
+      attemptCount: 0,
+      lastError: undefined,
+      nextAttemptAt: Date.now()
+    });
+  }
+}
+```
+
+#### Event Cleanup Strategy
+
+```typescript
+class EventCleanupService {
+  constructor(private database: TodoDatabase) {}
+
+  async cleanupProcessedEvents(olderThanDays: number = 30): Promise<number> {
+    const cutoffDate = Date.now() - (olderThanDays * 24 * 60 * 60 * 1000);
+
+    // Удаляем done события старше N дней пачками, но не если есть связанные handledEvents
+    const doneEvents = await this.database.eventStore
+      .where('status')
+      .equals('done')
+      .and(record => record.createdAt < cutoffDate)
+      .toArray();
+
+    let deletedCount = 0;
+    for (const event of doneEvents) {
+      // Удаляем связанные handledEvents
+      await this.database.handledEvents
+        .where('eventId')
+        .equals(event.id)
+        .delete();
+      
+      // Удаляем само событие
+      await this.database.eventStore.delete(event.id);
+      deletedCount++;
+    }
+
+    return deletedCount;
+  }
+
+  async archiveDeadLetterEvents(): Promise<void> {
+    // Не трогать dead без архива
+    const deadLetterEvents = await this.database.eventStore
+      .where('status')
+      .equals('dead')
+      .toArray();
+
+    // TODO: implement archiving logic (export to file or external service)
+    console.log(`Found ${deadLetterEvents.length} dead letter events to archive`);
+  }
+}
+```
+
+#### Idempotency Patterns
+
+Обработчики событий должны быть идемпотентными и следовать этим паттернам:
+
+```typescript
+// 1. UPSERT логов
+class TaskLogEventHandler implements EventHandler {
+  id = 'task-log-handler';
+
+  async handle(event: TaskCompletedEvent): Promise<void> {
+    // Используем UPSERT для идемпотентности
+    await this.database.taskLogs.put({
+      id: `${event.aggregateId}-completed-${event.createdAt}`,
+      taskId: event.aggregateId,
+      type: 'SYSTEM',
+      action: 'completed',
+      createdAt: event.createdAt
+    });
+  }
+}
+
+// 2. Проверка existing перед вставкой
+class StatsUpdateHandler implements EventHandler {
+  id = 'stats-update-handler';
+
+  async handle(event: TaskCompletedEvent): Promise<void> {
+    const dateKey = new Date(event.createdAt).toISOString().split('T')[0];
     
-    return Result.ok();
+    // Проверяем существующую запись
+    const existing = await this.database.statsDaily.get(dateKey);
+    if (existing) {
+      // Обновляем только если событие новее последнего обновления
+      if (event.createdAt > existing.lastUpdated) {
+        await this.database.statsDaily.update(dateKey, {
+          simpleCompleted: existing.simpleCompleted + 1,
+          lastUpdated: event.createdAt
+        });
+      }
+    } else {
+      await this.database.statsDaily.add({
+        date: dateKey,
+        simpleCompleted: 1,
+        focusCompleted: 0,
+        inboxReviewed: 0,
+        lastUpdated: event.createdAt
+      });
+    }
+  }
+}
+
+// 3. Использование handledEvents для дедупликации
+class NotificationHandler implements EventHandler {
+  id = 'notification-handler';
+
+  async handle(event: TaskOverdueEvent): Promise<void> {
+    // handledEvents проверка уже выполнена в EventBus
+    // Можем безопасно отправлять уведомление
+    await this.notificationService.send({
+      title: 'Task Overdue',
+      body: `Task "${event.taskTitle}" is overdue`,
+      timestamp: Date.now() // Фиксируем время в событии, не зависим от внешнего времени
+    });
   }
 }
 ```
