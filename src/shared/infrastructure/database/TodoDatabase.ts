@@ -1,5 +1,5 @@
-import Dexie, { Table } from 'dexie';
-import { TaskCategory, TaskStatus } from '../../domain/types';
+import Dexie, { Table } from "dexie";
+import { TaskCategory, TaskStatus } from "../../domain/types";
 
 // Database record interfaces
 export interface TaskRecord {
@@ -24,7 +24,7 @@ export interface DailySelectionEntryRecord {
 export interface TaskLogRecord {
   id?: number;
   taskId?: string; // Optional for custom logs
-  type: 'SYSTEM' | 'USER' | 'CONFLICT';
+  type: "SYSTEM" | "USER" | "CONFLICT";
   message: string;
   metadata?: Record<string, any>;
   createdAt: Date;
@@ -38,9 +38,9 @@ export interface UserSettingsRecord {
 
 export interface SyncQueueRecord {
   id?: number;
-  entityType: 'task' | 'dailySelectionEntry' | 'taskLog';
+  entityType: "task" | "dailySelectionEntry" | "taskLog";
   entityId: string;
-  operation: 'create' | 'update' | 'delete';
+  operation: "create" | "update" | "delete";
   payloadHash: string;
   attemptCount: number;
   createdAt: Date;
@@ -63,7 +63,7 @@ export interface EventStoreRecord {
   eventType: string;
   eventData: string; // JSON serialized event data
   createdAt: number; // Date.now() timestamp
-  status: 'pending' | 'processing' | 'done' | 'dead';
+  status: "pending" | "processing" | "done" | "dead";
   attemptCount: number;
   nextAttemptAt?: number; // Date.now() timestamp for retry scheduling
   lastError?: string;
@@ -92,65 +92,81 @@ export class TodoDatabase extends Dexie {
   locks!: Table<LockRecord>;
 
   constructor() {
-    super('TodoDatabase');
-    
+    super("TodoDatabase");
+
     // Version 1 - Initial schema
     this.version(1).stores({
-      tasks: 'id, category, status, createdAt, updatedAt, deletedAt, inboxEnteredAt',
-      dailySelectionEntries: '++id, [date+taskId], date, taskId, completedFlag, createdAt',
-      taskLogs: '++id, taskId, type, createdAt',
-      userSettings: 'key, updatedAt',
-      syncQueue: '++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt',
-      statsDaily: 'date, simpleCompleted, focusCompleted, inboxReviewed, createdAt'
+      tasks:
+        "id, category, status, createdAt, updatedAt, deletedAt, inboxEnteredAt",
+      dailySelectionEntries:
+        "++id, [date+taskId], date, taskId, completedFlag, createdAt",
+      taskLogs: "++id, taskId, type, createdAt",
+      userSettings: "key, updatedAt",
+      syncQueue:
+        "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt",
+      statsDaily:
+        "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
     });
 
     // Version 2 - Add event store tables for persistent event bus
-    this.version(2).stores({
-      tasks: 'id, category, status, createdAt, updatedAt, deletedAt, inboxEnteredAt',
-      dailySelectionEntries: '++id, [date+taskId], date, taskId, completedFlag, createdAt',
-      taskLogs: '++id, taskId, type, createdAt',
-      userSettings: 'key, updatedAt',
-      syncQueue: '++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt',
-      statsDaily: 'date, simpleCompleted, focusCompleted, inboxReviewed, createdAt',
-      eventStore: 'id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt',
-      handledEvents: '[eventId+handlerId], eventId, handlerId',
-      locks: 'id, expiresAt'
-    }).upgrade(trans => {
-      // Data migration logic if needed
-      console.log('Upgrading database to version 2 - adding event store tables');
-    });
+    this.version(2)
+      .stores({
+        tasks:
+          "id, category, status, createdAt, updatedAt, deletedAt, inboxEnteredAt",
+        dailySelectionEntries:
+          "++id, [date+taskId], date, taskId, completedFlag, createdAt",
+        taskLogs: "++id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+      })
+      .upgrade((trans) => {
+        // Data migration logic if needed
+        console.log(
+          "Upgrading database to version 2 - adding event store tables"
+        );
+      });
 
     // Add hooks for automatic timestamp updates
-    this.tasks.hook('creating', (_primKey, obj, _trans) => {
+    this.tasks.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
       obj.updatedAt = new Date();
     });
 
-    this.tasks.hook('updating', (modifications, _primKey, _obj, _trans) => {
+    this.tasks.hook("updating", (modifications, _primKey, _obj, _trans) => {
       (modifications as any).updatedAt = new Date();
     });
 
-    this.dailySelectionEntries.hook('creating', (_primKey, obj, _trans) => {
+    this.dailySelectionEntries.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
 
-    this.taskLogs.hook('creating', (_primKey, obj, _trans) => {
+    this.taskLogs.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
 
-    this.userSettings.hook('creating', (_primKey, obj, _trans) => {
+    this.userSettings.hook("creating", (_primKey, obj, _trans) => {
       obj.updatedAt = new Date();
     });
 
-    this.userSettings.hook('updating', (modifications, _primKey, _obj, _trans) => {
-      (modifications as any).updatedAt = new Date();
-    });
+    this.userSettings.hook(
+      "updating",
+      (modifications, _primKey, _obj, _trans) => {
+        (modifications as any).updatedAt = new Date();
+      }
+    );
 
-    this.syncQueue.hook('creating', (_primKey, obj, _trans) => {
+    this.syncQueue.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
 
-    this.statsDaily.hook('creating', (_primKey, obj, _trans) => {
+    this.statsDaily.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
   }
@@ -159,10 +175,13 @@ export class TodoDatabase extends Dexie {
   async initialize(): Promise<void> {
     try {
       await this.open();
-      console.log('Database initialized successfully');
+      console.log("Database initialized successfully");
     } catch (error) {
-      console.error('Failed to initialize database:', error);
-      throw new DatabaseConnectionError('Failed to initialize database', error as Error);
+      console.error("Failed to initialize database:", error);
+      throw new DatabaseConnectionError(
+        "Failed to initialize database",
+        error as Error
+      );
     }
   }
 
@@ -172,26 +191,38 @@ export class TodoDatabase extends Dexie {
       await this.tasks.limit(1).toArray();
       return true;
     } catch (error) {
-      console.error('Database health check failed:', error);
+      console.error("Database health check failed:", error);
       return false;
     }
   }
 
   // Clear all data (for testing)
   async clearAllData(): Promise<void> {
-    await this.transaction('rw', [this.tasks, this.dailySelectionEntries, this.taskLogs, 
-                          this.userSettings, this.syncQueue, this.statsDaily, this.eventStore, 
-                          this.handledEvents, this.locks], async () => {
-      await this.tasks.clear();
-      await this.dailySelectionEntries.clear();
-      await this.taskLogs.clear();
-      await this.userSettings.clear();
-      await this.syncQueue.clear();
-      await this.statsDaily.clear();
-      await this.eventStore.clear();
-      await this.handledEvents.clear();
-      await this.locks.clear();
-    });
+    await this.transaction(
+      "rw",
+      [
+        this.tasks,
+        this.dailySelectionEntries,
+        this.taskLogs,
+        this.userSettings,
+        this.syncQueue,
+        this.statsDaily,
+        this.eventStore,
+        this.handledEvents,
+        this.locks,
+      ],
+      async () => {
+        await this.tasks.clear();
+        await this.dailySelectionEntries.clear();
+        await this.taskLogs.clear();
+        await this.userSettings.clear();
+        await this.syncQueue.clear();
+        await this.statsDaily.clear();
+        await this.eventStore.clear();
+        await this.handledEvents.clear();
+        await this.locks.clear();
+      }
+    );
   }
 }
 
@@ -199,14 +230,18 @@ export class TodoDatabase extends Dexie {
 export class DatabaseConnectionError extends Error {
   constructor(message: string, public readonly cause?: Error) {
     super(message);
-    this.name = 'DatabaseConnectionError';
+    this.name = "DatabaseConnectionError";
   }
 }
 
 export class DatabaseOperationError extends Error {
-  constructor(message: string, public readonly operation: string, public readonly cause?: Error) {
+  constructor(
+    message: string,
+    public readonly operation: string,
+    public readonly cause?: Error
+  ) {
     super(message);
-    this.name = 'DatabaseOperationError';
+    this.name = "DatabaseOperationError";
   }
 }
 

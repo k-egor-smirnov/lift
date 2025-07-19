@@ -96,7 +96,7 @@
 
 - [-] 5. Build presentation layer with MVVM pattern
 
-  - [-] 5.1 Create task management ViewModels
+  - [x] 5.1 Create task management ViewModels
 
     - Implement TaskViewModel using Zustand with task state management
     - Add methods for creating, updating, completing, and deleting tasks
@@ -104,7 +104,7 @@
     - Write unit tests for ViewModel state management
     - _Requirements: 1.1, 1.2, 1.7, 1.8_
 
-  - [ ] 5.2 Build task UI components
+  - [x] 5.2 Build task UI components
 
     - Create TaskList component with category grouping
     - Implement TaskCard component with category indicators and actions
@@ -112,7 +112,7 @@
     - Build responsive design with Tailwind CSS for mobile and desktop
     - _Requirements: 1.4, 1.5, 1.6, 5.1, 5.2_
 
-  - [ ] 5.3 Implement today view components
+  - [x] 5.3 Implement today view components
     - Create TodayView component showing selected tasks
     - Add task selection/deselection functionality with sun icon
     - Implement daily reset handling with new DailySelection creation

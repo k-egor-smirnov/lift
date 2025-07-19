@@ -1,9 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { RemoveTaskFromTodayUseCase, RemoveTaskFromTodayRequest } from '../RemoveTaskFromTodayUseCase';
-import { DailySelectionRepository } from '../../../domain/repositories/DailySelectionRepository';
-import { TaskId } from '../../../domain/value-objects/TaskId';
-import { DateOnly } from '../../../domain/value-objects/DateOnly';
-import { ResultUtils } from '../../../domain/Result';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import {
+  RemoveTaskFromTodayUseCase,
+  RemoveTaskFromTodayRequest,
+} from "../RemoveTaskFromTodayUseCase";
+import { DailySelectionRepository } from "../../../domain/repositories/DailySelectionRepository";
+import { TaskId } from "../../../domain/value-objects/TaskId";
+import { DateOnly } from "../../../domain/value-objects/DateOnly";
+import { ResultUtils } from "../../../domain/Result";
 
 // Mock implementations
 const mockDailySelectionRepository: DailySelectionRepository = {
@@ -17,10 +20,10 @@ const mockDailySelectionRepository: DailySelectionRepository = {
   getDailySelectionsForRange: vi.fn(),
   clearDay: vi.fn(),
   countTasksForDay: vi.fn(),
-  getLastSelectionDateForTask: vi.fn()
+  getLastSelectionDateForTask: vi.fn(),
 };
 
-describe('RemoveTaskFromTodayUseCase', () => {
+describe("RemoveTaskFromTodayUseCase", () => {
   let useCase: RemoveTaskFromTodayUseCase;
 
   beforeEach(() => {
@@ -28,53 +31,55 @@ describe('RemoveTaskFromTodayUseCase', () => {
     useCase = new RemoveTaskFromTodayUseCase(mockDailySelectionRepository);
   });
 
-  describe('execute', () => {
-    it('should remove task from today successfully', async () => {
+  describe("execute", () => {
+    it("should remove task from today successfully", async () => {
       // Arrange
       const taskId = TaskId.generate();
       const request: RemoveTaskFromTodayRequest = {
-        taskId: taskId.value
+        taskId: taskId.value,
       };
 
-      vi.mocked(mockDailySelectionRepository.removeTaskFromDay).mockResolvedValue(undefined);
+      vi.mocked(
+        mockDailySelectionRepository.removeTaskFromDay
+      ).mockResolvedValue(undefined);
 
       // Act
       const result = await useCase.execute(request);
 
       // Assert
       expect(ResultUtils.isSuccess(result)).toBe(true);
-      expect(mockDailySelectionRepository.removeTaskFromDay).toHaveBeenCalledWith(
-        DateOnly.today(),
-        taskId
-      );
+      expect(
+        mockDailySelectionRepository.removeTaskFromDay
+      ).toHaveBeenCalledWith(DateOnly.today(), taskId);
     });
 
-    it('should remove task from specific date successfully', async () => {
+    it("should remove task from specific date successfully", async () => {
       // Arrange
       const taskId = TaskId.generate();
-      const specificDate = '2024-01-15';
+      const specificDate = "2024-01-15";
       const request: RemoveTaskFromTodayRequest = {
         taskId: taskId.value,
-        date: specificDate
+        date: specificDate,
       };
 
-      vi.mocked(mockDailySelectionRepository.removeTaskFromDay).mockResolvedValue(undefined);
+      vi.mocked(
+        mockDailySelectionRepository.removeTaskFromDay
+      ).mockResolvedValue(undefined);
 
       // Act
       const result = await useCase.execute(request);
 
       // Assert
       expect(ResultUtils.isSuccess(result)).toBe(true);
-      expect(mockDailySelectionRepository.removeTaskFromDay).toHaveBeenCalledWith(
-        DateOnly.fromString(specificDate),
-        taskId
-      );
+      expect(
+        mockDailySelectionRepository.removeTaskFromDay
+      ).toHaveBeenCalledWith(DateOnly.fromString(specificDate), taskId);
     });
 
-    it('should fail with invalid task ID', async () => {
+    it("should fail with invalid task ID", async () => {
       // Arrange
       const request: RemoveTaskFromTodayRequest = {
-        taskId: 'invalid-id'
+        taskId: "invalid-id",
       };
 
       // Act
@@ -83,18 +88,20 @@ describe('RemoveTaskFromTodayUseCase', () => {
       // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe('INVALID_TASK_ID');
+        expect(result.error.code).toBe("INVALID_TASK_ID");
       }
 
-      expect(mockDailySelectionRepository.removeTaskFromDay).not.toHaveBeenCalled();
+      expect(
+        mockDailySelectionRepository.removeTaskFromDay
+      ).not.toHaveBeenCalled();
     });
 
-    it('should fail with invalid date format', async () => {
+    it("should fail with invalid date format", async () => {
       // Arrange
       const taskId = TaskId.generate();
       const request: RemoveTaskFromTodayRequest = {
         taskId: taskId.value,
-        date: 'invalid-date'
+        date: "invalid-date",
       };
 
       // Act
@@ -103,20 +110,24 @@ describe('RemoveTaskFromTodayUseCase', () => {
       // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe('INVALID_DATE');
+        expect(result.error.code).toBe("INVALID_DATE");
       }
 
-      expect(mockDailySelectionRepository.removeTaskFromDay).not.toHaveBeenCalled();
+      expect(
+        mockDailySelectionRepository.removeTaskFromDay
+      ).not.toHaveBeenCalled();
     });
 
-    it('should handle repository failure', async () => {
+    it("should handle repository failure", async () => {
       // Arrange
       const taskId = TaskId.generate();
       const request: RemoveTaskFromTodayRequest = {
-        taskId: taskId.value
+        taskId: taskId.value,
       };
 
-      vi.mocked(mockDailySelectionRepository.removeTaskFromDay).mockRejectedValue(new Error('Database error'));
+      vi.mocked(
+        mockDailySelectionRepository.removeTaskFromDay
+      ).mockRejectedValue(new Error("Database error"));
 
       // Act
       const result = await useCase.execute(request);
@@ -124,32 +135,35 @@ describe('RemoveTaskFromTodayUseCase', () => {
       // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe('REMOVE_FAILED');
-        expect(result.error.message).toContain('Database error');
+        expect(result.error.code).toBe("REMOVE_FAILED");
+        expect(result.error.message).toContain("Database error");
       }
 
-      expect(mockDailySelectionRepository.removeTaskFromDay).toHaveBeenCalledTimes(1);
+      expect(
+        mockDailySelectionRepository.removeTaskFromDay
+      ).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle non-existent task gracefully', async () => {
+    it("should handle non-existent task gracefully", async () => {
       // Arrange
       const taskId = TaskId.generate();
       const request: RemoveTaskFromTodayRequest = {
-        taskId: taskId.value
+        taskId: taskId.value,
       };
 
       // Repository doesn't throw for non-existent entries
-      vi.mocked(mockDailySelectionRepository.removeTaskFromDay).mockResolvedValue(undefined);
+      vi.mocked(
+        mockDailySelectionRepository.removeTaskFromDay
+      ).mockResolvedValue(undefined);
 
       // Act
       const result = await useCase.execute(request);
 
       // Assert
       expect(ResultUtils.isSuccess(result)).toBe(true);
-      expect(mockDailySelectionRepository.removeTaskFromDay).toHaveBeenCalledWith(
-        DateOnly.today(),
-        taskId
-      );
+      expect(
+        mockDailySelectionRepository.removeTaskFromDay
+      ).toHaveBeenCalledWith(DateOnly.today(), taskId);
     });
   });
 });
