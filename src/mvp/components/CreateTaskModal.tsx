@@ -102,11 +102,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Modal */}
@@ -114,15 +115,15 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
               Create New Task
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded"
+              aria-label="Close modal"
             >
-              <span className="sr-only">Close</span>
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -166,11 +167,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
             {/* Category Selection - only show if not hidden */}
             {!hideCategorySelection && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+              <fieldset>
+                <legend className="block text-sm font-medium text-gray-700 mb-3">
                   Category
-                </label>
-                <div className="space-y-3">
+                </legend>
+                <div className="space-y-3" role="radiogroup" aria-labelledby="category-legend">
                   {Object.values(TaskCategory).map((cat) => {
                     const info = getCategoryInfo(cat);
                     const isSelected = category === cat;
@@ -218,7 +219,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                     );
                   })}
                 </div>
-              </div>
+              </fieldset>
             )}
 
             {/* Show selected category when category selection is hidden */}

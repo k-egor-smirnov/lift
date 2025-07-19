@@ -46,20 +46,22 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <>
-      <header className="bg-background border-b px-4 py-4 fixed h-16 w-full">
+      <header className="bg-background border-b px-4 py-4 fixed h-16 w-full z-40" role="banner">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
               size="icon"
               onClick={onMobileMenuToggle}
-              className="md:hidden"
+              className="md:hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              aria-label="Open navigation menu"
+              aria-expanded="false"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5 w-5" aria-hidden="true" />
             </Button>
 
             <div className="flex items-center space-x-3">
-              <span className="text-2xl">{getViewIcon(activeView)}</span>
+              <span className="text-2xl" aria-hidden="true">{getViewIcon(activeView)}</span>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">
                   {getViewTitle(activeView)}
@@ -70,15 +72,16 @@ export const Header: React.FC<HeaderProps> = ({
 
           <Button
             onClick={onNewTask}
-            className="shadow-sm"
+            className="shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             data-testid="new-task-button"
+            aria-label="Create new task"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            New Task
+            <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
+            <span>New Task</span>
           </Button>
         </div>
       </header>
-      <div className="h-16"></div>
+      <div className="h-16" aria-hidden="true"></div>
     </>
   );
 };

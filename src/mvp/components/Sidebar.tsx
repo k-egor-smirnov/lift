@@ -51,11 +51,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white" role="navigation" aria-label="Main navigation">
       <div className="flex items-center justify-between p-6 border-b h-16 box-border">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center overflow-hidden">
-            <img src={Logo} alt="" />
+            <img src={Logo} alt="" className="bg-white rounded" aria-hidden="true" />
           </div>
           <h2 className="text-xl font-bold text-foreground">Lift</h2>
         </div>
@@ -63,13 +63,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           variant="ghost"
           size="icon"
           onClick={onMobileMenuClose}
-          className="md:hidden"
+          className="md:hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          aria-label="Close navigation menu"
         >
           <svg
             className="h-5 w-5"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -81,21 +83,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </Button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 border-r">
+      <nav className="flex-1 p-4 space-y-1 border-r" role="list">
         {menuItems.map((item) => (
           <Button
             key={item.id}
             variant={activeView === item.id ? "secondary" : "ghost"}
             onClick={() => handleItemClick(item.id)}
             className={cn(
-              "w-full justify-between h-auto p-3 text-left font-normal",
+              "w-full justify-between h-auto p-3 text-left font-normal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
               activeView === item.id &&
                 "bg-primary/10 text-primary hover:bg-primary/15"
             )}
             data-testid={`sidebar-${item.id.toLowerCase()}`}
+            aria-current={activeView === item.id ? "page" : undefined}
+            aria-label={`${item.name}${item.count !== null ? ` (${item.count} tasks)` : ''}`}
+            role="listitem"
           >
             <div className="flex items-center space-x-3">
-              <span className="text-lg">{item.icon}</span>
+              <span className="text-lg" aria-hidden="true">{item.icon}</span>
               <span className="font-medium">{item.name}</span>
             </div>
             {item.count !== null && (
@@ -106,6 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     ? "bg-primary/20 text-primary"
                     : "bg-muted text-muted-foreground"
                 )}
+                aria-label={`${item.count} tasks`}
               >
                 {item.count}
               </span>
@@ -127,12 +133,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Mobile Sidebar */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
           <div
-            className="fixed inset-0 bg-black/50"
+            className="fixed inset-0 bg-black/50 transition-opacity"
             onClick={onMobileMenuClose}
+            aria-hidden="true"
           />
-          <div className="relative flex-1 flex flex-col max-w-xs w-full">
+          <div className="relative flex-1 flex flex-col max-w-xs w-full transform transition-transform">
             {sidebarContent}
           </div>
         </div>

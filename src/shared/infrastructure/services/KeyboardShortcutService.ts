@@ -101,9 +101,10 @@ export class KeyboardShortcutService {
       // Don't trigger shortcuts when user is typing in input fields
       const target = event.target as HTMLElement;
       if (
-        target.tagName === 'INPUT' ||
+        target &&
+        (target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
-        target.contentEditable === 'true'
+        target.contentEditable === 'true')
       ) {
         // Allow form shortcuts (Escape, Enter) in input fields
         if (event.key !== 'Escape' && event.key !== 'Enter') {
