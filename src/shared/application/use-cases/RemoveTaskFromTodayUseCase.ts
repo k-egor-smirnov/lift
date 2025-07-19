@@ -1,7 +1,9 @@
+import { injectable, inject } from 'tsyringe';
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { DateOnly } from '../../domain/value-objects/DateOnly';
 import { DailySelectionRepository } from '../../domain/repositories/DailySelectionRepository';
 import { Result, ResultUtils } from '../../domain/Result';
+import * as tokens from '../../infrastructure/di/tokens';
 
 /**
  * Request for removing a task from today's selection
@@ -24,9 +26,10 @@ export class RemoveTaskFromTodayError extends Error {
 /**
  * Use case for removing a task from today's daily selection
  */
+@injectable()
 export class RemoveTaskFromTodayUseCase {
   constructor(
-    private readonly dailySelectionRepository: DailySelectionRepository
+    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN) private readonly dailySelectionRepository: DailySelectionRepository
   ) {}
 
   async execute(request: RemoveTaskFromTodayRequest): Promise<Result<void, RemoveTaskFromTodayError>> {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { TaskCategory } from '../shared/domain/types';
 import { TaskList } from '../features/tasks/presentation/components/TaskList';
 import { CreateTaskModal } from './components/CreateTaskModal';
@@ -9,55 +9,20 @@ import { Header } from './components/Header';
 import { createTaskViewModel, TaskViewModelDependencies } from '../features/tasks/presentation/view-models/TaskViewModel';
 import { TodayViewModelDependencies } from '../features/today/presentation/view-models/TodayViewModel';
 import { useKeyboardShortcuts } from '../shared/infrastructure/services/useKeyboardShortcuts';
+import { DailyModalContainer } from '../features/onboarding';
+import { LogEntry } from '../shared/application/use-cases/GetTaskLogsUseCase';
 
-// Import real implementations
+// Import DI container and tokens
+import { getService, tokens } from '../shared/infrastructure/di';
 import { TodoDatabase } from '../shared/infrastructure/database/TodoDatabase';
-import { TaskRepositoryImpl } from '../shared/infrastructure/repositories/TaskRepositoryImpl';
-import { DailySelectionRepositoryImpl } from '../shared/infrastructure/repositories/DailySelectionRepositoryImpl';
+import { TaskRepository } from '../shared/domain/repositories/TaskRepository';
 import { CreateTaskUseCase } from '../shared/application/use-cases/CreateTaskUseCase';
 import { UpdateTaskUseCase } from '../shared/application/use-cases/UpdateTaskUseCase';
 import { CompleteTaskUseCase } from '../shared/application/use-cases/CompleteTaskUseCase';
 import { GetTodayTasksUseCase } from '../shared/application/use-cases/GetTodayTasksUseCase';
 import { AddTaskToTodayUseCase } from '../shared/application/use-cases/AddTaskToTodayUseCase';
 import { RemoveTaskFromTodayUseCase } from '../shared/application/use-cases/RemoveTaskFromTodayUseCase';
-import { GetTaskLogsUseCase, LogEntry } from '../shared/application/use-cases/GetTaskLogsUseCase';
-import { CreateUserLogUseCase } from '../shared/application/use-cases/CreateUserLogUseCase';
-import { PersistentEventBusImpl } from '../shared/domain/events/EventBus';
-import { DailyModalContainer } from '../features/onboarding';
-
-// Initialize database and repositories
-const database = new TodoDatabase();
-const eventBus = new PersistentEventBusImpl(database);
-const taskRepository = new TaskRepositoryImpl(database);
-const dailySelectionRepository = new DailySelectionRepositoryImpl(database);
-
-// Initialize use cases
-const createTaskUseCase = new CreateTaskUseCase(taskRepository, eventBus, database);
-const updateTaskUseCase = new UpdateTaskUseCase(taskRepository, eventBus, database);
-const completeTaskUseCase = new CompleteTaskUseCase(taskRepository, eventBus, database);
-const getTodayTasksUseCase = new GetTodayTasksUseCase(dailySelectionRepository, taskRepository);
-const addTaskToTodayUseCase = new AddTaskToTodayUseCase(dailySelectionRepository, taskRepository);
-const removeTaskFromTodayUseCase = new RemoveTaskFromTodayUseCase(dailySelectionRepository);
-const getTaskLogsUseCase = new GetTaskLogsUseCase(database);
-const createUserLogUseCase = new CreateUserLogUseCase(database);
-
-// Create dependencies
-const taskDependencies: TaskViewModelDependencies = {
-  taskRepository,
-  createTaskUseCase,
-  updateTaskUseCase,
-  completeTaskUseCase,
-};
-
-const todayDependencies: TodayViewModelDependencies = {
-  getTodayTasksUseCase,
-  addTaskToTodayUseCase,
-  removeTaskFromTodayUseCase,
-  completeTaskUseCase,
-};
-
-// Create the view model instance
-const taskViewModel = createTaskViewModel(taskDependencies);
+import { LogService } from '../shared/application/services/LogService';
 
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -68,6 +33,35 @@ export const MVPApp: React.FC = () => {
   const [isDbReady, setIsDbReady] = useState(false);
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
   const [lastLogs, setLastLogs] = useState<Record<string, LogEntry>>({});
+
+  // Get services from DI container
+  const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
+  const taskRepository = getService<TaskRepository>(tokens.TASK_REPOSITORY_TOKEN);
+  const createTaskUseCase = getService<CreateTaskUseCase>(tokens.CREATE_TASK_USE_CASE_TOKEN);
+  const updateTaskUseCase = getService<UpdateTaskUseCase>(tokens.UPDATE_TASK_USE_CASE_TOKEN);
+  const completeTaskUseCase = getService<CompleteTaskUseCase>(tokens.COMPLETE_TASK_USE_CASE_TOKEN);
+  const getTodayTasksUseCase = getService<GetTodayTasksUseCase>(tokens.GET_TODAY_TASKS_USE_CASE_TOKEN);
+  const addTaskToTodayUseCase = getService<AddTaskToTodayUseCase>(tokens.ADD_TASK_TO_TODAY_USE_CASE_TOKEN);
+  const removeTaskFromTodayUseCase = getService<RemoveTaskFromTodayUseCase>(tokens.REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN);
+  const logService = getService<LogService>(tokens.LOG_SERVICE_TOKEN);
+
+  // Create dependencies for view models
+  const taskDependencies: TaskViewModelDependencies = {
+    taskRepository,
+    createTaskUseCase,
+    updateTaskUseCase,
+    completeTaskUseCase,
+  };
+
+  const todayDependencies: TodayViewModelDependencies = {
+    getTodayTasksUseCase,
+    addTaskToTodayUseCase,
+    removeTaskFromTodayUseCase,
+    completeTaskUseCase,
+  };
+
+  // Create the view model instance
+  const taskViewModel = useMemo(() => createTaskViewModel(taskDependencies), []);
 
   // Initialize keyboard shortcuts
   const { registerShortcut, unregisterShortcut, isEnabled } = useKeyboardShortcuts();
@@ -101,7 +95,7 @@ export const MVPApp: React.FC = () => {
     };
 
     initializeApp();
-  }, [loadTasks]);
+  }, [database, loadTasks]);
 
   // Load logs after tasks are loaded
   useEffect(() => {
@@ -126,7 +120,7 @@ export const MVPApp: React.FC = () => {
       category: 'tasks'
     });
 
-    // Custom log shortcut (Ctrl+L) - placeholder for now
+    // Custom log shortcut (Ctrl+L)
     registerShortcut('create-log', {
       key: 'l',
       ctrlKey: true,
@@ -198,7 +192,7 @@ export const MVPApp: React.FC = () => {
     } else {
       setViewModelFilter({ category: activeView });
     }
-  }, [activeView, setViewModelFilter]);
+  }, [activeView]); // Remove setViewModelFilter from dependencies
 
   const handleCreateTask = async (title: string, category: TaskCategory): Promise<boolean> => {
     const success = await createTask({ title, category });
@@ -264,18 +258,13 @@ export const MVPApp: React.FC = () => {
     }
 
     try {
-      const result = await createUserLogUseCase.execute({
-        taskId: selectedTaskForLog,
-        message: message.trim()
-      });
-
-      if (result.success) {
+      const success = await logService.createLog(selectedTaskForLog, message);
+      if (success) {
         // Reload logs for this task
         await loadTaskLogs(selectedTaskForLog);
         setSelectedTaskForLog(null);
         return true;
       } else {
-        console.error('Failed to create log:', (result as any).error?.message);
         return false;
       }
     } catch (error) {
@@ -291,22 +280,15 @@ export const MVPApp: React.FC = () => {
 
   const loadTaskLogs = async (taskId: string): Promise<LogEntry[]> => {
     try {
-      const result = await getTaskLogsUseCase.execute({ taskId, sortOrder: 'desc' });
+      const logs = await logService.loadTaskLogs(taskId);
+      setTaskLogs(prev => ({ ...prev, [taskId]: logs }));
       
-      if (result.success) {
-        const logs = result.data.logs;
-        setTaskLogs(prev => ({ ...prev, [taskId]: logs }));
-        
-        // Update last log for this task
-        if (logs.length > 0) {
-          setLastLogs(prev => ({ ...prev, [taskId]: logs[0] }));
-        }
-        
-        return logs;
-      } else {
-        console.error('Failed to load logs:', (result as any).error?.message);
-        return [];
+      // Update last log for this task
+      if (logs.length > 0) {
+        setLastLogs(prev => ({ ...prev, [taskId]: logs[0] }));
       }
+      
+      return logs;
     } catch (error) {
       console.error('Error loading logs:', error);
       return [];
@@ -317,8 +299,9 @@ export const MVPApp: React.FC = () => {
     try {
       const tasks = getFilteredTasks();
       if (tasks.length > 0) {
-        const logPromises = tasks.map(task => loadTaskLogs(task.id.value));
-        await Promise.all(logPromises);
+        const taskIds = tasks.map(task => task.id.value);
+        const lastLogsMap = await logService.loadLastLogsForTasks(taskIds);
+        setLastLogs(lastLogsMap);
       }
     } catch (error) {
       console.error('Error loading all task logs:', error);

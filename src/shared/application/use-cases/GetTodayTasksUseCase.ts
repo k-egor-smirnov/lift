@@ -1,9 +1,10 @@
-import { TaskId } from '../../domain/value-objects/TaskId';
+import { injectable, inject } from 'tsyringe';
 import { DateOnly } from '../../domain/value-objects/DateOnly';
 import { Task } from '../../domain/entities/Task';
 import { DailySelectionRepository } from '../../domain/repositories/DailySelectionRepository';
 import { TaskRepository } from '../../domain/repositories/TaskRepository';
 import { Result, ResultUtils } from '../../domain/Result';
+import * as tokens from '../../infrastructure/di/tokens';
 
 /**
  * Request for getting today's tasks
@@ -46,10 +47,11 @@ export class GetTodayTasksError extends Error {
 /**
  * Use case for getting tasks selected for today
  */
+@injectable()
 export class GetTodayTasksUseCase {
   constructor(
-    private readonly dailySelectionRepository: DailySelectionRepository,
-    private readonly taskRepository: TaskRepository
+    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN) private readonly dailySelectionRepository: DailySelectionRepository,
+    @inject(tokens.TASK_REPOSITORY_TOKEN) private readonly taskRepository: TaskRepository
   ) {}
 
   async execute(request: GetTodayTasksRequest = {}): Promise<Result<GetTodayTasksResponse, GetTodayTasksError>> {

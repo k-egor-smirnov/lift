@@ -21,7 +21,9 @@
     "lucide-react": "^0.525.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "reflect-metadata": "^0.2.2",
     "tailwind-merge": "^3.3.1",
+    "tsyringe": "^4.10.0",
     "ulid": "^2.4.0",
     "zustand": "^4.4.1"
   },
@@ -29,6 +31,7 @@
     "@playwright/test": "^1.54.1",
     "@testing-library/jest-dom": "^6.1.0",
     "@testing-library/react": "^13.4.0",
+    "@types/node": "^24.0.15",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@typescript-eslint/eslint-plugin": "^6.0.0",

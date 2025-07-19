@@ -1,3 +1,4 @@
+import { injectable } from 'tsyringe';
 import Dexie, { Table } from "dexie";
 import { TaskCategory, TaskStatus } from "../../domain/types";
 
@@ -45,6 +46,7 @@ export interface SyncQueueRecord {
   attemptCount: number;
   createdAt: Date;
   lastAttemptAt?: Date;
+  nextAttemptAt?: number;
 }
 
 export interface StatsDailyRecord {
@@ -80,6 +82,7 @@ export interface LockRecord {
   expiresAt: number; // Date.now() timestamp
 }
 
+@injectable()
 export class TodoDatabase extends Dexie {
   tasks!: Table<TaskRecord>;
   dailySelectionEntries!: Table<DailySelectionEntryRecord>;

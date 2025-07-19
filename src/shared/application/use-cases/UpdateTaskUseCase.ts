@@ -1,4 +1,4 @@
-import { Task } from '../../domain/entities/Task';
+import { injectable, inject } from 'tsyringe';
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { NonEmptyTitle } from '../../domain/value-objects/NonEmptyTitle';
 import { TaskCategory } from '../../domain/types';
@@ -7,7 +7,7 @@ import { EventBus } from '../../domain/events/EventBus';
 import { Result, ResultUtils } from '../../domain/Result';
 import { TodoDatabase } from '../../infrastructure/database/TodoDatabase';
 import { hashTask } from '../../infrastructure/utils/hashUtils';
-import { ulid } from 'ulid';
+import * as tokens from '../../infrastructure/di/tokens';
 
 /**
  * Request for updating a task
@@ -31,11 +31,12 @@ export class TaskUpdateError extends Error {
 /**
  * Use case for updating task title and/or category
  */
+@injectable()
 export class UpdateTaskUseCase {
   constructor(
-    private readonly taskRepository: TaskRepository,
-    private readonly eventBus: EventBus,
-    private readonly database: TodoDatabase
+    @inject(tokens.TASK_REPOSITORY_TOKEN) private readonly taskRepository: TaskRepository,
+    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
+    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
   ) {}
 
   async execute(request: UpdateTaskRequest): Promise<Result<void, TaskUpdateError>> {
@@ -90,7 +91,6 @@ export class UpdateTaskUseCase {
           
           // 2. Add sync queue entry
           await this.database.syncQueue.add({
-            id: ulid(),
             entityType: 'task',
             entityId: task.id.value,
             operation: 'update',

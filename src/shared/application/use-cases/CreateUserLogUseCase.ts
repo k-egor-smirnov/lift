@@ -1,6 +1,8 @@
+import { injectable, inject } from 'tsyringe';
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { TodoDatabase, TaskLogRecord } from '../../infrastructure/database/TodoDatabase';
 import { Result, ResultUtils } from '../../domain/Result';
+import * as tokens from '../../infrastructure/di/tokens';
 
 /**
  * Request for creating a user log
@@ -24,11 +26,12 @@ export class CreateUserLogError extends Error {
 /**
  * Use case for creating user logs with validation
  */
+@injectable()
 export class CreateUserLogUseCase {
   private static readonly MAX_MESSAGE_LENGTH = 500;
 
   constructor(
-    private readonly database: TodoDatabase
+    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
   ) {}
 
   async execute(request: CreateUserLogRequest): Promise<Result<void, CreateUserLogError>> {

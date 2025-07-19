@@ -1,15 +1,18 @@
+import { injectable, inject } from 'tsyringe';
 import { TaskRepository } from '../../domain/repositories/TaskRepository';
 import { Task } from '../../domain/entities/Task';
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { NonEmptyTitle } from '../../domain/value-objects/NonEmptyTitle';
 import { TaskCategory, TaskStatus } from '../../domain/types';
 import { TodoDatabase, TaskRecord } from '../database/TodoDatabase';
+import * as tokens from '../di/tokens';
 
 /**
  * Repository implementation for Task entity using IndexedDB
  */
+@injectable()
 export class TaskRepositoryImpl implements TaskRepository {
-  constructor(private db: TodoDatabase) {}
+  constructor(@inject(tokens.DATABASE_TOKEN) private db: TodoDatabase) {}
 
   async findById(id: TaskId): Promise<Task | null> {
     const record = await this.db.tasks.get(id.value);

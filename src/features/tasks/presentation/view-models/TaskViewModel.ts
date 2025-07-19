@@ -1,10 +1,16 @@
-import { create } from 'zustand';
-import { Task } from '../../../../shared/domain/entities/Task';
-import { TaskCategory, TaskStatus } from '../../../../shared/domain/types';
-import { CreateTaskUseCase, CreateTaskRequest } from '../../../../shared/application/use-cases/CreateTaskUseCase';
-import { UpdateTaskUseCase, UpdateTaskRequest } from '../../../../shared/application/use-cases/UpdateTaskUseCase';
-import { CompleteTaskUseCase } from '../../../../shared/application/use-cases/CompleteTaskUseCase';
-import { TaskRepository } from '../../../../shared/domain/repositories/TaskRepository';
+import { create } from "zustand";
+import { Task } from "../../../../shared/domain/entities/Task";
+import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
+import {
+  CreateTaskUseCase,
+  CreateTaskRequest,
+} from "../../../../shared/application/use-cases/CreateTaskUseCase";
+import {
+  UpdateTaskUseCase,
+  UpdateTaskRequest,
+} from "../../../../shared/application/use-cases/UpdateTaskUseCase";
+import { CompleteTaskUseCase } from "../../../../shared/application/use-cases/CompleteTaskUseCase";
+import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepository";
 
 /**
  * Task filter options
@@ -57,8 +63,15 @@ export interface TaskViewModelDependencies {
 /**
  * Create TaskViewModel store
  */
-export const createTaskViewModel = (dependencies: TaskViewModelDependencies) => {
-  const { taskRepository, createTaskUseCase, updateTaskUseCase, completeTaskUseCase } = dependencies;
+export const createTaskViewModel = (
+  dependencies: TaskViewModelDependencies
+) => {
+  const {
+    taskRepository,
+    createTaskUseCase,
+    updateTaskUseCase,
+    completeTaskUseCase,
+  } = dependencies;
 
   return create<TaskViewModelState>((set, get) => ({
     // Initial state
@@ -71,18 +84,18 @@ export const createTaskViewModel = (dependencies: TaskViewModelDependencies) => 
     // Computed properties as functions
     getFilteredTasks: () => {
       const { tasks, filter, overdueDays } = get();
-      let filtered = tasks.filter(task => task.isActive);
+      let filtered = tasks.filter((task) => task.isActive);
 
       if (filter.category) {
-        filtered = filtered.filter(task => task.category === filter.category);
+        filtered = filtered.filter((task) => task.category === filter.category);
       }
 
       if (filter.status) {
-        filtered = filtered.filter(task => task.status === filter.status);
+        filtered = filtered.filter((task) => task.status === filter.status);
       }
 
       if (filter.showOverdue) {
-        filtered = filtered.filter(task => task.isOverdue(overdueDays));
+        filtered = filtered.filter((task) => task.isOverdue(overdueDays));
       }
 
       return filtered;
@@ -90,54 +103,63 @@ export const createTaskViewModel = (dependencies: TaskViewModelDependencies) => 
 
     getTasksByCategory: () => {
       const { tasks } = get();
-      const activeTasks = tasks.filter(task => task.isActive);
-      
+      const activeTasks = tasks.filter((task) => task.isActive);
+
       return {
-        [TaskCategory.SIMPLE]: activeTasks.filter(task => task.category === TaskCategory.SIMPLE),
-        [TaskCategory.FOCUS]: activeTasks.filter(task => task.category === TaskCategory.FOCUS),
-        [TaskCategory.INBOX]: activeTasks.filter(task => task.category === TaskCategory.INBOX),
+        [TaskCategory.SIMPLE]: activeTasks.filter(
+          (task) => task.category === TaskCategory.SIMPLE
+        ),
+        [TaskCategory.FOCUS]: activeTasks.filter(
+          (task) => task.category === TaskCategory.FOCUS
+        ),
+        [TaskCategory.INBOX]: activeTasks.filter(
+          (task) => task.category === TaskCategory.INBOX
+        ),
       };
     },
 
     getOverdueTasks: () => {
       const { tasks, overdueDays } = get();
-      return tasks.filter(task => 
-        task.isActive && 
-        task.category === TaskCategory.INBOX && 
-        task.isOverdue(overdueDays)
+      return tasks.filter(
+        (task) =>
+          task.isActive &&
+          task.category === TaskCategory.INBOX &&
+          task.isOverdue(overdueDays)
       );
     },
 
     getOverdueCount: () => {
       const { tasks, overdueDays } = get();
-      return tasks.filter(task => 
-        task.isActive && 
-        task.category === TaskCategory.INBOX && 
-        task.isOverdue(overdueDays)
+      return tasks.filter(
+        (task) =>
+          task.isActive &&
+          task.category === TaskCategory.INBOX &&
+          task.isOverdue(overdueDays)
       ).length;
     },
 
     // Actions
     loadTasks: async () => {
       set({ loading: true, error: null });
-      
+
       try {
         const tasks = await taskRepository.findAll();
         set({ tasks, loading: false });
       } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to load tasks',
-          loading: false 
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to load tasks",
+          loading: false,
         });
       }
     },
 
     createTask: async (request: CreateTaskRequest) => {
       set({ error: null });
-      
+
       try {
         const result = await createTaskUseCase.execute(request);
-        
+
         if (result.success) {
           // Reload tasks to get the updated list
           await get().loadTasks();
@@ -147,17 +169,20 @@ export const createTaskViewModel = (dependencies: TaskViewModelDependencies) => 
           return false;
         }
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : 'Failed to create task' });
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to create task",
+        });
         return false;
       }
     },
 
     updateTask: async (request: UpdateTaskRequest) => {
       set({ error: null });
-      
+
       try {
         const result = await updateTaskUseCase.execute(request);
-        
+
         if (result.success) {
           // Reload tasks to get the updated list
           await get().loadTasks();
@@ -167,17 +192,20 @@ export const createTaskViewModel = (dependencies: TaskViewModelDependencies) => 
           return false;
         }
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : 'Failed to update task' });
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to update task",
+        });
         return false;
       }
     },
 
     completeTask: async (taskId: string) => {
       set({ error: null });
-      
+
       try {
         const result = await completeTaskUseCase.execute({ taskId });
-        
+
         if (result.success) {
           // Reload tasks to get the updated list
           await get().loadTasks();
@@ -187,19 +215,22 @@ export const createTaskViewModel = (dependencies: TaskViewModelDependencies) => 
           return false;
         }
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : 'Failed to complete task' });
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to complete task",
+        });
         return false;
       }
     },
 
     revertTaskCompletion: async (taskId: string) => {
       set({ error: null });
-      
+
       try {
         // Find the task and revert completion
-        const task = get().tasks.find(t => t.id.value === taskId);
+        const task = get().tasks.find((t) => t.id.value === taskId);
         if (!task) {
-          set({ error: 'Task not found' });
+          set({ error: "Task not found" });
           return false;
         }
 
@@ -208,31 +239,39 @@ export const createTaskViewModel = (dependencies: TaskViewModelDependencies) => 
         await get().loadTasks();
         return true;
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : 'Failed to revert task completion' });
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to revert task completion",
+        });
         return false;
       }
     },
 
     deleteTask: async (taskId: string) => {
       set({ error: null });
-      
+
       try {
         // Find the task and soft delete it
-        const task = get().tasks.find(t => t.id.value === taskId);
+        const task = get().tasks.find((t) => t.id.value === taskId);
         if (!task) {
-          set({ error: 'Task not found' });
+          set({ error: "Task not found" });
           return false;
         }
 
         // Perform soft delete by calling the domain method
         task.softDelete();
         await taskRepository.save(task);
-        
+
         // Reload tasks to get the updated list
         await get().loadTasks();
         return true;
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : 'Failed to delete task' });
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to delete task",
+        });
         return false;
       }
     },

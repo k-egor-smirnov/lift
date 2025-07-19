@@ -1,6 +1,8 @@
+import { injectable, inject } from 'tsyringe';
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { TodoDatabase, TaskLogRecord } from '../../infrastructure/database/TodoDatabase';
 import { Result, ResultUtils } from '../../domain/Result';
+import * as tokens from '../../infrastructure/di/tokens';
 
 /**
  * Request for getting task logs
@@ -53,12 +55,13 @@ export class GetTaskLogsError extends Error {
 /**
  * Use case for getting task logs with pagination
  */
+@injectable()
 export class GetTaskLogsUseCase {
   private static readonly DEFAULT_PAGE_SIZE = 20;
   private static readonly MAX_PAGE_SIZE = 100;
 
   constructor(
-    private readonly database: TodoDatabase
+    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
   ) {}
 
   async execute(request: GetTaskLogsRequest = {}): Promise<Result<GetTaskLogsResponse, GetTaskLogsError>> {

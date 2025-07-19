@@ -1,8 +1,10 @@
+import { injectable, inject } from 'tsyringe';
 import { DomainEvent } from './DomainEvent';
 import { DomainEventType } from '../types';
 import { ulid } from 'ulid';
 import Dexie from 'dexie';
 import { TodoDatabase, EventStoreRecord, HandledEventRecord, LockRecord } from '../../infrastructure/database/TodoDatabase';
+import * as tokens from '../../infrastructure/di/tokens';
 
 /**
  * Event handler function type
@@ -207,6 +209,7 @@ export class InMemoryEventBus implements EventBus {
 /**
  * Persistent EventBus implementation with at-least-once delivery guarantees
  */
+@injectable()
 export class PersistentEventBusImpl implements PersistentEventBus {
   private readonly MAX_RETRY_ATTEMPTS = 5;
   private readonly RETRY_BASE_DELAY = 1000; // ms
@@ -223,7 +226,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
   private isProcessing = false;
   private isShuttingDown = false;
 
-  constructor(private database: TodoDatabase) {}
+  constructor(@inject(tokens.DATABASE_TOKEN) private database: TodoDatabase) {}
 
   async publish(event: DomainEvent): Promise<void> {
     await this.publishAll([event]);

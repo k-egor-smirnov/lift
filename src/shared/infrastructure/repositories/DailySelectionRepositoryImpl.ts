@@ -1,13 +1,16 @@
+import { injectable, inject } from 'tsyringe';
 import { DailySelectionRepository, DailySelectionEntry } from '../../domain/repositories/DailySelectionRepository';
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { DateOnly } from '../../domain/value-objects/DateOnly';
 import { TodoDatabase, DailySelectionEntryRecord } from '../database/TodoDatabase';
+import * as tokens from '../di/tokens';
 
 /**
  * Repository implementation for DailySelection using IndexedDB
  */
+@injectable()
 export class DailySelectionRepositoryImpl implements DailySelectionRepository {
-  constructor(private db: TodoDatabase) {}
+  constructor(@inject(tokens.DATABASE_TOKEN) private db: TodoDatabase) {}
 
   async addTaskToDay(date: DateOnly, taskId: TaskId): Promise<void> {
     // Use upsert to handle idempotent operations
