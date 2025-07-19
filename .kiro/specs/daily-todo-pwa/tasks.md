@@ -119,9 +119,9 @@
     - Write component tests for today view functionality
     - _Requirements: 2.1, 2.2, 2.4_
 
-- [ ] 6. Implement logging system UI
+- [x] 6. Implement logging system UI
 
-  - [ ] 6.1 Create logging ViewModels and components
+  - [x] 6.1 Create logging ViewModels and components
 
     - Implement LogViewModel with pagination and filtering
     - Create TaskLogList component with system/user log differentiation
@@ -129,7 +129,7 @@
     - Implement log retention cleanup as background task
     - _Requirements: 3.2, 3.3, 3.6, 12.3, 12.6_
 
-  - [ ] 6.2 Add log display to task components
+  - [x] 6.2 Add log display to task components
     - Show last log preview in TaskCard components
     - Implement expandable log history view
     - Add visual indicators for different log types
