@@ -2,7 +2,7 @@ import React from "react";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
 import { cn } from "../../shared/lib/utils";
-import Logo from "../../../assets/icon.png";
+// import Logo from "../../../assets/icon.png";
 
 interface SidebarProps {
   activeView: "today" | TaskCategory;
@@ -54,8 +54,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className="flex flex-col h-full bg-white" role="navigation" aria-label="Main navigation">
       <div className="flex items-center justify-between p-6 border-b h-16 box-border">
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center overflow-hidden">
-            <img src={Logo} alt="" className="bg-white rounded" aria-hidden="true" />
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-lg" aria-hidden="true">L</span>
           </div>
           <h2 className="text-xl font-bold text-foreground">Lift</h2>
         </div>

@@ -1,17 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { TaskCard } from '../../../tasks/presentation/components/TaskCard';
+import { LogEntry } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
 import { createTodayViewModel, TodayViewModelDependencies } from '../view-models/TodayViewModel';
 
 interface TodayViewProps {
   dependencies: TodayViewModelDependencies;
-  onEditTask?: (taskId: string) => void;
+  onEditTask?: (taskId: string, newTitle: string) => void;
   onDeleteTask?: (taskId: string) => void;
+  onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
+  onCreateLog?: (taskId: string) => void;
+  lastLogs?: Record<string, LogEntry>;
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({
   dependencies,
   onEditTask,
   onDeleteTask,
+  onLoadTaskLogs,
+  onCreateLog,
+  lastLogs = {},
 }) => {
   const [todayViewModel] = useState(() => createTodayViewModel(dependencies));
 
@@ -66,11 +73,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
     await removeTaskFromToday(taskId);
   };
 
-  const handleEditTask = (taskId: string) => {
+  const handleEditTask = (taskId: string, newTitle: string) => {
     if (onEditTask) {
-      onEditTask(taskId);
+      onEditTask(taskId, newTitle);
     } else {
-      alert(`Edit task: ${taskId}`);
+      alert(`Edit task: ${taskId} to "${newTitle}"`);
     }
   };
 
@@ -286,6 +293,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       onAddToToday={handleToggleToday}
                       showTodayButton={true}
                       isInTodaySelection={true}
+                      lastLog={lastLogs[taskInfo.task.id.value] || null}
+                      onLoadTaskLogs={onLoadTaskLogs}
+                      onCreateLog={onCreateLog}
                     />
                   </div>
                 ))}
@@ -313,6 +323,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       onAddToToday={handleToggleToday}
                       showTodayButton={true}
                       isInTodaySelection={true}
+                      lastLog={lastLogs[taskInfo.task.id.value] || null}
+                      onLoadTaskLogs={onLoadTaskLogs}
+                      onCreateLog={onCreateLog}
                     />
                   </div>
                 ))}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Task } from '../../../../shared/domain/entities/Task';
 import { TaskCategory } from '../../../../shared/domain/types';
+import { LogEntry } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
 import { TaskCard } from './TaskCard';
 
 interface TaskListProps {
@@ -9,9 +10,12 @@ interface TaskListProps {
   showTodayButton?: boolean;
   overdueDays?: number;
   onComplete: (taskId: string) => void;
-  onEdit: (taskId: string) => void;
+  onEdit: (taskId: string, newTitle: string) => void;
   onDelete: (taskId: string) => void;
   onAddToToday?: (taskId: string) => void;
+  onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
+  onCreateLog?: (taskId: string) => void;
+  lastLogs?: Record<string, LogEntry>;
   emptyMessage?: string;
 }
 
@@ -50,6 +54,9 @@ export const TaskList: React.FC<TaskListProps> = ({
   onEdit,
   onDelete,
   onAddToToday,
+  onLoadTaskLogs,
+  onCreateLog,
+  lastLogs = {},
   emptyMessage = 'No tasks found',
 }) => {
   if (tasks.length === 0) {
@@ -75,6 +82,9 @@ export const TaskList: React.FC<TaskListProps> = ({
             onAddToToday={onAddToToday}
             showTodayButton={showTodayButton}
             isOverdue={task.category === TaskCategory.INBOX && task.isOverdue(overdueDays)}
+            lastLog={lastLogs[task.id.value] || null}
+            onLoadTaskLogs={onLoadTaskLogs}
+            onCreateLog={onCreateLog}
           />
         ))}
       </div>
@@ -139,6 +149,9 @@ export const TaskList: React.FC<TaskListProps> = ({
                   onAddToToday={onAddToToday}
                   showTodayButton={showTodayButton}
                   isOverdue={task.category === TaskCategory.INBOX && task.isOverdue(overdueDays)}
+                  lastLog={lastLogs[task.id.value] || null}
+                  onLoadTaskLogs={onLoadTaskLogs}
+                  onCreateLog={onCreateLog}
                 />
               ))}
             </div>

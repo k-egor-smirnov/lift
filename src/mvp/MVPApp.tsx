@@ -20,13 +20,15 @@ import { CompleteTaskUseCase } from '../shared/application/use-cases/CompleteTas
 import { GetTodayTasksUseCase } from '../shared/application/use-cases/GetTodayTasksUseCase';
 import { AddTaskToTodayUseCase } from '../shared/application/use-cases/AddTaskToTodayUseCase';
 import { RemoveTaskFromTodayUseCase } from '../shared/application/use-cases/RemoveTaskFromTodayUseCase';
+import { GetTaskLogsUseCase, LogEntry } from '../shared/application/use-cases/GetTaskLogsUseCase';
+import { CreateUserLogUseCase } from '../shared/application/use-cases/CreateUserLogUseCase';
 import { PersistentEventBusImpl } from '../shared/domain/events/EventBus';
 import { DailyModalContainer } from '../features/onboarding';
 
 // Initialize database and repositories
 const database = new TodoDatabase();
 const eventBus = new PersistentEventBusImpl(database);
-const taskRepository = new TaskRepositoryImpl(database, eventBus);
+const taskRepository = new TaskRepositoryImpl(database);
 const dailySelectionRepository = new DailySelectionRepositoryImpl(database);
 
 // Initialize use cases
@@ -36,6 +38,8 @@ const completeTaskUseCase = new CompleteTaskUseCase(taskRepository, eventBus, da
 const getTodayTasksUseCase = new GetTodayTasksUseCase(dailySelectionRepository, taskRepository);
 const addTaskToTodayUseCase = new AddTaskToTodayUseCase(dailySelectionRepository, taskRepository);
 const removeTaskFromTodayUseCase = new RemoveTaskFromTodayUseCase(dailySelectionRepository);
+const getTaskLogsUseCase = new GetTaskLogsUseCase(database);
+const createUserLogUseCase = new CreateUserLogUseCase(database);
 
 // Create dependencies
 const taskDependencies: TaskViewModelDependencies = {
@@ -58,16 +62,18 @@ const taskViewModel = createTaskViewModel(taskDependencies);
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreateLogModalOpen, setIsCreateLogModalOpen] = useState(false);
+  const [selectedTaskForLog, setSelectedTaskForLog] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'today' | TaskCategory>('today');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
+  const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
+  const [lastLogs, setLastLogs] = useState<Record<string, LogEntry>>({});
 
   // Initialize keyboard shortcuts
   const { registerShortcut, unregisterShortcut, isEnabled } = useKeyboardShortcuts();
 
   // Subscribe to the view model state
   const {
-    tasks,
     loading,
     error,
     getFilteredTasks,
@@ -96,6 +102,13 @@ export const MVPApp: React.FC = () => {
 
     initializeApp();
   }, [loadTasks]);
+
+  // Load logs after tasks are loaded
+  useEffect(() => {
+    if (isDbReady && !loading) {
+      loadAllTaskLogs();
+    }
+  }, [isDbReady, loading]);
 
   // Register keyboard shortcuts
   useEffect(() => {
@@ -199,9 +212,22 @@ export const MVPApp: React.FC = () => {
     await completeTask(taskId);
   };
 
-  const handleEditTask = async (taskId: string) => {
-    // For MVP, just show an alert - can be enhanced later
-    alert(`Edit task: ${taskId}`);
+  const handleEditTask = async (taskId: string, newTitle: string) => {
+    try {
+      const success = await updateTaskUseCase.execute({
+        taskId,
+        title: newTitle
+      });
+      
+      if (success.success) {
+        // Reload tasks to reflect changes
+        await loadTasks();
+      } else {
+        console.error('Failed to update task:', (success as any).error?.message);
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
   };
 
   const handleDeleteTask = async (taskId: string) => {
@@ -232,10 +258,71 @@ export const MVPApp: React.FC = () => {
   };
 
   const handleCreateLog = async (message: string): Promise<boolean> => {
-    // TODO: Implement custom log creation when logs feature is available
-    console.log('Creating custom log:', message);
-    // For now, just return success
-    return true;
+    if (!selectedTaskForLog) {
+      console.error('No task selected for log creation');
+      return false;
+    }
+
+    try {
+      const result = await createUserLogUseCase.execute({
+        taskId: selectedTaskForLog,
+        message: message.trim()
+      });
+
+      if (result.success) {
+        // Reload logs for this task
+        await loadTaskLogs(selectedTaskForLog);
+        setSelectedTaskForLog(null);
+        return true;
+      } else {
+        console.error('Failed to create log:', (result as any).error?.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error creating log:', error);
+      return false;
+    }
+  };
+
+  const handleCreateTaskLog = (taskId: string) => {
+    setSelectedTaskForLog(taskId);
+    setIsCreateLogModalOpen(true);
+  };
+
+  const loadTaskLogs = async (taskId: string): Promise<LogEntry[]> => {
+    try {
+      const result = await getTaskLogsUseCase.execute({ taskId, sortOrder: 'desc' });
+      
+      if (result.success) {
+        const logs = result.data.logs;
+        setTaskLogs(prev => ({ ...prev, [taskId]: logs }));
+        
+        // Update last log for this task
+        if (logs.length > 0) {
+          setLastLogs(prev => ({ ...prev, [taskId]: logs[0] }));
+        }
+        
+        return logs;
+      } else {
+        console.error('Failed to load logs:', (result as any).error?.message);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error loading logs:', error);
+      return [];
+    }
+  };
+
+  const loadAllTaskLogs = async () => {
+    try {
+      const tasks = getFilteredTasks();
+      if (tasks.length > 0) {
+        const logPromises = tasks.map(task => loadTaskLogs(task.id.value));
+        await Promise.all(logPromises);
+      }
+    } catch (error) {
+      console.error('Error loading all task logs:', error);
+    }
   };
 
   const handleMobileMenuClose = () => {
@@ -334,6 +421,9 @@ export const MVPApp: React.FC = () => {
                   dependencies={todayDependencies}
                   onEditTask={handleEditTask}
                   onDeleteTask={handleDeleteTask}
+                  onLoadTaskLogs={loadTaskLogs}
+                  onCreateLog={handleCreateTaskLog}
+                  lastLogs={lastLogs}
                 />
               ) : (
                 <TaskList
@@ -344,6 +434,9 @@ export const MVPApp: React.FC = () => {
                   onEdit={handleEditTask}
                   onDelete={handleDeleteTask}
                   onAddToToday={handleAddToToday}
+                  onLoadTaskLogs={loadTaskLogs}
+                  onCreateLog={handleCreateTaskLog}
+                  lastLogs={lastLogs}
                   emptyMessage={`No ${activeView.toLowerCase()} tasks found`}
                 />
               )}
@@ -364,7 +457,10 @@ export const MVPApp: React.FC = () => {
       {/* Create Log Modal */}
       <CreateLogModal
         isOpen={isCreateLogModalOpen}
-        onClose={() => setIsCreateLogModalOpen(false)}
+        onClose={() => {
+          setIsCreateLogModalOpen(false);
+          setSelectedTaskForLog(null);
+        }}
         onSubmit={handleCreateLog}
       />
 
