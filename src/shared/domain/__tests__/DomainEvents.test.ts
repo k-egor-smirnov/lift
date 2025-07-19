@@ -6,7 +6,7 @@ import {
   TaskCategoryChangedEvent,
   TaskReviewedEvent
 } from '../events/TaskEvents';
-import { InMemoryEventBus, EventHandler } from '../events/EventBus';
+import { InMemoryEventBus } from '../events/EventBus';
 import { DomainEventType, TaskCategory } from '../types';
 import { TaskId } from '../value-objects/TaskId';
 import { NonEmptyTitle } from '../value-objects/NonEmptyTitle';

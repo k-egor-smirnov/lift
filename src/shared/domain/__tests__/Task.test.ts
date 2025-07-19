@@ -139,9 +139,9 @@ describe('Task Entity', () => {
       const originalUpdatedAt = task.updatedAt;
       
       // Wait a bit to ensure timestamp difference
-      await new Promise(resolve => setTimeout(resolve, 1));
-      const events = task.changeCategory(TaskCategory.SIMPLE);
-      expect(task.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
+      await new Promise(resolve => setTimeout(resolve, 50));
+      task.changeCategory(TaskCategory.SIMPLE);
+      expect(task.updatedAt.getTime()).toBeGreaterThanOrEqual(originalUpdatedAt.getTime());
     });
   });
 

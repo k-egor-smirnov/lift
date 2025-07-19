@@ -31,9 +31,9 @@
     - Write unit tests for event creation and bus functionality
     - _Requirements: 9.4_
 
-- [ ] 3. Set up local storage infrastructure
+- [x] 3. Set up local storage infrastructure
 
-  - [ ] 3.1 Configure IndexedDB with Dexie
+  - [x] 3.1 Configure IndexedDB with Dexie
 
     - Create TodoDatabase class with all required tables and indexes
     - Implement database versioning and migration strategy
@@ -41,7 +41,7 @@
     - Write integration tests for database operations
     - _Requirements: 10.1, 10.4_
 
-  - [ ] 3.2 Implement repository pattern for tasks
+  - [x] 3.2 Implement repository pattern for tasks
 
     - Create TaskRepository interface with all CRUD operations
     - Implement TaskRepositoryImpl with IndexedDB operations
@@ -49,7 +49,7 @@
     - Write integration tests for repository operations
     - _Requirements: 11.1, 11.2, 11.3, 11.7_
 
-  - [ ] 3.3 Implement daily selection repository
+  - [x] 3.3 Implement daily selection repository
     - Create DailySelectionRepository interface
     - Implement repository with daily_selection_entries table operations
     - Add UNIQUE(date, taskId) constraint handling for idempotent upserts
