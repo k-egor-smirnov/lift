@@ -136,17 +136,23 @@
     - Write component tests for log display functionality
     - _Requirements: 3.2, 3.3_
 
-- [ ] 7. Build statistics and analytics features
+- [x] 7. Build statistics and analytics features
 
-  - [ ] 7.1 Implement statistics calculation
+  - [x] 7.1 Implement statistics calculation
 
     - Create StatisticsService with completion tracking by category
     - Implement inbox review tracking (first move from INBOX)
     - Add daily/weekly/monthly statistics aggregation
     - Create nightly snapshot system for stats_daily table
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.6_
+    - [x] 7.2 Create statistics UI components
+    - Build StatisticsView with period selection (day/week/month)
+    - Implement charts and metrics display
+    - Add proper ISO week and calendar month calculations
+    - Write component tests for statistics display
+    - _Requirements: 8.5_
 
-  - [ ] 7.3 Implement event handlers for statistics and logging
+  - [x] 7.3 Implement event handlers for statistics and logging
 
     - Create TaskLogEventHandler with idempotent UPSERT operations
     - Implement StatsUpdateHandler with existing record checks and timestamp validation
@@ -155,7 +161,7 @@
     - Write unit tests for handler idempotency and error scenarios
     - _Requirements: 3.1, 8.1, 8.2, 9.4_
 
-  - [ ] 7.4 Implement event processing monitoring and cleanup
+  - [x] 7.4 Implement event processing monitoring and cleanup
 
     - Create EventMonitor with processing statistics (pending, processing, done, dead)
     - Implement EventCleanupService for processed events cleanup (30+ days old)
@@ -163,13 +169,6 @@
     - Create event processing dashboard for debugging and monitoring
     - Write integration tests for monitoring and cleanup functionality
     - _Requirements: 9.4, 10.1, 10.4_
-
-  - [ ] 7.2 Create statistics UI components
-    - Build StatisticsView with period selection (day/week/month)
-    - Implement charts and metrics display
-    - Add proper ISO week and calendar month calculations
-    - Write component tests for statistics display
-    - _Requirements: 8.5_
 
 - [ ] 8. Implement onboarding and motivational features
 
