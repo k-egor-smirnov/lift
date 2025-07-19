@@ -53,6 +53,13 @@ export class DateOnly extends ValueObject<string> {
   }
 
   /**
+   * Create DateOnly from yesterday's date
+   */
+  static yesterday(): DateOnly {
+    return DateOnly.today().subtractDays(1);
+  }
+
+  /**
    * Create DateOnly from Date object
    */
   static fromDate(date: Date): DateOnly {

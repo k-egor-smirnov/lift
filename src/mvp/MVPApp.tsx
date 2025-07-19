@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { TaskCategory } from '../shared/domain/types';
 import { TaskList } from '../features/tasks/presentation/components/TaskList';
 import { CreateTaskModal } from './components/CreateTaskModal';
+import { CreateLogModal } from './components/CreateLogModal';
 import { TodayView } from '../features/today/presentation/components/TodayView';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { createTaskViewModel, TaskViewModelDependencies } from '../features/tasks/presentation/view-models/TaskViewModel';
 import { TodayViewModelDependencies } from '../features/today/presentation/view-models/TodayViewModel';
+import { useKeyboardShortcuts } from '../shared/infrastructure/services/useKeyboardShortcuts';
 
 // Import real implementations
 import { TodoDatabase } from '../shared/infrastructure/database/TodoDatabase';
@@ -19,6 +21,7 @@ import { GetTodayTasksUseCase } from '../shared/application/use-cases/GetTodayTa
 import { AddTaskToTodayUseCase } from '../shared/application/use-cases/AddTaskToTodayUseCase';
 import { RemoveTaskFromTodayUseCase } from '../shared/application/use-cases/RemoveTaskFromTodayUseCase';
 import { PersistentEventBusImpl } from '../shared/domain/events/EventBus';
+import { DailyModalContainer } from '../features/onboarding';
 
 // Initialize database and repositories
 const database = new TodoDatabase();
@@ -54,9 +57,13 @@ const taskViewModel = createTaskViewModel(taskDependencies);
 
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateLogModalOpen, setIsCreateLogModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<'today' | TaskCategory>('today');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
+
+  // Initialize keyboard shortcuts
+  const { registerShortcut, unregisterShortcut, isEnabled } = useKeyboardShortcuts();
 
   // Subscribe to the view model state
   const {
@@ -89,6 +96,87 @@ export const MVPApp: React.FC = () => {
 
     initializeApp();
   }, [loadTasks]);
+
+  // Register keyboard shortcuts
+  useEffect(() => {
+    if (!isEnabled) return;
+
+    // Task creation shortcut (Ctrl+N)
+    registerShortcut('create-task', {
+      key: 'n',
+      ctrlKey: true,
+      handler: (event) => {
+        event.preventDefault();
+        setIsCreateModalOpen(true);
+      },
+      description: 'Create new task',
+      category: 'tasks'
+    });
+
+    // Custom log shortcut (Ctrl+L) - placeholder for now
+    registerShortcut('create-log', {
+      key: 'l',
+      ctrlKey: true,
+      handler: (event) => {
+        event.preventDefault();
+        setIsCreateLogModalOpen(true);
+      },
+      description: 'Create custom log',
+      category: 'logs'
+    });
+
+    // Category navigation shortcuts
+    registerShortcut('nav-simple', {
+      key: '1',
+      handler: (event) => {
+        event.preventDefault();
+        setActiveView(TaskCategory.SIMPLE);
+      },
+      description: 'Navigate to Simple tasks',
+      category: 'navigation'
+    });
+
+    registerShortcut('nav-focus', {
+      key: '2',
+      handler: (event) => {
+        event.preventDefault();
+        setActiveView(TaskCategory.FOCUS);
+      },
+      description: 'Navigate to Focus tasks',
+      category: 'navigation'
+    });
+
+    registerShortcut('nav-inbox', {
+      key: '3',
+      handler: (event) => {
+        event.preventDefault();
+        setActiveView(TaskCategory.INBOX);
+      },
+      description: 'Navigate to Inbox tasks',
+      category: 'navigation'
+    });
+
+    // Today view shortcut (T)
+    registerShortcut('nav-today', {
+      key: 't',
+      handler: (event) => {
+        event.preventDefault();
+        setActiveView('today');
+      },
+      description: 'Navigate to Today view',
+      category: 'navigation'
+    });
+
+    // Cleanup shortcuts on unmount or when disabled
+    return () => {
+      unregisterShortcut('create-task');
+      unregisterShortcut('create-log');
+      unregisterShortcut('nav-simple');
+      unregisterShortcut('nav-focus');
+      unregisterShortcut('nav-inbox');
+      unregisterShortcut('nav-today');
+    };
+  }, [isEnabled, registerShortcut, unregisterShortcut]);
 
   // Update view model filter when active view changes
   useEffect(() => {
@@ -141,6 +229,13 @@ export const MVPApp: React.FC = () => {
 
   const handleNewTask = () => {
     setIsCreateModalOpen(true);
+  };
+
+  const handleCreateLog = async (message: string): Promise<boolean> => {
+    // TODO: Implement custom log creation when logs feature is available
+    console.log('Creating custom log:', message);
+    // For now, just return success
+    return true;
   };
 
   const handleMobileMenuClose = () => {
@@ -265,6 +360,16 @@ export const MVPApp: React.FC = () => {
         initialCategory={currentCategory}
         hideCategorySelection={hideCategorySelection}
       />
+
+      {/* Create Log Modal */}
+      <CreateLogModal
+        isOpen={isCreateLogModalOpen}
+        onClose={() => setIsCreateLogModalOpen(false)}
+        onSubmit={handleCreateLog}
+      />
+
+      {/* Daily Modal for onboarding */}
+      <DailyModalContainer />
     </div>
   );
 };

@@ -170,9 +170,9 @@
     - Write integration tests for monitoring and cleanup functionality
     - _Requirements: 9.4, 10.1, 10.4_
 
-- [ ] 8. Implement onboarding and motivational features
+- [x] 8. Implement onboarding and motivational features
 
-  - [ ] 8.1 Create daily modal system
+  - [x] 8.1 Create daily modal system
 
     - Implement OnboardingService with morning window detection (6-11 AM)
     - Create DailyModalData aggregation with unfinished and overdue tasks
@@ -180,16 +180,16 @@
     - Build modal UI with task overview and motivation
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
 
-  - [ ] 8.2 Add user settings management
+  - [x] 8.2 Add user settings management
     - Create UserSettingsRepository with local storage
     - Implement settings for inbox overdue days (default 3)
     - Add keyboard shortcuts toggle (default enabled on desktop)
     - Create settings UI for user customization
     - _Requirements: 1.9, 14.1, 14.2, 14.4, 14.5, 14.6_
 
-- [ ] 9. Add keyboard shortcuts and accessibility
+- [-] 9. Add keyboard shortcuts and accessibility
 
-  - [ ] 9.1 Implement keyboard shortcut system
+  - [-] 9.1 Implement keyboard shortcut system
 
     - Create KeyboardShortcutService with shortcut registration
     - Add shortcuts for task creation (Ctrl+N), custom logs (Ctrl+L)
