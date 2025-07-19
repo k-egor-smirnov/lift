@@ -1,0 +1,29 @@
+/**
+ * Task category enumeration
+ */
+export enum TaskCategory {
+  SIMPLE = 'SIMPLE',
+  FOCUS = 'FOCUS',
+  INBOX = 'INBOX'
+}
+
+/**
+ * Task status enumeration
+ */
+export enum TaskStatus {
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED'
+}
+
+/**
+ * Domain event types
+ */
+export enum DomainEventType {
+  TASK_CREATED = 'TASK_CREATED',
+  TASK_COMPLETED = 'TASK_COMPLETED',
+  TASK_COMPLETION_REVERTED = 'TASK_COMPLETION_REVERTED',
+  TASK_CATEGORY_CHANGED = 'TASK_CATEGORY_CHANGED',
+  TASK_REVIEWED = 'TASK_REVIEWED',
+  TASK_TITLE_CHANGED = 'TASK_TITLE_CHANGED',
+  TASK_SOFT_DELETED = 'TASK_SOFT_DELETED'
+}

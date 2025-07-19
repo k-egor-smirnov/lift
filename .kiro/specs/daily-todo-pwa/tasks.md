@@ -8,16 +8,16 @@
   - Create shared domain abstractions (ValueObject base class, Result type)
   - _Requirements: 9.1, 9.2_
 
-- [ ] 2. Implement core domain value objects and entities
+- [x] 2. Implement core domain value objects and entities
 
-  - [ ] 2.1 Create value objects with validation
+  - [x] 2.1 Create value objects with validation
 
     - Implement TaskId (ULID), DateOnly, NonEmptyTitle value objects
     - Add validation logic and error handling for invalid values
     - Write unit tests for value object creation and validation
     - _Requirements: 11.1, 11.2_
 
-  - [ ] 2.2 Implement Task entity with domain logic
+  - [x] 2.2 Implement Task entity with domain logic
 
     - Create Task entity with all required fields and methods
     - Implement changeCategory(), complete(), revertCompletion(), isOverdue() methods
@@ -25,7 +25,7 @@
     - Write comprehensive unit tests for Task entity behavior
     - _Requirements: 1.3, 2.5, 11.5, 11.6_
 
-  - [ ] 2.3 Create domain events system
+  - [x] 2.3 Create domain events system
     - Implement DomainEvent base class and specific events (TaskCreated, TaskCompleted, etc.)
     - Create EventBus interface with publish/subscribe methods
     - Write unit tests for event creation and bus functionality
