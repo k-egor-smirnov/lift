@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CreateTaskUseCase, CreateTaskRequest } from '../CreateTaskUseCase';
 import { TaskRepository } from '../../../domain/repositories/TaskRepository';
 import { EventBus } from '../../../domain/events/EventBus';
+import { TodoDatabase } from '../../../infrastructure/database/TodoDatabase';
 import { TaskCategory } from '../../../domain/types';
 import { ResultUtils } from '../../../domain/Result';
 
@@ -29,12 +30,27 @@ const mockEventBus: EventBus = {
   clear: vi.fn()
 };
 
+const mockDatabase = {
+  transaction: vi.fn(),
+  syncQueue: {
+    add: vi.fn()
+  },
+  eventStore: {},
+  tasks: {}
+} as unknown as TodoDatabase;
+
 describe('CreateTaskUseCase', () => {
   let useCase: CreateTaskUseCase;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useCase = new CreateTaskUseCase(mockTaskRepository, mockEventBus);
+    
+    // Mock transaction to execute the callback immediately
+    vi.mocked(mockDatabase.transaction).mockImplementation(async (mode, tables, callback) => {
+      return await callback();
+    });
+    
+    useCase = new CreateTaskUseCase(mockTaskRepository, mockEventBus, mockDatabase);
   });
 
   describe('execute', () => {

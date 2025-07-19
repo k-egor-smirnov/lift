@@ -55,6 +55,31 @@ export interface StatsDailyRecord {
   createdAt: Date;
 }
 
+// Event store record interfaces for persistent event bus
+export interface EventStoreRecord {
+  id: string; // ULID (primary key)
+  aggregateId: string;
+  aggregateType: string;
+  eventType: string;
+  eventData: string; // JSON serialized event data
+  createdAt: number; // Date.now() timestamp
+  status: 'pending' | 'processing' | 'done' | 'dead';
+  attemptCount: number;
+  nextAttemptAt?: number; // Date.now() timestamp for retry scheduling
+  lastError?: string;
+}
+
+export interface HandledEventRecord {
+  eventId: string;
+  handlerId: string;
+  processedAt: number; // Date.now() timestamp
+}
+
+export interface LockRecord {
+  id: string; // Lock identifier
+  expiresAt: number; // Date.now() timestamp
+}
+
 export class TodoDatabase extends Dexie {
   tasks!: Table<TaskRecord>;
   dailySelectionEntries!: Table<DailySelectionEntryRecord>;
@@ -62,6 +87,9 @@ export class TodoDatabase extends Dexie {
   userSettings!: Table<UserSettingsRecord>;
   syncQueue!: Table<SyncQueueRecord>;
   statsDaily!: Table<StatsDailyRecord>;
+  eventStore!: Table<EventStoreRecord>;
+  handledEvents!: Table<HandledEventRecord>;
+  locks!: Table<LockRecord>;
 
   constructor() {
     super('TodoDatabase');
@@ -74,6 +102,22 @@ export class TodoDatabase extends Dexie {
       userSettings: 'key, updatedAt',
       syncQueue: '++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt',
       statsDaily: 'date, simpleCompleted, focusCompleted, inboxReviewed, createdAt'
+    });
+
+    // Version 2 - Add event store tables for persistent event bus
+    this.version(2).stores({
+      tasks: 'id, category, status, createdAt, updatedAt, deletedAt, inboxEnteredAt',
+      dailySelectionEntries: '++id, [date+taskId], date, taskId, completedFlag, createdAt',
+      taskLogs: '++id, taskId, type, createdAt',
+      userSettings: 'key, updatedAt',
+      syncQueue: '++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt',
+      statsDaily: 'date, simpleCompleted, focusCompleted, inboxReviewed, createdAt',
+      eventStore: 'id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt',
+      handledEvents: '[eventId+handlerId], eventId, handlerId',
+      locks: 'id, expiresAt'
+    }).upgrade(trans => {
+      // Data migration logic if needed
+      console.log('Upgrading database to version 2 - adding event store tables');
     });
 
     // Add hooks for automatic timestamp updates
@@ -136,13 +180,17 @@ export class TodoDatabase extends Dexie {
   // Clear all data (for testing)
   async clearAllData(): Promise<void> {
     await this.transaction('rw', [this.tasks, this.dailySelectionEntries, this.taskLogs, 
-                          this.userSettings, this.syncQueue, this.statsDaily], async () => {
+                          this.userSettings, this.syncQueue, this.statsDaily, this.eventStore, 
+                          this.handledEvents, this.locks], async () => {
       await this.tasks.clear();
       await this.dailySelectionEntries.clear();
       await this.taskLogs.clear();
       await this.userSettings.clear();
       await this.syncQueue.clear();
       await this.statsDaily.clear();
+      await this.eventStore.clear();
+      await this.handledEvents.clear();
+      await this.locks.clear();
     });
   }
 }

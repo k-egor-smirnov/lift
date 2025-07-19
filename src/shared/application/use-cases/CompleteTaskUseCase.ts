@@ -3,6 +3,9 @@ import { TaskId } from '../../domain/value-objects/TaskId';
 import { TaskRepository } from '../../domain/repositories/TaskRepository';
 import { EventBus } from '../../domain/events/EventBus';
 import { Result, ResultUtils } from '../../domain/Result';
+import { TodoDatabase } from '../../infrastructure/database/TodoDatabase';
+import { hashTask } from '../../infrastructure/utils/hashUtils';
+import { ulid } from 'ulid';
 
 /**
  * Request for completing a task
@@ -27,7 +30,8 @@ export class TaskCompletionError extends Error {
 export class CompleteTaskUseCase {
   constructor(
     private readonly taskRepository: TaskRepository,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
+    private readonly database: TodoDatabase
   ) {}
 
   async execute(request: CompleteTaskRequest): Promise<Result<void, TaskCompletionError>> {
@@ -53,11 +57,29 @@ export class CompleteTaskUseCase {
       // Complete the task (domain logic handles validation and events)
       const events = task.complete();
 
-      // Save the updated task
-      await this.taskRepository.save(task);
-
-      // Publish domain events (includes statistics capture)
-      await this.eventBus.publishAll(events);
+      // Execute transactional operation including task, syncQueue, and eventStore
+      await this.database.transaction('rw', 
+        [this.database.tasks, this.database.syncQueue, this.database.eventStore], 
+        async () => {
+          // 1. Save the updated task
+          await this.taskRepository.save(task);
+          
+          // 2. Add sync queue entry
+          await this.database.syncQueue.add({
+            id: ulid(),
+            entityType: 'task',
+            entityId: task.id.value,
+            operation: 'update',
+            payloadHash: hashTask(task),
+            attemptCount: 0,
+            createdAt: new Date(),
+            nextAttemptAt: Date.now()
+          });
+          
+          // 3. Publish domain events (includes statistics capture)
+          await this.eventBus.publishAll(events);
+        }
+      );
 
       return ResultUtils.ok(undefined);
     } catch (error) {

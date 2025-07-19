@@ -5,6 +5,9 @@ import { TaskCategory } from '../../domain/types';
 import { TaskRepository } from '../../domain/repositories/TaskRepository';
 import { EventBus } from '../../domain/events/EventBus';
 import { Result, ResultUtils } from '../../domain/Result';
+import { TodoDatabase } from '../../infrastructure/database/TodoDatabase';
+import { hashTask } from '../../infrastructure/utils/hashUtils';
+import { ulid } from 'ulid';
 
 /**
  * Request for creating a new task
@@ -37,7 +40,8 @@ export class TaskCreationError extends Error {
 export class CreateTaskUseCase {
   constructor(
     private readonly taskRepository: TaskRepository,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
+    private readonly database: TodoDatabase
   ) {}
 
   async execute(request: CreateTaskRequest): Promise<Result<CreateTaskResponse, TaskCreationError>> {
@@ -58,11 +62,29 @@ export class CreateTaskUseCase {
       // Create task with domain events
       const { task, events } = Task.create(taskId, title, request.category);
 
-      // Save task
-      await this.taskRepository.save(task);
-
-      // Publish domain events
-      await this.eventBus.publishAll(events);
+      // Execute transactional operation including task, syncQueue, and eventStore
+      await this.database.transaction('rw', 
+        [this.database.tasks, this.database.syncQueue, this.database.eventStore], 
+        async () => {
+          // 1. Save task
+          await this.taskRepository.save(task);
+          
+          // 2. Add sync queue entry
+          await this.database.syncQueue.add({
+            id: ulid(),
+            entityType: 'task',
+            entityId: task.id.value,
+            operation: 'create',
+            payloadHash: hashTask(task),
+            attemptCount: 0,
+            createdAt: new Date(),
+            nextAttemptAt: Date.now()
+          });
+          
+          // 3. Publish domain events (will be stored in eventStore within transaction)
+          await this.eventBus.publishAll(events);
+        }
+      );
 
       return ResultUtils.ok({
         taskId: taskId.value

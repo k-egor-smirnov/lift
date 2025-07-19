@@ -32,7 +32,7 @@
     - Write unit tests for event creation and bus functionality
     - _Requirements: 9.4_
 
-  - [ ] 2.4 Implement persistent EventBus with delivery guarantees
+  - [x] 2.4 Implement persistent EventBus with delivery guarantees
     - Create EventStoreRecord, HandledEventRecord, and LockRecord schemas
     - Update TodoDatabase to version 2 with eventStore, handledEvents, and locks tables
     - Implement PersistentEventBus with at-least-once processing guarantees
@@ -68,7 +68,7 @@
     - Write integration tests for daily selection operations
     - _Requirements: 2.1, 2.3, 15.1, 15.3_
 
-- [-] 4. Create application layer use cases
+- [x] 4. Create application layer use cases
 
   - [x] 4.1 Implement task management use cases
 
@@ -79,7 +79,7 @@
     - Write unit tests for all use cases with mocked dependencies and transaction verification
     - _Requirements: 11.1, 11.3, 11.4, 11.5_
 
-  - [ ] 4.2 Implement daily selection use cases
+  - [x] 4.2 Implement daily selection use cases
 
     - Create AddTaskToTodayUseCase with DailySelectionEntry creation
     - Implement RemoveTaskFromTodayUseCase
@@ -87,16 +87,16 @@
     - Write unit tests for daily selection use cases
     - _Requirements: 2.1, 2.2, 2.3, 15.4, 15.6_
 
-  - [ ] 4.3 Create logging use cases
+  - [x] 4.3 Create logging use cases
     - Implement CreateSystemLogUseCase for automatic log generation
     - Create CreateUserLogUseCase with 500 character validation
     - Add GetTaskLogsUseCase with pagination (20 records per page)
     - Write unit tests for logging use cases
     - _Requirements: 3.1, 3.4, 12.1, 12.2, 12.4_
 
-- [ ] 5. Build presentation layer with MVVM pattern
+- [-] 5. Build presentation layer with MVVM pattern
 
-  - [ ] 5.1 Create task management ViewModels
+  - [-] 5.1 Create task management ViewModels
 
     - Implement TaskViewModel using Zustand with task state management
     - Add methods for creating, updating, completing, and deleting tasks

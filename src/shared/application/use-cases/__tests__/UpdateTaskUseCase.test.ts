@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UpdateTaskUseCase, UpdateTaskRequest } from '../UpdateTaskUseCase';
 import { TaskRepository } from '../../../domain/repositories/TaskRepository';
 import { EventBus } from '../../../domain/events/EventBus';
+import { TodoDatabase } from '../../../infrastructure/database/TodoDatabase';
 import { Task } from '../../../domain/entities/Task';
 import { TaskId } from '../../../domain/value-objects/TaskId';
 import { NonEmptyTitle } from '../../../domain/value-objects/NonEmptyTitle';
@@ -32,12 +33,27 @@ const mockEventBus: EventBus = {
   clear: vi.fn()
 };
 
+const mockDatabase = {
+  transaction: vi.fn(),
+  syncQueue: {
+    add: vi.fn()
+  },
+  eventStore: {},
+  tasks: {}
+} as unknown as TodoDatabase;
+
 describe('UpdateTaskUseCase', () => {
   let useCase: UpdateTaskUseCase;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useCase = new UpdateTaskUseCase(mockTaskRepository, mockEventBus);
+    
+    // Mock transaction to execute the callback immediately
+    vi.mocked(mockDatabase.transaction).mockImplementation(async (mode, tables, callback) => {
+      return await callback();
+    });
+    
+    useCase = new UpdateTaskUseCase(mockTaskRepository, mockEventBus, mockDatabase);
   });
 
   describe('execute', () => {
