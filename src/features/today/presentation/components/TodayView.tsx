@@ -13,7 +13,7 @@ interface TodayViewProps {
   onDeleteTask?: (taskId: string) => void;
   onReorderTasks?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
-  onCreateLog?: (taskId: string) => void;
+  onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
   onRefresh?: () => Promise<void>;
 }
@@ -34,6 +34,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   // Subscribe to the view model state
   const {
+    tasks,
     loading,
     error,
     currentDate,
@@ -48,6 +49,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
     clearError,
     getActiveTasks,
     getCompletedTasks,
+    getTodayTaskIds,
     isToday,
   } = todayViewModel();
 
@@ -324,7 +326,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onLoadTaskLogs={onLoadTaskLogs}
                 onCreateLog={onCreateLog}
                 groupByCategory={false}
-
+                todayTaskIds={getTodayTaskIds()}
               />
             </section>
           )}
@@ -350,7 +352,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onLoadTaskLogs={onLoadTaskLogs}
                 onCreateLog={onCreateLog}
                 groupByCategory={false}
-
+                todayTaskIds={getTodayTaskIds()}
               />
             </section>
           )}

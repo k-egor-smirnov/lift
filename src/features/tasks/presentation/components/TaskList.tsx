@@ -29,13 +29,14 @@ interface TaskListProps {
   groupByCategory?: boolean;
   showTodayButton?: boolean;
   overdueDays?: number;
+  todayTaskIds?: string[]; // Array of task IDs that are selected for today
   onComplete: (taskId: string) => void;
   onEdit: (taskId: string, newTitle: string) => void;
   onDelete: (taskId: string) => void;
   onAddToToday?: (taskId: string) => void;
   onReorder?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
-  onCreateLog?: (taskId: string) => void;
+  onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
   emptyMessage?: string;
 
@@ -46,6 +47,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   groupByCategory = false,
   showTodayButton = false,
   overdueDays = 3,
+  todayTaskIds = [],
   onComplete,
   onEdit,
   onDelete,
@@ -73,9 +75,7 @@ export const TaskList: React.FC<TaskListProps> = ({
     )
     .map((task) => task.id.value);
 
-  // For today task IDs, we would need to get this from props or context
-  // For now, we'll pass an empty array
-  const todayTaskIds: string[] = [];
+  // Today task IDs are passed as props from parent component
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -159,8 +159,10 @@ export const TaskList: React.FC<TaskListProps> = ({
     }
   };
 
-  const renderTaskCard = (task: Task) => (
-    <TaskCard
+  
+  const renderTaskCard = (task: Task) => {
+    console.log(todayTaskIds, todayTaskIds.includes(task.id.value))
+    return <TaskCard
       key={task.id.value}
       task={task}
       onComplete={onComplete}
@@ -176,7 +178,7 @@ export const TaskList: React.FC<TaskListProps> = ({
       isDraggable={!!onReorder}
     
     />
-  );
+  };
 
   const getCategoryIcon = (category: TaskCategory) => {
     switch (category) {

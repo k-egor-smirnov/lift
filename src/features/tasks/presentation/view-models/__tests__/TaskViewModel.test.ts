@@ -8,6 +8,7 @@ import { TaskRepository } from '../../../../../shared/domain/repositories/TaskRe
 import { CreateTaskUseCase } from '../../../../../shared/application/use-cases/CreateTaskUseCase';
 import { UpdateTaskUseCase } from '../../../../../shared/application/use-cases/UpdateTaskUseCase';
 import { CompleteTaskUseCase } from '../../../../../shared/application/use-cases/CompleteTaskUseCase';
+import { GetTodayTasksUseCase } from '../../../../../shared/application/use-cases/GetTodayTasksUseCase';
 import { ResultUtils } from '../../../../../shared/domain/Result';
 import { createTaskViewModel, TaskViewModelDependencies } from '../TaskViewModel';
 
@@ -39,11 +40,16 @@ const mockCompleteTaskUseCase: CompleteTaskUseCase = {
   execute: vi.fn(),
 } as any;
 
+const mockGetTodayTasksUseCase: GetTodayTasksUseCase = {
+  execute: vi.fn(),
+} as any;
+
 const dependencies: TaskViewModelDependencies = {
   taskRepository: mockTaskRepository,
   createTaskUseCase: mockCreateTaskUseCase,
   updateTaskUseCase: mockUpdateTaskUseCase,
   completeTaskUseCase: mockCompleteTaskUseCase,
+  getTodayTasksUseCase: mockGetTodayTasksUseCase,
 };
 
 // Helper function to create test tasks
@@ -367,6 +373,45 @@ describe('TaskViewModel', () => {
 
       expect(result).toBe(false);
       expect(viewModel.getState().error).toBe('Task not found');
+    });
+  });
+
+  describe('getTodayTaskIds', () => {
+    it('should return today task ids successfully', async () => {
+      const expectedTaskIds = ['task-1', 'task-2', 'task-3'];
+      const mockResponse = {
+        tasks: expectedTaskIds.map(id => ({
+          task: { id },
+          completedInSelection: false,
+          selectedAt: new Date()
+        })),
+        date: '2024-01-01',
+        totalCount: 3,
+        completedCount: 0,
+        activeCount: 3
+      };
+
+      vi.mocked(mockGetTodayTasksUseCase.execute).mockResolvedValue(
+        ResultUtils.ok(mockResponse)
+      );
+
+      const result = await viewModel.getState().getTodayTaskIds();
+
+      expect(result).toEqual(expectedTaskIds);
+      expect(mockGetTodayTasksUseCase.execute).toHaveBeenCalled();
+    });
+
+    it('should handle error when getting today task ids', async () => {
+      const error = { message: 'Failed to get today tasks', code: 'GET_TODAY_TASKS_FAILED' };
+
+      vi.mocked(mockGetTodayTasksUseCase.execute).mockResolvedValue(
+        ResultUtils.error(error as any)
+      );
+
+      const result = await viewModel.getState().getTodayTaskIds();
+
+      expect(result).toEqual([]);
+      expect(viewModel.getState().error).toBe('Failed to get today tasks');
     });
   });
 });

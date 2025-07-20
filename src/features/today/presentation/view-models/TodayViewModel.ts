@@ -29,6 +29,7 @@ export interface TodayViewModelState {
   // Computed properties
   getActiveTasks: () => TodayTaskInfo[];
   getCompletedTasks: () => TodayTaskInfo[];
+  getTodayTaskIds: () => string[];
   isToday: () => boolean;
 }
 
@@ -67,6 +68,11 @@ export const createTodayViewModel = (dependencies: TodayViewModelDependencies) =
     getCompletedTasks: () => {
       const { tasks } = get();
       return tasks.filter(info => info.completedInSelection || info.task.isCompleted);
+    },
+
+    getTodayTaskIds: () => {
+      const { tasks } = get();
+      return tasks.map(info => info.task.id.value);
     },
 
     isToday: () => {

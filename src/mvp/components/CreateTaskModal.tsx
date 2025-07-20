@@ -73,7 +73,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, title, category]);
 
   const handleSubmit = async () => {
     if (!title.trim()) {

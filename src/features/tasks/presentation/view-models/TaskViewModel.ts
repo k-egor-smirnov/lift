@@ -11,6 +11,7 @@ import {
 } from "../../../../shared/application/use-cases/UpdateTaskUseCase";
 import { CompleteTaskUseCase } from "../../../../shared/application/use-cases/CompleteTaskUseCase";
 import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepository";
+import { GetTodayTasksUseCase } from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
 
 /**
  * Task filter options
@@ -48,6 +49,7 @@ export interface TaskViewModelState {
   getTasksByCategory: () => Record<TaskCategory, Task[]>;
   getOverdueTasks: () => Task[];
   getOverdueCount: () => number;
+  getTodayTaskIds: () => Promise<string[]>;
 }
 
 /**
@@ -58,6 +60,7 @@ export interface TaskViewModelDependencies {
   createTaskUseCase: CreateTaskUseCase;
   updateTaskUseCase: UpdateTaskUseCase;
   completeTaskUseCase: CompleteTaskUseCase;
+  getTodayTasksUseCase: GetTodayTasksUseCase;
 }
 
 /**
@@ -71,6 +74,7 @@ export const createTaskViewModel = (
     createTaskUseCase,
     updateTaskUseCase,
     completeTaskUseCase,
+    getTodayTasksUseCase,
   } = dependencies;
 
   return create<TaskViewModelState>((set, get) => ({
@@ -136,6 +140,26 @@ export const createTaskViewModel = (
           task.category === TaskCategory.INBOX &&
           task.isOverdue(overdueDays)
       ).length;
+    },
+
+    getTodayTaskIds: async () => {
+      try {
+        const result = await getTodayTasksUseCase.execute({
+          includeCompleted: true
+        });
+        
+        if (result.success) {
+          return result.data.tasks.map(taskInfo => taskInfo.task.id.value);
+        } else {
+          const errorMessage = (result as any).error.message;
+          set({ error: errorMessage });
+          return [];
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Error getting today task IDs';
+        set({ error: errorMessage });
+        return [];
+      }
     },
 
     // Actions

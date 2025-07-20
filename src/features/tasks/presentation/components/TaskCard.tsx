@@ -40,7 +40,7 @@ interface TaskCardProps {
   isInTodaySelection?: boolean; // New prop to indicate if task is in today's selection
   lastLog?: LogEntry | null; // Last log for this task
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>; // Function to load all logs for this task
-  onCreateLog?: (taskId: string) => void; // Function to create a new log for this task
+  onCreateLog?: (taskId: string, message: string) => Promise<boolean>; // Function to create a new log for this task
   isDraggable?: boolean; // Whether this task card is draggable
 
 }
@@ -233,13 +233,22 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   // Handle new log creation
-  const handleCreateNewLog = () => {
+  const handleCreateNewLog = async () => {
     if (newLogText.trim() && onCreateLog) {
-      // Here we would typically call a function to create the log
-      // For now, we'll just call the existing onCreateLog function
-      onCreateLog(task.id.value);
-      setNewLogText('');
-      setShowNewLogInput(false);
+      try {
+        const success = await onCreateLog(task.id.value, newLogText.trim());
+        if (success) {
+          setNewLogText('');
+          setShowNewLogInput(false);
+          // Reload logs to show the new log
+          if (onLoadTaskLogs) {
+            const logs = await onLoadTaskLogs(task.id.value);
+            setTaskLogs(logs);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to create log:', error);
+      }
     }
   };
 

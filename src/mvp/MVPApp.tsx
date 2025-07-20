@@ -3,12 +3,12 @@ import { TaskCategory } from '../shared/domain/types';
 import { Task } from '../shared/domain/entities/Task';
 import { TaskList } from '../features/tasks/presentation/components/TaskList';
 import { CreateTaskModal } from './components/CreateTaskModal';
-import { CreateLogModal } from './components/CreateLogModal';
+
 import { TodayView } from '../features/today/presentation/components/TodayView';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { createTaskViewModel, TaskViewModelDependencies } from '../features/tasks/presentation/view-models/TaskViewModel';
-import { TodayViewModelDependencies } from '../features/today/presentation/view-models/TodayViewModel';
+import { TodayViewModelDependencies, createTodayViewModel } from '../features/today/presentation/view-models/TodayViewModel';
 import { useKeyboardShortcuts } from '../shared/infrastructure/services/useKeyboardShortcuts';
 import { DailyModalContainer } from '../features/onboarding';
 import { useOnboardingViewModel } from '../features/onboarding/presentation/view-models/OnboardingViewModel';
@@ -31,13 +31,13 @@ import { LogService } from '../shared/application/services/LogService';
 
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isCreateLogModalOpen, setIsCreateLogModalOpen] = useState(false);
-  const [selectedTaskForLog, setSelectedTaskForLog] = useState<string | null>(null);
+
   const [activeView, setActiveView] = useState<'today' | TaskCategory>('today');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
   const [lastLogs, setLastLogs] = useState<Record<string, LogEntry>>({});
+  const [todayTaskIds, setTodayTaskIds] = useState<string[]>([]);
 
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
@@ -57,6 +57,7 @@ export const MVPApp: React.FC = () => {
     createTaskUseCase,
     updateTaskUseCase,
     completeTaskUseCase,
+    getTodayTasksUseCase,
   };
 
   const todayDependencies: TodayViewModelDependencies = {
@@ -66,8 +67,9 @@ export const MVPApp: React.FC = () => {
     completeTaskUseCase,
   };
 
-  // Create the view model instance
+  // Create the view model instances
   const taskViewModel = useMemo(() => createTaskViewModel(taskDependencies), []);
+  const todayViewModel = useMemo(() => createTodayViewModel(todayDependencies), []);
 
   // Initialize keyboard shortcuts
   const { registerShortcut, unregisterShortcut, isEnabled } = useKeyboardShortcuts();
@@ -84,7 +86,11 @@ export const MVPApp: React.FC = () => {
     deleteTask,
     setFilter: setViewModelFilter,
     clearError,
+    getTodayTaskIds: getTaskViewModelTodayTaskIds,
   } = taskViewModel();
+
+  // Subscribe to today view model for getting today task IDs
+  const { getTodayTaskIds } = todayViewModel();
 
   // Initialize database and load tasks on component mount
   useEffect(() => {
@@ -107,8 +113,20 @@ export const MVPApp: React.FC = () => {
   useEffect(() => {
     if (isDbReady && !loading) {
       loadAllTaskLogs();
+      loadTodayTaskIds();
     }
   }, [isDbReady, loading]);
+
+  // Load today task IDs
+  const loadTodayTaskIds = async () => {
+    try {
+      const ids = await getTaskViewModelTodayTaskIds();
+      setTodayTaskIds(ids);
+    } catch (error) {
+      console.error('Error loading today task IDs:', error);
+      setTodayTaskIds([]);
+    }
+  };
 
   // Register keyboard shortcuts
   useEffect(() => {
@@ -217,6 +235,8 @@ export const MVPApp: React.FC = () => {
             const result = await addTaskToTodayUseCase.execute({ taskId: newestTask.id.value });
             if (result.success) {
               console.log('Task automatically added to today');
+              // Reload today task IDs
+              await loadTodayTaskIds();
             } else {
               console.error('Failed to automatically add task to today:', (result as any).error.message);
             }
@@ -262,6 +282,8 @@ export const MVPApp: React.FC = () => {
       const result = await addTaskToTodayUseCase.execute({ taskId });
       if (result.success) {
         console.log('Task added to today successfully');
+        // Reload today task IDs
+        await loadTodayTaskIds();
       } else {
         console.error('Failed to add task to today:', (result as any).error.message);
       }
@@ -300,18 +322,14 @@ export const MVPApp: React.FC = () => {
     setIsCreateModalOpen(true);
   };
 
-  const handleCreateLog = async (message: string): Promise<boolean> => {
-    if (!selectedTaskForLog) {
-      console.error('No task selected for log creation');
-      return false;
-    }
 
+
+  const handleCreateTaskLog = async (taskId: string, message: string): Promise<boolean> => {
     try {
-      const success = await logService.createLog(selectedTaskForLog, message);
+      const success = await logService.createLog(taskId, message);
       if (success) {
         // Reload logs for this task
-        await loadTaskLogs(selectedTaskForLog);
-        setSelectedTaskForLog(null);
+        await loadTaskLogs(taskId);
         return true;
       } else {
         return false;
@@ -320,11 +338,6 @@ export const MVPApp: React.FC = () => {
       console.error('Error creating log:', error);
       return false;
     }
-  };
-
-  const handleCreateTaskLog = (taskId: string) => {
-    setSelectedTaskForLog(taskId);
-    setIsCreateLogModalOpen(true);
   };
 
   const loadTaskLogs = async (taskId: string): Promise<LogEntry[]> => {
@@ -499,6 +512,7 @@ export const MVPApp: React.FC = () => {
                   onCreateLog={handleCreateTaskLog}
                   lastLogs={lastLogs}
                   emptyMessage={`No ${activeView.toLowerCase()} tasks found`}
+                  todayTaskIds={todayTaskIds}
                 />
               )}
             </>
@@ -515,15 +529,7 @@ export const MVPApp: React.FC = () => {
         hideCategorySelection={hideCategorySelection}
       />
 
-      {/* Create Log Modal */}
-      <CreateLogModal
-        isOpen={isCreateLogModalOpen}
-        onClose={() => {
-          setIsCreateLogModalOpen(false);
-          setSelectedTaskForLog(null);
-        }}
-        onSubmit={handleCreateLog}
-      />
+
 
       {/* Daily Modal for onboarding */}
       <DailyModalContainer onReturnTaskToToday={handleReturnTaskToToday} />
