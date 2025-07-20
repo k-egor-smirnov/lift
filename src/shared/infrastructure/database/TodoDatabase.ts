@@ -8,6 +8,7 @@ export interface TaskRecord {
   title: string;
   category: TaskCategory;
   status: TaskStatus;
+  order: number;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
@@ -134,6 +135,40 @@ export class TodoDatabase extends Dexie {
         console.log(
           "Upgrading database to version 2 - adding event store tables"
         );
+      });
+
+    // Version 3 - Add order field to tasks for drag and drop sorting
+    this.version(3)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt",
+        dailySelectionEntries:
+          "++id, [date+taskId], date, taskId, completedFlag, createdAt",
+        taskLogs: "++id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 3 - adding order field to tasks"
+        );
+        // Initialize order field for existing tasks
+        const tasks = await trans.table('tasks').toArray();
+        for (let i = 0; i < tasks.length; i++) {
+          const task = tasks[i];
+          if (task.order === undefined) {
+            await trans.table('tasks').update(task.id, {
+              order: task.createdAt ? new Date(task.createdAt).getTime() : Date.now() + i
+            });
+          }
+        }
       });
 
     // Add hooks for automatic timestamp updates

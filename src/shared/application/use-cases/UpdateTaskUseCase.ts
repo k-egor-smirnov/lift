@@ -16,6 +16,7 @@ export interface UpdateTaskRequest {
   taskId: string;
   title?: string;
   category?: TaskCategory;
+  order?: number;
 }
 
 /**
@@ -80,6 +81,12 @@ export class UpdateTaskUseCase {
       if (request.category !== undefined) {
         const categoryEvents = task.changeCategory(request.category);
         allEvents.push(...categoryEvents);
+      }
+
+      // Update order if provided
+      if (request.order !== undefined) {
+        const orderEvents = task.changeOrder(request.order);
+        allEvents.push(...orderEvents);
       }
 
       // Execute transactional operation including task, syncQueue, and eventStore

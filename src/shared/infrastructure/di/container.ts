@@ -10,6 +10,7 @@ import { DailySelectionRepositoryImpl } from '../repositories/DailySelectionRepo
 // Import use cases
 import { CreateTaskUseCase } from '../../application/use-cases/CreateTaskUseCase';
 import { UpdateTaskUseCase } from '../../application/use-cases/UpdateTaskUseCase';
+import { ReorderTasksUseCase } from '../../application/use-cases/ReorderTasksUseCase';
 import { CompleteTaskUseCase } from '../../application/use-cases/CompleteTaskUseCase';
 import { GetTodayTasksUseCase } from '../../application/use-cases/GetTodayTasksUseCase';
 import { AddTaskToTodayUseCase } from '../../application/use-cases/AddTaskToTodayUseCase';
@@ -40,6 +41,7 @@ export function configureContainer(): void {
   // Register use cases as singletons
   container.registerSingleton(tokens.CREATE_TASK_USE_CASE_TOKEN, CreateTaskUseCase);
   container.registerSingleton(tokens.UPDATE_TASK_USE_CASE_TOKEN, UpdateTaskUseCase);
+  container.registerSingleton(tokens.REORDER_TASKS_USE_CASE_TOKEN, ReorderTasksUseCase);
   container.registerSingleton(tokens.COMPLETE_TASK_USE_CASE_TOKEN, CompleteTaskUseCase);
   container.registerSingleton(tokens.GET_TODAY_TASKS_USE_CASE_TOKEN, GetTodayTasksUseCase);
   container.registerSingleton(tokens.ADD_TASK_TO_TODAY_USE_CASE_TOKEN, AddTaskToTodayUseCase);

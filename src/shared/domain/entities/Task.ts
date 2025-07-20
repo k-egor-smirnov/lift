@@ -30,6 +30,7 @@ export class Task {
   private _title: NonEmptyTitle;
   private _category: TaskCategory;
   private _status: TaskStatus;
+  private _order: number;
   private _updatedAt: Date;
   private _deletedAt?: Date;
   private _wasEverReviewed: boolean = false;
@@ -40,6 +41,7 @@ export class Task {
     title: NonEmptyTitle,
     category: TaskCategory,
     status: TaskStatus = TaskStatus.ACTIVE,
+    order: number = Date.now(),
     public readonly createdAt: Date = new Date(),
     updatedAt: Date = new Date(),
     deletedAt?: Date,
@@ -48,6 +50,7 @@ export class Task {
     this._title = title;
     this._category = category;
     this._status = status;
+    this._order = order;
     this._updatedAt = updatedAt;
     this._deletedAt = deletedAt;
     
@@ -69,6 +72,10 @@ export class Task {
 
   get status(): TaskStatus {
     return this._status;
+  }
+
+  get order(): number {
+    return this._order;
   }
 
   get updatedAt(): Date {
@@ -109,6 +116,7 @@ export class Task {
       title,
       category,
       TaskStatus.ACTIVE,
+      now.getTime(), // Use timestamp as default order
       now,
       now,
       undefined,
@@ -205,6 +213,24 @@ export class Task {
   }
 
   /**
+   * Change the task's order
+   */
+  changeOrder(newOrder: number): DomainEvent[] {
+    if (this.isDeleted) {
+      throw new InvalidTaskOperationError('Cannot change order of deleted task');
+    }
+
+    if (this._order === newOrder) {
+      return []; // No change needed
+    }
+
+    this._order = newOrder;
+    this._updatedAt = new Date();
+
+    return []; // No specific domain event for order change
+  }
+
+  /**
    * Check if task is overdue (only applies to INBOX tasks)
    */
   isOverdue(overdueDays: number): boolean {
@@ -248,6 +274,7 @@ export class Task {
     title?: NonEmptyTitle;
     category?: TaskCategory;
     status?: TaskStatus;
+    order?: number;
     updatedAt?: Date;
     deletedAt?: Date;
   }): Task {
@@ -256,6 +283,7 @@ export class Task {
       updates.title ?? this._title,
       updates.category ?? this._category,
       updates.status ?? this._status,
+      updates.order ?? this._order,
       this.createdAt,
       updates.updatedAt ?? this._updatedAt,
       updates.deletedAt ?? this._deletedAt,

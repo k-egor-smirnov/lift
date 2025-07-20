@@ -1,8 +1,27 @@
-import React from 'react';
-import { Task } from '../../../../shared/domain/entities/Task';
-import { TaskCategory } from '../../../../shared/domain/types';
-import { LogEntry } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
-import { TaskCard } from './TaskCard';
+import React, { useState } from "react";
+import { Task } from "../../../../shared/domain/entities/Task";
+import { TaskCategory } from "../../../../shared/domain/types";
+import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import { TaskCard } from "./TaskCard";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { restrictToWindowEdges } from "@dnd-kit/modifiers";
+import { motion } from "framer-motion";
 
 interface TaskListProps {
   tasks: Task[];
@@ -13,37 +32,12 @@ interface TaskListProps {
   onEdit: (taskId: string, newTitle: string) => void;
   onDelete: (taskId: string) => void;
   onAddToToday?: (taskId: string) => void;
+  onReorder?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string) => void;
   lastLogs?: Record<string, LogEntry>;
   emptyMessage?: string;
 }
-
-const getCategoryTitle = (category: TaskCategory): string => {
-  switch (category) {
-    case TaskCategory.SIMPLE:
-      return '⚡ Simple Tasks';
-    case TaskCategory.FOCUS:
-      return '🎯 Focus Tasks';
-    case TaskCategory.INBOX:
-      return '📥 Inbox';
-    default:
-      return 'Tasks';
-  }
-};
-
-const getCategoryDescription = (category: TaskCategory): string => {
-  switch (category) {
-    case TaskCategory.SIMPLE:
-      return 'Quick tasks that can be done easily';
-    case TaskCategory.FOCUS:
-      return 'Important tasks that require focused attention';
-    case TaskCategory.INBOX:
-      return 'Tasks that need to be reviewed and categorized';
-    default:
-      return '';
-  }
-};
 
 export const TaskList: React.FC<TaskListProps> = ({
   tasks,
@@ -54,110 +48,209 @@ export const TaskList: React.FC<TaskListProps> = ({
   onEdit,
   onDelete,
   onAddToToday,
+  onReorder,
   onLoadTaskLogs,
   onCreateLog,
   lastLogs = {},
-  emptyMessage = 'No tasks found',
+  emptyMessage = "No tasks found",
 }) => {
-  if (tasks.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="text-gray-400 text-6xl mb-4">📝</div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No Tasks</h3>
-        <p className="text-gray-500">{emptyMessage}</p>
-      </div>
-    );
-  }
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
+    null
+  );
 
-  if (!groupByCategory) {
-    return (
-      <div className="space-y-4">
-        {tasks.map((task) => (
-          <TaskCard
-            key={task.id.value}
-            task={task}
-            onComplete={onComplete}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onAddToToday={onAddToToday}
-            showTodayButton={showTodayButton}
-            isOverdue={task.category === TaskCategory.INBOX && task.isOverdue(overdueDays)}
-            lastLog={lastLogs[task.id.value] || null}
-            onLoadTaskLogs={onLoadTaskLogs}
-            onCreateLog={onCreateLog}
-          />
-        ))}
-      </div>
-    );
-  }
+  // Sort tasks by order field first
+  const sortedTasks = [...tasks].sort((a, b) => a.order - b.order);
 
-  // Group tasks by category
-  const tasksByCategory = tasks.reduce((acc, task) => {
-    if (!acc[task.category]) {
-      acc[task.category] = [];
+  // Calculate overdue and today task IDs
+  const overdueTaskIds = sortedTasks
+    .filter(
+      (task) =>
+        task.category === TaskCategory.INBOX && task.isOverdue(overdueDays)
+    )
+    .map((task) => task.id.value);
+
+  // For today task IDs, we would need to get this from props or context
+  // For now, we'll pass an empty array
+  const todayTaskIds: string[] = [];
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Custom modifier to apply drag offset
+  const applyDragOffset = ({
+    transform,
+  }: {
+    transform: { x: number; y: number; scaleX: number; scaleY: number };
+  }) => {
+    if (!dragOffset) return transform;
+
+    return {
+      ...transform,
+      x: transform.x - dragOffset.x,
+      y: transform.y - dragOffset.y,
+    };
+  };
+
+  // Group tasks by category if needed
+  const groupedTasks = groupByCategory
+    ? sortedTasks.reduce((acc, task) => {
+        const category = task.category;
+        if (!acc[category]) {
+          acc[category] = [];
+        }
+        acc[category].push(task);
+        return acc;
+      }, {} as Record<TaskCategory, Task[]>)
+    : { all: sortedTasks };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const task = sortedTasks.find((t) => t.id.value === active.id);
+    setActiveTask(task || null);
+
+    // // Calculate offset from click point to element's top-left corner
+    // const activatorEvent = (event as any).activatorEvent;
+
+    // if (
+    //   activatorEvent &&
+    //   activatorEvent.clientX !== undefined &&
+    //   activatorEvent.clientY !== undefined
+    // ) {
+    //   // Get the actual DOM element to calculate its bounding rect
+    //   const element = document.querySelector(`#task-${active.id}`);
+
+    //   if (element) {
+    //     const rect = element.getBoundingClientRect();
+    //     setDragOffset({
+    //       x: activatorEvent.clientX - rect.left,
+    //       y: activatorEvent.clientY - rect.top,
+    //     });
+    //   }
+    // }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+    setDragOffset(null);
+
+    if (!over || active.id === over.id) {
+      return;
     }
-    acc[task.category].push(task);
-    return acc;
-  }, {} as Record<TaskCategory, Task[]>);
 
-  // Define category order
-  const categoryOrder = [TaskCategory.INBOX, TaskCategory.FOCUS, TaskCategory.SIMPLE];
+    if (onReorder) {
+      const oldIndex = sortedTasks.findIndex((task) => task.id.value === active.id);
+      const newIndex = sortedTasks.findIndex((task) => task.id.value === over.id);
+      const newTasks = arrayMove(sortedTasks, oldIndex, newIndex);
+      onReorder(newTasks);
+    }
+  };
+
+  const renderTaskCard = (task: Task) => (
+    <TaskCard
+      key={task.id.value}
+      task={task}
+      onComplete={onComplete}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      onAddToToday={onAddToToday}
+      showTodayButton={showTodayButton}
+      isOverdue={overdueTaskIds.includes(task.id.value)}
+      isInTodaySelection={todayTaskIds.includes(task.id.value)}
+      lastLog={lastLogs[task.id.value] || null}
+      onLoadTaskLogs={onLoadTaskLogs}
+      onCreateLog={onCreateLog}
+      isDraggable={!!onReorder}
+    />
+  );
+
+  const renderCategoryHeader = (category: TaskCategory, taskCount: number) => (
+    <div key={`header-${category}`} className="mb-4">
+      <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
+        <span className="text-xl">
+          {category === TaskCategory.SIMPLE && "⚡"}
+          {category === TaskCategory.FOCUS && "🎯"}
+          {category === TaskCategory.INBOX && "📥"}
+        </span>
+        {category}
+        <span className="text-sm font-normal text-gray-500">({taskCount})</span>
+      </h3>
+    </div>
+  );
+
+  if (sortedTasks.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        <p>{emptyMessage}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      {categoryOrder.map((category) => {
-        const categoryTasks = tasksByCategory[category] || [];
-        if (categoryTasks.length === 0) return null;
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      modifiers={[restrictToWindowEdges]}
+    >
+      <div className="space-y-4">
+        {Object.entries(groupedTasks).map(([categoryKey, categoryTasks]) => {
+          const category = categoryKey as TaskCategory;
+          const taskIds = categoryTasks.map((task) => task.id.value);
 
-        const overdueCount = category === TaskCategory.INBOX 
-          ? categoryTasks.filter(task => task.isOverdue(overdueDays)).length 
-          : 0;
-
-        return (
-          <div key={category} className="space-y-4">
-            {/* Category Header */}
-            <div className="border-b border-gray-200 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                    {getCategoryTitle(category)}
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                      {categoryTasks.length}
-                    </span>
-                    {overdueCount > 0 && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 animate-pulse">
-                        {overdueCount} overdue
-                      </span>
-                    )}
-                  </h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {getCategoryDescription(category)}
-                  </p>
+          return (
+            <div key={category}>
+              {groupByCategory &&
+                renderCategoryHeader(category, categoryTasks.length)}
+              <SortableContext
+                items={taskIds}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {categoryTasks.map(renderTaskCard)}
                 </div>
-              </div>
+              </SortableContext>
             </div>
+          );
+        })}
+      </div>
 
-            {/* Category Tasks */}
-            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-              {categoryTasks.map((task) => (
-                <TaskCard
-                  key={task.id.value}
-                  task={task}
-                  onComplete={onComplete}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onAddToToday={onAddToToday}
-                  showTodayButton={showTodayButton}
-                  isOverdue={task.category === TaskCategory.INBOX && task.isOverdue(overdueDays)}
-                  lastLog={lastLogs[task.id.value] || null}
-                  onLoadTaskLogs={onLoadTaskLogs}
-                  onCreateLog={onCreateLog}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+      <DragOverlay modifiers={[applyDragOffset, restrictToWindowEdges]}>
+        {activeTask ? (
+          <motion.div
+            className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-xs"
+            initial={{ scale: 0.8, opacity: 0.8 }}
+            animate={{ scale: 1, opacity: 1 }}
+            style={{
+              width: "32px",
+              height: "32px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "12px",
+              fontWeight: "bold",
+              color: "#374151",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            data-testid="drag-overlay"
+          >
+            {activeTask.title.value}
+          </motion.div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 };

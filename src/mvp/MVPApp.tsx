@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { TaskCategory } from '../shared/domain/types';
+import { Task } from '../shared/domain/entities/Task';
 import { TaskList } from '../features/tasks/presentation/components/TaskList';
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { CreateLogModal } from './components/CreateLogModal';
@@ -20,6 +21,7 @@ import { TodoDatabase } from '../shared/infrastructure/database/TodoDatabase';
 import { TaskRepository } from '../shared/domain/repositories/TaskRepository';
 import { CreateTaskUseCase } from '../shared/application/use-cases/CreateTaskUseCase';
 import { UpdateTaskUseCase } from '../shared/application/use-cases/UpdateTaskUseCase';
+import { ReorderTasksUseCase } from '../shared/application/use-cases/ReorderTasksUseCase';
 import { CompleteTaskUseCase } from '../shared/application/use-cases/CompleteTaskUseCase';
 import { GetTodayTasksUseCase } from '../shared/application/use-cases/GetTodayTasksUseCase';
 import { AddTaskToTodayUseCase } from '../shared/application/use-cases/AddTaskToTodayUseCase';
@@ -41,6 +43,7 @@ export const MVPApp: React.FC = () => {
   const taskRepository = getService<TaskRepository>(tokens.TASK_REPOSITORY_TOKEN);
   const createTaskUseCase = getService<CreateTaskUseCase>(tokens.CREATE_TASK_USE_CASE_TOKEN);
   const updateTaskUseCase = getService<UpdateTaskUseCase>(tokens.UPDATE_TASK_USE_CASE_TOKEN);
+  const reorderTasksUseCase = getService<ReorderTasksUseCase>(tokens.REORDER_TASKS_USE_CASE_TOKEN);
   const completeTaskUseCase = getService<CompleteTaskUseCase>(tokens.COMPLETE_TASK_USE_CASE_TOKEN);
   const getTodayTasksUseCase = getService<GetTodayTasksUseCase>(tokens.GET_TODAY_TASKS_USE_CASE_TOKEN);
   const addTaskToTodayUseCase = getService<AddTaskToTodayUseCase>(tokens.ADD_TASK_TO_TODAY_USE_CASE_TOKEN);
@@ -318,6 +321,24 @@ export const MVPApp: React.FC = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
+  const handleReorderTasks = async (reorderedTasks: Task[]) => {
+    try {
+      // Create task orders array with new order values
+      const taskOrders = reorderedTasks.map((task, index) => ({
+        taskId: task.id.value,
+        order: Date.now() + index // Use timestamp + index to ensure unique ordering
+      }));
+
+      // Execute reorder use case
+      await reorderTasksUseCase.execute({ taskOrders });
+      
+      // Reload tasks to reflect the new order
+      await loadTasks();
+    } catch (error) {
+      console.error('Error reordering tasks:', error);
+    }
+  };
+
 
 
   const tasksByCategory = getTasksByCategory();
@@ -421,6 +442,7 @@ export const MVPApp: React.FC = () => {
                   onEdit={handleEditTask}
                   onDelete={handleDeleteTask}
                   onAddToToday={handleAddToToday}
+                  onReorder={handleReorderTasks}
                   onLoadTaskLogs={loadTaskLogs}
                   onCreateLog={handleCreateTaskLog}
                   lastLogs={lastLogs}

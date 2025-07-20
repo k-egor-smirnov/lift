@@ -13,6 +13,7 @@ export const DAILY_SELECTION_REPOSITORY_TOKEN = Symbol('DailySelectionRepository
 // Use Cases
 export const CREATE_TASK_USE_CASE_TOKEN = Symbol('CreateTaskUseCase');
 export const UPDATE_TASK_USE_CASE_TOKEN = Symbol('UpdateTaskUseCase');
+export const REORDER_TASKS_USE_CASE_TOKEN = Symbol('ReorderTasksUseCase');
 export const COMPLETE_TASK_USE_CASE_TOKEN = Symbol('CompleteTaskUseCase');
 export const GET_TODAY_TASKS_USE_CASE_TOKEN = Symbol('GetTodayTasksUseCase');
 export const ADD_TASK_TO_TODAY_USE_CASE_TOKEN = Symbol('AddTaskToTodayUseCase');

@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { TaskCard } from '../../../tasks/presentation/components/TaskCard';
+import { TaskList } from '../../../tasks/presentation/components/TaskList';
 import { LogEntry } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
 import { createTodayViewModel, TodayViewModelDependencies } from '../view-models/TodayViewModel';
+import { Task } from '../../../../shared/domain/entities/Task';
 
 interface TodayViewProps {
   dependencies: TodayViewModelDependencies;
   onEditTask?: (taskId: string, newTitle: string) => void;
   onDeleteTask?: (taskId: string) => void;
+  onReorderTasks?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string) => void;
   lastLogs?: Record<string, LogEntry>;
@@ -16,6 +18,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   dependencies,
   onEditTask,
   onDeleteTask,
+  onReorderTasks,
   onLoadTaskLogs,
   onCreateLog,
   lastLogs = {},
@@ -282,24 +285,19 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   {activeTasks.length}
                 </span>
               </h2>
-              <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2" role="list">
-                {activeTasks.map((taskInfo) => (
-                  <div key={taskInfo.task.id.value} role="listitem">
-                    <TaskCard
-                      task={taskInfo.task}
-                      onComplete={handleCompleteTask}
-                      onEdit={handleEditTask}
-                      onDelete={handleDeleteTask}
-                      onAddToToday={handleToggleToday}
-                      showTodayButton={true}
-                      isInTodaySelection={true}
-                      lastLog={lastLogs[taskInfo.task.id.value] || null}
-                      onLoadTaskLogs={onLoadTaskLogs}
-                      onCreateLog={onCreateLog}
-                    />
-                  </div>
-                ))}
-              </div>
+              <TaskList
+                tasks={activeTasks.map(taskInfo => taskInfo.task)}
+                onComplete={handleCompleteTask}
+                onEdit={handleEditTask}
+                onDelete={handleDeleteTask}
+                onAddToToday={handleToggleToday}
+                onReorder={onReorderTasks}
+                showTodayButton={true}
+                lastLogs={lastLogs}
+                onLoadTaskLogs={onLoadTaskLogs}
+                onCreateLog={onCreateLog}
+                groupByCategory={false}
+              />
             </section>
           )}
 
@@ -312,24 +310,19 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   {completedTasks.length}
                 </span>
               </h2>
-              <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2" role="list">
-                {completedTasks.map((taskInfo) => (
-                  <div key={taskInfo.task.id.value} role="listitem">
-                    <TaskCard
-                      task={taskInfo.task}
-                      onComplete={handleCompleteTask}
-                      onEdit={handleEditTask}
-                      onDelete={handleDeleteTask}
-                      onAddToToday={handleToggleToday}
-                      showTodayButton={true}
-                      isInTodaySelection={true}
-                      lastLog={lastLogs[taskInfo.task.id.value] || null}
-                      onLoadTaskLogs={onLoadTaskLogs}
-                      onCreateLog={onCreateLog}
-                    />
-                  </div>
-                ))}
-              </div>
+              <TaskList
+                tasks={completedTasks.map(taskInfo => taskInfo.task)}
+                onComplete={handleCompleteTask}
+                onEdit={handleEditTask}
+                onDelete={handleDeleteTask}
+                onAddToToday={handleToggleToday}
+                onReorder={onReorderTasks}
+                showTodayButton={true}
+                lastLogs={lastLogs}
+                onLoadTaskLogs={onLoadTaskLogs}
+                onCreateLog={onCreateLog}
+                groupByCategory={false}
+              />
             </section>
           )}
         </>

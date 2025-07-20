@@ -25,7 +25,7 @@ export class TaskRepositoryImpl implements TaskRepository {
   async findAll(): Promise<Task[]> {
     const records = await this.db.tasks
       .filter(record => !record.deletedAt)
-      .toArray();
+      .sortBy('order');
     
     return records.map(record => this.mapRecordToEntity(record));
   }
@@ -35,7 +35,7 @@ export class TaskRepositoryImpl implements TaskRepository {
       .where('category')
       .equals(category)
       .and(record => !record.deletedAt)
-      .toArray();
+      .sortBy('order');
     
     return records.map(record => this.mapRecordToEntity(record));
   }
@@ -45,7 +45,7 @@ export class TaskRepositoryImpl implements TaskRepository {
       .where('status')
       .equals(status)
       .and(record => !record.deletedAt)
-      .toArray();
+      .sortBy('order');
     
     return records.map(record => this.mapRecordToEntity(record));
   }
@@ -55,7 +55,7 @@ export class TaskRepositoryImpl implements TaskRepository {
       .where('category')
       .equals(category)
       .and(record => record.status === status && !record.deletedAt)
-      .toArray();
+      .sortBy('order');
     
     return records.map(record => this.mapRecordToEntity(record));
   }
@@ -73,7 +73,7 @@ export class TaskRepositoryImpl implements TaskRepository {
         record.inboxEnteredAt !== undefined && 
         record.inboxEnteredAt <= cutoffDate
       )
-      .toArray();
+      .sortBy('order');
     
     return records.map(record => this.mapRecordToEntity(record));
   }
@@ -120,6 +120,7 @@ export class TaskRepositoryImpl implements TaskRepository {
       new NonEmptyTitle(record.title),
       record.category,
       record.status,
+      record.order,
       record.createdAt,
       record.updatedAt,
       record.deletedAt,
@@ -136,6 +137,7 @@ export class TaskRepositoryImpl implements TaskRepository {
       title: task.title.value,
       category: task.category,
       status: task.status,
+      order: task.order,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       deletedAt: task.deletedAt,
