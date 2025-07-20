@@ -46,7 +46,10 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <>
-      <header className="bg-background border-b px-4 py-4 fixed h-16 w-full z-40" role="banner">
+      <header
+        className="bg-background border-b px-4 py-4 fixed h-16 w-full md:w-[calc(100%-256px)] z-40"
+        role="banner"
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Button
@@ -61,7 +64,9 @@ export const Header: React.FC<HeaderProps> = ({
             </Button>
 
             <div className="flex items-center space-x-3">
-              <span className="text-2xl" aria-hidden="true">{getViewIcon(activeView)}</span>
+              <span className="text-2xl" aria-hidden="true">
+                {getViewIcon(activeView)}
+              </span>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">
                   {getViewTitle(activeView)}

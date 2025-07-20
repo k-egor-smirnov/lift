@@ -43,8 +43,21 @@ export class DateOnly extends ValueObject<string> {
 
   /**
    * Create DateOnly from today's date
+   * In dev mode, checks for mocked date in localStorage
    */
   static today(): DateOnly {
+    // Check for dev mode mocked date
+    if (typeof window !== 'undefined') {
+      const mockedDate = localStorage.getItem('__dev_mocked_date__');
+      if (mockedDate) {
+        const date = new Date(mockedDate);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return new DateOnly(`${year}-${month}-${day}`);
+      }
+    }
+    
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');

@@ -11,6 +11,8 @@ import { TodayViewModelDependencies } from '../features/today/presentation/view-
 import { useKeyboardShortcuts } from '../shared/infrastructure/services/useKeyboardShortcuts';
 import { DailyModalContainer } from '../features/onboarding';
 import { LogEntry } from '../shared/application/use-cases/GetTaskLogsUseCase';
+import { DevDailyModalSimulator } from './components/DevDailyModalSimulator';
+import { DevTimeSimulator } from './components/DevTimeSimulator';
 
 // Import DI container and tokens
 import { getService, tokens } from '../shared/infrastructure/di';
@@ -316,6 +318,8 @@ export const MVPApp: React.FC = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
+
+
   const tasksByCategory = getTasksByCategory();
   const taskCounts: Record<TaskCategory, number> = {
     [TaskCategory.INBOX]: tasksByCategory[TaskCategory.INBOX]?.length || 0,
@@ -449,6 +453,16 @@ export const MVPApp: React.FC = () => {
 
       {/* Daily Modal for onboarding */}
       <DailyModalContainer />
+
+      {/* Dev Daily Modal Simulator - only show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <DevDailyModalSimulator />
+      )}
+
+      {/* Dev Time Simulator - only show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <DevTimeSimulator />
+      )}
     </div>
   );
 };
