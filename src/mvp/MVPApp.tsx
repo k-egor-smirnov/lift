@@ -5,6 +5,7 @@ import { TaskList } from '../features/tasks/presentation/components/TaskList';
 import { CreateTaskModal } from './components/CreateTaskModal';
 
 import { TodayView } from '../features/today/presentation/components/TodayView';
+import { TodayMobileView } from '../features/today/presentation/components/TodayMobileView';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { createTaskViewModel, TaskViewModelDependencies } from '../features/tasks/presentation/view-models/TaskViewModel';
@@ -38,6 +39,14 @@ export const MVPApp: React.FC = () => {
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
   const [lastLogs, setLastLogs] = useState<Record<string, LogEntry>>({});
   const [todayTaskIds, setTodayTaskIds] = useState<string[]>([]);
+
+  // Check if device is mobile and in development mode
+  const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           window.innerWidth <= 768;
+  };
+  
+  const shouldUseMobileView = process.env.NODE_ENV === 'development' && isMobile() && activeView === 'today';
 
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
@@ -403,6 +412,26 @@ export const MVPApp: React.FC = () => {
     }
   };
 
+  const handleMobileCreateTask = async (title: string): Promise<void> => {
+    try {
+      const success = await createTask({ title, category: TaskCategory.INBOX });
+      if (success) {
+        // Get the newly created task and add it to today
+        const tasks = await taskRepository.findAll();
+        const newestTask = tasks.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+        
+        if (newestTask) {
+          const result = await addTaskToTodayUseCase.execute({ taskId: newestTask.id.value });
+          if (result.success) {
+            await loadTodayTaskIds();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error creating task from mobile view:', error);
+    }
+  };
+
 
 
   const tasksByCategory = getTasksByCategory();
@@ -427,6 +456,23 @@ export const MVPApp: React.FC = () => {
   // Get the current category for modal
   const currentCategory = activeView === 'today' ? TaskCategory.INBOX : activeView;
   const hideCategorySelection = activeView !== 'today';
+
+  // If mobile view should be used, render it directly without sidebar/header
+  if (shouldUseMobileView) {
+    return (
+      <TodayMobileView
+        dependencies={todayDependencies}
+        onEditTask={handleEditTask}
+        onDeleteTask={handleDeleteTask}
+        onReorderTasks={handleReorderTasks}
+        onLoadTaskLogs={loadTaskLogs}
+        onCreateLog={handleCreateTaskLog}
+        lastLogs={lastLogs}
+        onRefresh={handleTodayRefresh}
+        onCreateTask={handleMobileCreateTask}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
