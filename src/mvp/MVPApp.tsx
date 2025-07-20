@@ -288,16 +288,32 @@ export const MVPApp: React.FC = () => {
 
   const handleAddToToday = async (taskId: string) => {
     try {
-      const result = await addTaskToTodayUseCase.execute({ taskId });
-      if (result.success) {
-        console.log('Task added to today successfully');
-        // Reload today task IDs
-        await loadTodayTaskIds();
+      // Check if task is already in today's selection
+      const isInToday = todayTaskIds.includes(taskId);
+      
+      if (isInToday) {
+        // Remove from today
+        const result = await removeTaskFromTodayUseCase.execute({ taskId });
+        if (result.success) {
+          console.log('Task removed from today successfully');
+          // Reload today task IDs
+          await loadTodayTaskIds();
+        } else {
+          console.error('Failed to remove task from today:', (result as any).error.message);
+        }
       } else {
-        console.error('Failed to add task to today:', (result as any).error.message);
+        // Add to today
+        const result = await addTaskToTodayUseCase.execute({ taskId });
+        if (result.success) {
+          console.log('Task added to today successfully');
+          // Reload today task IDs
+          await loadTodayTaskIds();
+        } else {
+          console.error('Failed to add task to today:', (result as any).error.message);
+        }
       }
     } catch (error) {
-      console.error('Error adding task to today:', error);
+      console.error('Error toggling task in today:', error);
     }
   };
 
