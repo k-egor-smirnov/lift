@@ -1,4 +1,6 @@
 import React from 'react';
+import { Settings, User, AlertTriangle, FileText, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { LogEntry } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
 
 interface TaskLogListProps {
@@ -11,16 +13,16 @@ interface TaskLogListProps {
   showTaskId?: boolean;
 }
 
-const getLogTypeIcon = (type: 'SYSTEM' | 'USER' | 'CONFLICT'): string => {
+const getLogTypeIcon = (type: 'SYSTEM' | 'USER' | 'CONFLICT') => {
   switch (type) {
     case 'SYSTEM':
-      return '⚙️';
+      return Settings;
     case 'USER':
-      return '👤';
+      return User;
     case 'CONFLICT':
-      return '⚠️';
+      return AlertTriangle;
     default:
-      return '📝';
+      return FileText;
   }
 };
 
@@ -37,7 +39,7 @@ const getLogTypeColor = (type: 'SYSTEM' | 'USER' | 'CONFLICT'): string => {
   }
 };
 
-const formatDate = (date: Date): string => {
+const formatDate = (date: Date, t: any): string => {
   const now = new Date();
   const diffInMs = now.getTime() - date.getTime();
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
@@ -45,34 +47,34 @@ const formatDate = (date: Date): string => {
   const diffInDays = Math.floor(diffInHours / 24);
 
   if (diffInMinutes < 1) {
-    return 'Just now';
+    return t('timeAgo.justNow');
   } else if (diffInMinutes < 60) {
-    return `${diffInMinutes}m ago`;
+    return t('timeAgo.minutesAgo', { count: diffInMinutes });
   } else if (diffInHours < 24) {
-    return `${diffInHours}h ago`;
+    return t('timeAgo.hoursAgo', { count: diffInHours });
   } else if (diffInDays < 7) {
-    return `${diffInDays}d ago`;
+    return t('timeAgo.daysAgo', { count: diffInDays });
   } else {
     return date.toLocaleDateString();
   }
 };
 
-const formatMetadata = (metadata?: Record<string, any>): string | null => {
+const formatMetadata = (metadata?: Record<string, any>, t?: any): string | null => {
   if (!metadata || Object.keys(metadata).length === 0) {
     return null;
   }
 
   // Handle common metadata patterns
   if (metadata.oldCategory && metadata.newCategory) {
-    return `Changed from ${metadata.oldCategory} to ${metadata.newCategory}`;
+    return t ? t('logs.changedCategory', { from: metadata.oldCategory, to: metadata.newCategory }) : `Changed from ${metadata.oldCategory} to ${metadata.newCategory}`;
   }
 
   if (metadata.oldTitle && metadata.newTitle) {
-    return `Title changed from "${metadata.oldTitle}" to "${metadata.newTitle}"`;
+    return t ? t('logs.changedTitle', { from: metadata.oldTitle, to: metadata.newTitle }) : `Title changed from "${metadata.oldTitle}" to "${metadata.newTitle}"`;
   }
 
   if (metadata.entityType && metadata.winner) {
-    return `Conflict resolved: ${metadata.winner} version selected`;
+    return t ? t('logs.conflictResolved', { winner: metadata.winner }) : `Conflict resolved: ${metadata.winner} version selected`;
   }
 
   // Generic metadata display
@@ -90,11 +92,15 @@ export const TaskLogList: React.FC<TaskLogListProps> = ({
   emptyMessage = 'No logs found',
   showTaskId = false,
 }) => {
+  const { t } = useTranslation();
+  
   if (error) {
     return (
       <div className="text-center py-8">
-        <div className="text-red-400 text-4xl mb-4">⚠️</div>
-        <h3 className="text-lg font-medium text-red-900 mb-2">Error Loading Logs</h3>
+        <div className="mb-4 flex justify-center">
+          <AlertTriangle className="w-10 h-10 text-red-400" />
+        </div>
+        <h3 className="text-lg font-medium text-red-900 mb-2">{t('logs.errorLoading')}</h3>
         <p className="text-red-600">{error}</p>
       </div>
     );
@@ -103,8 +109,10 @@ export const TaskLogList: React.FC<TaskLogListProps> = ({
   if (loading && logs.length === 0) {
     return (
       <div className="text-center py-8">
-        <div className="animate-spin text-4xl mb-4">⏳</div>
-        <p className="text-gray-500">Loading logs...</p>
+        <div className="mb-4 flex justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+        </div>
+        <p className="text-gray-500">{t('logs.loading')}</p>
       </div>
     );
   }
@@ -112,8 +120,10 @@ export const TaskLogList: React.FC<TaskLogListProps> = ({
   if (logs.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="text-gray-400 text-6xl mb-4">📝</div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No Logs</h3>
+        <div className="mb-4 flex justify-center">
+          <FileText className="w-16 h-16 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">{t('logs.noLogs')}</h3>
         <p className="text-gray-500">{emptyMessage}</p>
       </div>
     );
@@ -132,7 +142,7 @@ export const TaskLogList: React.FC<TaskLogListProps> = ({
               <div className="flex items-start space-x-3 flex-1">
                 {/* Log type indicator */}
                 <div className="flex-shrink-0">
-                  <span className="text-lg">{getLogTypeIcon(log.type)}</span>
+                  {React.createElement(getLogTypeIcon(log.type), { className: 'w-5 h-5 text-gray-600' })}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -147,11 +157,11 @@ export const TaskLogList: React.FC<TaskLogListProps> = ({
                     </span>
                     {showTaskId && log.taskId && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                        Task: {log.taskId.slice(-8)}
+                        {t('logs.task')}: {log.taskId.slice(-8)}
                       </span>
                     )}
                     <span className="text-sm text-gray-500">
-                      {formatDate(log.createdAt)}
+                      {formatDate(log.createdAt, t)}
                     </span>
                   </div>
 
@@ -163,9 +173,9 @@ export const TaskLogList: React.FC<TaskLogListProps> = ({
                   {/* Metadata */}
                   {log.metadata && (
                     <div className="mt-2">
-                      {formatMetadata(log.metadata) && (
+                      {formatMetadata(log.metadata, t) && (
                         <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
-                          {formatMetadata(log.metadata)}
+                          {formatMetadata(log.metadata, t)}
                         </p>
                       )}
                     </div>
@@ -187,11 +197,11 @@ export const TaskLogList: React.FC<TaskLogListProps> = ({
           >
             {loading ? (
               <>
-                <span className="animate-spin mr-2">⏳</span>
-                Loading...
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                {t('logs.loading')}
               </>
             ) : (
-              'Load More'
+              t('logs.loadMore')
             )}
           </button>
         </div>

@@ -1,4 +1,6 @@
 import React from 'react';
+import { Check, Zap, Target, Inbox } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { DailyStatistics, WeeklyStatistics, MonthlyStatistics } from '../../application/services/StatisticsService';
 import { StatsPeriod } from '../view-models/StatsViewModel';
 
@@ -10,48 +12,50 @@ interface StatsCardsProps {
 interface StatCard {
   title: string;
   value: number;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   color: string;
   bgColor: string;
   description: string;
 }
 
 export const StatsCards: React.FC<StatsCardsProps> = ({ stats, period }) => {
+  const { t } = useTranslation();
+  
   const getCards = (): StatCard[] => {
     const totalCompleted = stats.simpleCompleted + stats.focusCompleted;
     
     return [
       {
-        title: 'Total Completed',
+        title: t('stats.totalCompleted'),
         value: totalCompleted,
-        icon: '✅',
+        icon: Check,
         color: 'text-green-600',
         bgColor: 'bg-green-50',
-        description: `Tasks completed this ${period}`
+        description: t('stats.totalCompletedDesc', { period: t(`periods.${period}`) })
       },
       {
-        title: 'Simple Tasks',
+        title: t('stats.simpleTasks'),
         value: stats.simpleCompleted,
-        icon: '⚡',
+        icon: Zap,
         color: 'text-blue-600',
         bgColor: 'bg-blue-50',
-        description: `Quick tasks completed this ${period}`
+        description: t('stats.simpleTasksDesc', { period: t(`periods.${period}`) })
       },
       {
-        title: 'Focus Tasks',
+        title: t('stats.focusTasks'),
         value: stats.focusCompleted,
-        icon: '🎯',
+        icon: Target,
         color: 'text-purple-600',
         bgColor: 'bg-purple-50',
-        description: `Important tasks completed this ${period}`
+        description: t('stats.focusTasksDesc', { period: t(`periods.${period}`) })
       },
       {
-        title: 'Inbox Reviewed',
+        title: t('stats.inboxReviewed'),
         value: stats.inboxReviewed,
-        icon: '📥',
+        icon: Inbox,
         color: 'text-orange-600',
         bgColor: 'bg-orange-50',
-        description: `Tasks moved from inbox this ${period}`
+        description: t('stats.inboxReviewedDesc', { period: t(`periods.${period}`) })
       }
     ];
   };
@@ -67,7 +71,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ stats, period }) => {
         >
           <div className="flex items-center justify-between mb-4">
             <div className={`p-3 rounded-lg ${card.bgColor}`}>
-              <span className="text-2xl">{card.icon}</span>
+              <card.icon className="w-6 h-6 text-gray-600" />
             </div>
             <div className="text-right">
               <div className={`text-3xl font-bold ${card.color}`}>

@@ -1,4 +1,6 @@
 import React from "react";
+import { Sun, Zap, Target, Inbox } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
 import { cn } from "../../shared/lib/utils";
@@ -12,14 +14,14 @@ interface SidebarProps {
   onMobileMenuClose: () => void;
 }
 
-const getCategoryInfo = (category: TaskCategory) => {
+const getCategoryInfo = (category: TaskCategory, t: any) => {
   switch (category) {
     case TaskCategory.SIMPLE:
-      return { icon: "⚡", name: "Simple" };
+      return { icon: Zap, name: t('categories.simple') };
     case TaskCategory.FOCUS:
-      return { icon: "🎯", name: "Focus" };
+      return { icon: Target, name: t('categories.focus') };
     case TaskCategory.INBOX:
-      return { icon: "📥", name: "Inbox" };
+      return { icon: Inbox, name: t('categories.inbox') };
   }
 };
 
@@ -30,17 +32,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileMenuOpen,
   onMobileMenuClose,
 }) => {
+  const { t } = useTranslation();
+  
   const menuItems = [
     {
       id: "today" as const,
-      icon: "☀️",
-      name: "Today",
+      icon: Sun,
+      name: t('navigation.today'),
       count: null,
     },
     ...Object.values(TaskCategory).map((category) => ({
       id: category,
-      icon: getCategoryInfo(category).icon,
-      name: getCategoryInfo(category).name,
+      icon: getCategoryInfo(category, t).icon,
+      name: getCategoryInfo(category, t).name,
       count: taskCounts[category] || 0,
     })),
   ];
@@ -100,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             role="listitem"
           >
             <div className="flex items-center space-x-3">
-              <span className="text-lg" aria-hidden="true">{item.icon}</span>
+              <item.icon className="w-5 h-5" aria-hidden="true" />
               <span className="font-medium">{item.name}</span>
             </div>
             {item.count !== null && (

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
+import { Zap, Target, Inbox } from 'lucide-react';
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory } from "../../../../shared/domain/types";
-import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { TaskCard } from "./TaskCard";
+import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import {
   DndContext,
   closestCenter,
@@ -10,8 +11,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent,
   DragStartEvent,
+  DragEndEvent,
   DragOverlay,
 } from "@dnd-kit/core";
 import {
@@ -37,6 +38,7 @@ interface TaskListProps {
   onCreateLog?: (taskId: string) => void;
   lastLogs?: Record<string, LogEntry>;
   emptyMessage?: string;
+
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -53,6 +55,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   onCreateLog,
   lastLogs = {},
   emptyMessage = "No tasks found",
+
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
@@ -171,22 +174,35 @@ export const TaskList: React.FC<TaskListProps> = ({
       onLoadTaskLogs={onLoadTaskLogs}
       onCreateLog={onCreateLog}
       isDraggable={!!onReorder}
+    
     />
   );
 
-  const renderCategoryHeader = (category: TaskCategory, taskCount: number) => (
-    <div key={`header-${category}`} className="mb-4">
-      <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
-        <span className="text-xl">
-          {category === TaskCategory.SIMPLE && "⚡"}
-          {category === TaskCategory.FOCUS && "🎯"}
-          {category === TaskCategory.INBOX && "📥"}
-        </span>
-        {category}
-        <span className="text-sm font-normal text-gray-500">({taskCount})</span>
-      </h3>
-    </div>
-  );
+  const getCategoryIcon = (category: TaskCategory) => {
+    switch (category) {
+      case TaskCategory.SIMPLE:
+        return Zap;
+      case TaskCategory.FOCUS:
+        return Target;
+      case TaskCategory.INBOX:
+        return Inbox;
+      default:
+        return Zap;
+    }
+  };
+
+  const renderCategoryHeader = (category: TaskCategory, taskCount: number) => {
+    const CategoryIcon = getCategoryIcon(category);
+    return (
+      <div key={`header-${category}`} className="mb-4">
+        <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
+          <CategoryIcon className="w-5 h-5" />
+          {category}
+          <span className="text-sm font-normal text-gray-500">({taskCount})</span>
+        </h3>
+      </div>
+    );
+  };
 
   if (sortedTasks.length === 0) {
     return (

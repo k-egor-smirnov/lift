@@ -11,6 +11,7 @@ import { createTaskViewModel, TaskViewModelDependencies } from '../features/task
 import { TodayViewModelDependencies } from '../features/today/presentation/view-models/TodayViewModel';
 import { useKeyboardShortcuts } from '../shared/infrastructure/services/useKeyboardShortcuts';
 import { DailyModalContainer } from '../features/onboarding';
+import { useOnboardingViewModel } from '../features/onboarding/presentation/view-models/OnboardingViewModel';
 import { LogEntry } from '../shared/application/use-cases/GetTaskLogsUseCase';
 import { DevDailyModalSimulator } from './components/DevDailyModalSimulator';
 import { DevTimeSimulator } from './components/DevTimeSimulator';
@@ -203,6 +204,27 @@ export const MVPApp: React.FC = () => {
     const success = await createTask({ title, category });
     if (success) {
       setIsCreateModalOpen(false);
+      
+      // If we're on the Today view, automatically add the newly created task to today
+      if (activeView === 'today') {
+        try {
+          // Get the newly created task ID from the task repository
+          // Since we just created the task, it should be the most recent one
+          const tasks = await taskRepository.findAll();
+          const newestTask = tasks.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+          
+          if (newestTask) {
+            const result = await addTaskToTodayUseCase.execute({ taskId: newestTask.id.value });
+            if (result.success) {
+              console.log('Task automatically added to today');
+            } else {
+              console.error('Failed to automatically add task to today:', (result as any).error.message);
+            }
+          }
+        } catch (error) {
+          console.error('Error automatically adding task to today:', error);
+        }
+      }
     }
     return success;
   };
@@ -245,6 +267,28 @@ export const MVPApp: React.FC = () => {
       }
     } catch (error) {
       console.error('Error adding task to today:', error);
+    }
+  };
+
+  const handleReturnTaskToToday = async (taskId: string) => {
+    try {
+      const result = await addTaskToTodayUseCase.execute({ taskId });
+      if (result.success) {
+        console.log('Task returned to today successfully');
+        
+        // Refresh the daily modal data to remove the task from modal lists
+        const { loadDailyModalData } = useOnboardingViewModel.getState();
+        await loadDailyModalData();
+        
+        // If we're on the Today view, refresh the today tasks to show the returned task
+        if (activeView === 'today') {
+          await handleTodayRefresh();
+        }
+      } else {
+        console.error('Failed to return task to today:', (result as any).error.message);
+      }
+    } catch (error) {
+      console.error('Error returning task to today:', error);
     }
   };
 
@@ -336,6 +380,13 @@ export const MVPApp: React.FC = () => {
       await loadTasks();
     } catch (error) {
       console.error('Error reordering tasks:', error);
+    }
+  };
+
+  const handleTodayRefresh = async () => {
+    // Call the TodayView refresh function if available
+    if ((window as any).__todayViewRefresh) {
+      await (window as any).__todayViewRefresh();
     }
   };
 
@@ -432,6 +483,7 @@ export const MVPApp: React.FC = () => {
                   onLoadTaskLogs={loadTaskLogs}
                   onCreateLog={handleCreateTaskLog}
                   lastLogs={lastLogs}
+                  onRefresh={handleTodayRefresh}
                 />
               ) : (
                 <TaskList
@@ -474,7 +526,7 @@ export const MVPApp: React.FC = () => {
       />
 
       {/* Daily Modal for onboarding */}
-      <DailyModalContainer />
+      <DailyModalContainer onReturnTaskToToday={handleReturnTaskToToday} />
 
       {/* Dev Daily Modal Simulator - only show in development */}
       {process.env.NODE_ENV === 'development' && (

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Zap, Target, Inbox, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { TaskCategory } from '../../../../shared/domain/types';
 
 interface CreateTaskModalProps {
@@ -9,27 +11,27 @@ interface CreateTaskModalProps {
   initialCategory?: TaskCategory;
 }
 
-const getCategoryInfo = (category: TaskCategory) => {
+const getCategoryInfo = (category: TaskCategory, t: any) => {
   switch (category) {
     case TaskCategory.SIMPLE:
       return {
-        icon: '⚡',
-        name: 'Simple',
-        description: 'Quick tasks that can be completed easily',
+        icon: Zap,
+        name: t('categories.simple'),
+        description: t('categories.simpleDescription'),
         color: 'border-green-200 bg-green-50 text-green-800',
       };
     case TaskCategory.FOCUS:
       return {
-        icon: '🎯',
-        name: 'Focus',
-        description: 'Important tasks requiring focused attention',
+        icon: Target,
+        name: t('categories.focus'),
+        description: t('categories.focusDescription'),
         color: 'border-blue-200 bg-blue-50 text-blue-800',
       };
     case TaskCategory.INBOX:
       return {
-        icon: '📥',
-        name: 'Inbox',
-        description: 'Tasks to be reviewed and categorized later',
+        icon: Inbox,
+        name: t('categories.inbox'),
+        description: t('categories.inboxDescription'),
         color: 'border-gray-200 bg-gray-50 text-gray-800',
       };
   }
@@ -42,6 +44,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   initialTitle = '',
   initialCategory = TaskCategory.INBOX,
 }) => {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(initialTitle);
   const [category, setCategory] = useState(initialCategory);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,7 +77,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      setError('Task title is required');
+      setError(t('createTaskModal.titleRequired'));
       return;
     }
 
@@ -88,10 +91,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         setTitle('');
         setCategory(TaskCategory.INBOX);
       } else {
-        setError('Failed to create task. Please try again.');
+        setError(t('createTaskModal.failedToCreate'));
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError(t('createTaskModal.unexpectedError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -113,16 +116,14 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              Create New Task
+              {t('createTaskModal.title')}
             </h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
             >
-              <span className="sr-only">Close</span>
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <span className="sr-only">{t('common.close')}</span>
+              <X className="h-6 w-6" />
             </button>
           </div>
 
@@ -133,9 +134,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               <div className="bg-red-50 border border-red-200 rounded-md p-3">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
+                    <AlertCircle className="h-5 w-5 text-red-400" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-red-800">{error}</p>
@@ -147,14 +146,14 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             {/* Task Title */}
             <div>
               <label htmlFor="task-title" className="block text-sm font-medium text-gray-700 mb-2">
-                Task Title
+                {t('createTaskModal.taskTitle')}
               </label>
               <input
                 id="task-title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter task title..."
+                placeholder={t('createTaskModal.enterTitle')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 autoFocus
                 disabled={isSubmitting}
@@ -164,11 +163,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             {/* Category Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Category
+                {t('createTaskModal.category')}
               </label>
               <div className="space-y-3">
                 {Object.values(TaskCategory).map((cat) => {
-                  const info = getCategoryInfo(cat);
+                  const info = getCategoryInfo(cat, t);
                   const isSelected = category === cat;
                   
                   return (
@@ -192,16 +191,16 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                         disabled={isSubmitting}
                       />
                       <div className="flex items-start">
-                        <div className="text-2xl mr-3">{info.icon}</div>
+                        <div className="mr-3">
+                          {React.createElement(info.icon, { className: 'w-6 h-6' })}
+                        </div>
                         <div className="flex-1">
                           <div className="flex items-center">
                             <span className="text-sm font-medium text-gray-900">
                               {info.name}
                             </span>
                             {isSelected && (
-                              <svg className="ml-2 h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
+                              <CheckCircle className="ml-2 h-5 w-5 text-blue-600" />
                             )}
                           </div>
                           <p className="text-sm text-gray-600 mt-1">
@@ -223,22 +222,21 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
               disabled={isSubmitting}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSubmit}
               disabled={isSubmitting || !title.trim()}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isSubmitting ? 'Creating...' : 'Create Task'}
+              {isSubmitting ? t('createTaskModal.creating') : t('createTaskModal.createTask')}
             </button>
           </div>
 
           {/* Keyboard shortcuts hint */}
           <div className="px-6 pb-4">
             <p className="text-xs text-gray-500">
-              Press <kbd className="px-1 py-0.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded">Esc</kbd> to cancel, 
-              <kbd className="px-1 py-0.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded ml-1">Cmd+Enter</kbd> to create
+              {t('createTaskModal.keyboardHints')}
             </p>
           </div>
         </div>

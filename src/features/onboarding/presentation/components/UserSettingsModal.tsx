@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { Settings, X, AlertCircle, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useUserSettingsViewModel } from '../view-models/UserSettingsViewModel';
 
 interface UserSettingsModalProps {
@@ -13,6 +15,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   isVisible,
   onClose
 }) => {
+  const { t } = useTranslation();
   const {
     settings,
     isLoading,
@@ -53,7 +56,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   };
 
   const handleResetToDefaults = async () => {
-    if (confirm('Are you sure you want to reset all settings to defaults?')) {
+    if (confirm(t('settings.confirmReset'))) {
       await resetToDefaults();
     }
   };
@@ -71,17 +74,18 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
         {/* Header */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Settings ⚙️
-            </h2>
+            <div className="flex items-center space-x-2">
+              <Settings className="w-6 h-6 text-gray-600" />
+              <h2 className="text-xl font-semibold text-gray-900">
+                {t('settings.title')}
+              </h2>
+            </div>
             <button
               onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="Close settings"
+              aria-label={t('common.close')}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-6 h-6" />
             </button>
           </div>
         </div>
@@ -91,8 +95,8 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
           {/* Loading State */}
           {isLoading && (
             <div className="text-center py-8">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-600">Loading settings...</p>
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-gray-600">{t('settings.loading')}</p>
             </div>
           )}
 
@@ -100,9 +104,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
           {error && (
             <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
               <div className="flex items-center">
-                <svg className="w-5 h-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
                 <p className="text-red-800 text-sm">{error}</p>
               </div>
             </div>
@@ -114,10 +116,10 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
               {/* Inbox Overdue Days Setting */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Inbox Overdue Days
+                  {t('settings.inboxOverdueDays')}
                 </label>
                 <p className="text-sm text-gray-600 mb-3">
-                  Tasks in the inbox are considered overdue after this many days
+                  {t('settings.inboxOverdueDaysDesc')}
                 </p>
                 <div className="flex items-center space-x-3">
                   <input
@@ -133,18 +135,18 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                   </div>
                 </div>
                 <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>1 day</span>
-                  <span>30 days</span>
+                  <span>{t('settings.oneDay')}</span>
+                  <span>{t('settings.thirtyDays')}</span>
                 </div>
               </div>
 
               {/* Keyboard Shortcuts Setting */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Keyboard Shortcuts
+                  {t('settings.keyboardShortcuts')}
                 </label>
                 <p className="text-sm text-gray-600 mb-3">
-                  Enable keyboard shortcuts for faster navigation and task management
+                  {t('settings.keyboardShortcutsDesc')}
                 </p>
                 <div className="flex items-center">
                   <button
@@ -160,18 +162,18 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                     />
                   </button>
                   <span className="ml-3 text-sm text-gray-700">
-                    {localKeyboardShortcuts ? 'Enabled' : 'Disabled'}
+                    {localKeyboardShortcuts ? t('common.enabled') : t('common.disabled')}
                   </span>
                 </div>
                 {localKeyboardShortcuts && (
                   <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-blue-800 font-medium mb-2">Available shortcuts:</p>
+                    <p className="text-sm text-blue-800 font-medium mb-2">{t('settings.availableShortcuts')}:</p>
                     <ul className="text-xs text-blue-700 space-y-1">
-                      <li><kbd className="px-1 py-0.5 bg-blue-200 rounded">N</kbd> - New task</li>
-                      <li><kbd className="px-1 py-0.5 bg-blue-200 rounded">T</kbd> - Today view</li>
-                      <li><kbd className="px-1 py-0.5 bg-blue-200 rounded">I</kbd> - Inbox view</li>
-                      <li><kbd className="px-1 py-0.5 bg-blue-200 rounded">S</kbd> - Simple tasks</li>
-                      <li><kbd className="px-1 py-0.5 bg-blue-200 rounded">F</kbd> - Focus tasks</li>
+                      <li><kbd className="px-1 py-0.5 bg-blue-200 rounded">N</kbd> - {t('shortcuts.newTask')}</li>
+                      <li><kbd className="px-1 py-0.5 bg-blue-200 rounded">T</kbd> - {t('shortcuts.todayView')}</li>
+                      <li><kbd className="px-1 py-0.5 bg-blue-200 rounded">I</kbd> - {t('shortcuts.inboxView')}</li>
+                      <li><kbd className="px-1 py-0.5 bg-blue-200 rounded">S</kbd> - {t('shortcuts.simpleTasks')}</li>
+                      <li><kbd className="px-1 py-0.5 bg-blue-200 rounded">F</kbd> - {t('shortcuts.focusTasks')}</li>
                     </ul>
                   </div>
                 )}
@@ -187,13 +189,13 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
             disabled={isLoading}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Reset to Defaults
+            {t('settings.resetToDefaults')}
           </button>
           <button
             onClick={handleClose}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
           >
-            Done
+            {t('common.done')}
           </button>
         </div>
       </div>

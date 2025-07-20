@@ -4,6 +4,7 @@ import { useDailyModal } from '../hooks/useDailyModal';
 
 interface DailyModalContainerProps {
   overdueDays?: number;
+  onReturnTaskToToday?: (taskId: string) => void;
 }
 
 /**
@@ -11,7 +12,8 @@ interface DailyModalContainerProps {
  * This should be included in the main app component
  */
 export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
-  overdueDays
+  overdueDays,
+  onReturnTaskToToday
 }) => {
   const {
     dailyModalData,
@@ -39,6 +41,7 @@ export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
       motivationalMessage={dailyModalData.motivationalMessage}
       date={dailyModalData.date}
       onClose={hideDailyModal}
+      onReturnTaskToToday={onReturnTaskToToday}
     />
   );
 };

@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { Sun, FileText, Zap, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { TaskList } from '../../../tasks/presentation/components/TaskList';
 import { LogEntry } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
 import { createTodayViewModel, TodayViewModelDependencies } from '../view-models/TodayViewModel';
 import { Task } from '../../../../shared/domain/entities/Task';
+
 
 interface TodayViewProps {
   dependencies: TodayViewModelDependencies;
@@ -12,6 +15,7 @@ interface TodayViewProps {
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string) => void;
   lastLogs?: Record<string, LogEntry>;
+  onRefresh?: () => Promise<void>;
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({
@@ -22,8 +26,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onLoadTaskLogs,
   onCreateLog,
   lastLogs = {},
+  onRefresh,
 }) => {
+  const { t } = useTranslation();
   const [todayViewModel] = useState(() => createTodayViewModel(dependencies));
+
 
   // Subscribe to the view model state
   const {
@@ -35,6 +42,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
     activeCount,
     loadTodayTasks,
     removeTaskFromToday,
+    addTaskToToday,
     completeTask,
     refreshToday,
     clearError,
@@ -47,6 +55,19 @@ export const TodayView: React.FC<TodayViewProps> = ({
   useEffect(() => {
     loadTodayTasks();
   }, [loadTodayTasks]);
+
+  // Expose refresh function to parent component
+  useEffect(() => {
+    if (onRefresh) {
+      // Store the refresh function reference for external calls
+      (window as any).__todayViewRefresh = refreshToday;
+    }
+    return () => {
+      if ((window as any).__todayViewRefresh) {
+        delete (window as any).__todayViewRefresh;
+      }
+    };
+  }, [onRefresh, refreshToday]);
 
   // Auto-refresh when it becomes a new day (daily reset handling)
   useEffect(() => {
@@ -95,6 +116,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
     }
   };
 
+
+
   const activeTasks = getActiveTasks();
   const completedTasks = getCompletedTasks();
 
@@ -129,14 +152,14 @@ export const TodayView: React.FC<TodayViewProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3">
-              <span className="text-3xl sm:text-4xl" aria-hidden="true">☀️</span>
+              <Sun className="w-8 h-8 sm:w-10 sm:h-10 text-orange-500" />
               {formatDate(currentDate)}
             </h1>
             <p className="mt-2 text-sm sm:text-base text-gray-600">
-              Focus on your selected tasks for the day
+              {t('todayView.focusOnTasks')}
             </p>
           </div>
-          <div className="mt-4 sm:mt-0">
+          <div className="mt-4 sm:mt-0 flex gap-2">
             <button
               onClick={refreshToday}
               disabled={loading}
@@ -157,11 +180,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
             <div className="p-4 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="text-xl sm:text-2xl" aria-hidden="true">📋</div>
+                  <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-gray-600" />
                 </div>
                 <div className="ml-4 sm:ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Tasks</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate">{t('todayView.totalTasks')}</dt>
                     <dd className="text-lg font-medium text-gray-900" aria-label={`${totalCount} total tasks`}>{totalCount}</dd>
                   </dl>
                 </div>
@@ -173,11 +196,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
             <div className="p-4 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="text-xl sm:text-2xl" aria-hidden="true">⚡</div>
+                  <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500" />
                 </div>
                 <div className="ml-4 sm:ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Active</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate">{t('todayView.active')}</dt>
                     <dd className="text-lg font-medium text-gray-900" aria-label={`${activeCount} active tasks`}>{activeCount}</dd>
                   </dl>
                 </div>
@@ -189,11 +212,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
             <div className="p-4 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="text-xl sm:text-2xl" aria-hidden="true">✅</div>
+                  <Check className="w-6 h-6 sm:w-8 sm:h-8 text-green-500" />
                 </div>
                 <div className="ml-4 sm:ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Completed</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate">{t('todayView.completed')}</dt>
                     <dd className="text-lg font-medium text-gray-900" aria-label={`${completedCount} completed tasks`}>{completedCount}</dd>
                   </dl>
                 </div>
@@ -206,9 +229,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
         {totalCount > 0 && (
           <div className="mt-6" role="region" aria-label="Task completion progress">
             <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-              <span>Progress</span>
+              <span>{t('todayView.progress')}</span>
               <span aria-label={`${Math.round((completedCount / totalCount) * 100)} percent complete`}>
-                {Math.round((completedCount / totalCount) * 100)}% complete
+                {Math.round((completedCount / totalCount) * 100)}% {t('todayView.complete')}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2" role="progressbar" aria-valuenow={Math.round((completedCount / totalCount) * 100)} aria-valuemin={0} aria-valuemax={100}>
@@ -260,17 +283,21 @@ export const TodayView: React.FC<TodayViewProps> = ({
       {/* Content */}
       {!loading && (
         <>
+
+
           {/* Empty State */}
           {totalCount === 0 && (
             <div className="text-center py-8 sm:py-12" role="region" aria-label="Empty state">
-              <div className="text-gray-400 text-4xl sm:text-6xl mb-4" aria-hidden="true">☀️</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Tasks Selected</h3>
+              <div className="mb-4 flex justify-center">
+                <Sun className="w-16 h-16 sm:w-24 sm:h-24 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('todayView.noTasksSelected')}</h3>
               <p className="text-gray-500 mb-6 px-4 sm:px-0">
-                Start by adding tasks to your daily selection using the sun icon (☀️) on any task.
+                {t('todayView.startByAdding')}
               </p>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
                 <p className="text-sm text-blue-800">
-                  <strong>Tip:</strong> The daily selection resets each day, so you can focus on what's important today.
+                  <strong>{t('todayView.tip')}:</strong> {t('todayView.dailySelectionResets')}
                 </p>
               </div>
             </div>
@@ -280,7 +307,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
           {activeTasks.length > 0 && (
             <section className="mb-8" aria-labelledby="active-tasks-heading">
               <h2 id="active-tasks-heading" className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span><span aria-hidden="true">⚡</span> Active Tasks</span>
+                <span className="flex items-center gap-2"><Zap className="w-5 h-5 text-yellow-500" /> {t('todayView.activeTasks')}</span>
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800" aria-label={`${activeTasks.length} active tasks`}>
                   {activeTasks.length}
                 </span>
@@ -297,6 +324,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onLoadTaskLogs={onLoadTaskLogs}
                 onCreateLog={onCreateLog}
                 groupByCategory={false}
+
               />
             </section>
           )}
@@ -305,7 +333,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
           {completedTasks.length > 0 && (
             <section aria-labelledby="completed-tasks-heading">
               <h2 id="completed-tasks-heading" className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span><span aria-hidden="true">✅</span> Completed Tasks</span>
+                <span className="flex items-center gap-2"><Check className="w-5 h-5 text-green-500" /> {t('todayView.completedTasks')}</span>
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800" aria-label={`${completedTasks.length} completed tasks`}>
                   {completedTasks.length}
                 </span>
@@ -322,6 +350,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onLoadTaskLogs={onLoadTaskLogs}
                 onCreateLog={onCreateLog}
                 groupByCategory={false}
+
               />
             </section>
           )}

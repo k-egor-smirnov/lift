@@ -9,6 +9,25 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
+import { useTranslation } from 'react-i18next';
+import { 
+  Zap, 
+  Target, 
+  Inbox, 
+  FileText, 
+  Sun, 
+  Trash2, 
+  Check, 
+  Undo2, 
+  Plus, 
+  ChevronDown, 
+  ChevronUp,
+  Settings,
+  User,
+  AlertTriangle,
+  X
+} from 'lucide-react';
+
 
 interface TaskCardProps {
   task: Task;
@@ -23,6 +42,7 @@ interface TaskCardProps {
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>; // Function to load all logs for this task
   onCreateLog?: (taskId: string) => void; // Function to create a new log for this task
   isDraggable?: boolean; // Whether this task card is draggable
+
 }
 
 const getCategoryColor = (category: TaskCategory): string => {
@@ -38,16 +58,29 @@ const getCategoryColor = (category: TaskCategory): string => {
   }
 };
 
-const getCategoryIcon = (category: TaskCategory): string => {
+const getCategoryIcon = (category: TaskCategory) => {
   switch (category) {
     case TaskCategory.SIMPLE:
-      return "⚡"; // Lightning for quick tasks
+      return Zap;
     case TaskCategory.FOCUS:
-      return "🎯"; // Target for focus tasks
+      return Target;
     case TaskCategory.INBOX:
-      return "📥"; // Inbox for inbox tasks
+      return Inbox;
     default:
-      return "📝";
+      return FileText;
+  }
+};
+
+const getLogTypeIcon = (type: "SYSTEM" | "USER" | "CONFLICT") => {
+  switch (type) {
+    case "SYSTEM":
+      return Settings;
+    case "USER":
+      return User;
+    case "CONFLICT":
+      return AlertTriangle;
+    default:
+      return FileText;
   }
 };
 
@@ -64,14 +97,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onLoadTaskLogs,
   onCreateLog,
   isDraggable = false,
+
 }) => {
+  const { t } = useTranslation();
   const [showLogHistory, setShowLogHistory] = useState(false);
   const [taskLogs, setTaskLogs] = useState<LogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title.value);
+  const [newLogText, setNewLogText] = useState('');
+  const [showNewLogInput, setShowNewLogInput] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+  const newLogInputRef = useRef<HTMLInputElement>(null);
 
   // Drag and drop functionality
   const {
@@ -95,7 +133,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const isDraggingState = isDragging;
 
   const categoryColor = getCategoryColor(task.category);
-  const categoryIcon = getCategoryIcon(task.category);
+  const CategoryIcon = getCategoryIcon(task.category);
   const isCompleted = task.status === TaskStatus.COMPLETED;
   const isTouch = isTouchDevice();
 
@@ -138,6 +176,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [isEditing]);
 
+  // Focus new log input when it appears
+  useEffect(() => {
+    if (showNewLogInput && newLogInputRef.current) {
+      newLogInputRef.current.focus();
+    }
+  }, [showNewLogInput]);
+
   // Handle edit mode
   const handleStartEdit = () => {
     setIsEditing(true);
@@ -179,6 +224,32 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       }
     }
     setShowLogHistory(!showLogHistory);
+    if (!showLogHistory) {
+      setShowNewLogInput(true);
+    } else {
+      setShowNewLogInput(false);
+      setNewLogText('');
+    }
+  };
+
+  // Handle new log creation
+  const handleCreateNewLog = () => {
+    if (newLogText.trim() && onCreateLog) {
+      // Here we would typically call a function to create the log
+      // For now, we'll just call the existing onCreateLog function
+      onCreateLog(task.id.value);
+      setNewLogText('');
+      setShowNewLogInput(false);
+    }
+  };
+
+  const handleNewLogKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleCreateNewLog();
+    } else if (e.key === 'Escape') {
+      setShowNewLogInput(false);
+      setNewLogText('');
+    }
   };
 
   // Format log date for display
@@ -190,29 +261,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     const diffInDays = Math.floor(diffInHours / 24);
 
     if (diffInMinutes < 1) {
-      return "Just now";
+      return t('taskCard.justNow');
     } else if (diffInMinutes < 60) {
-      return `${diffInMinutes}m ago`;
+      return t('taskCard.minutesAgo', { count: diffInMinutes });
     } else if (diffInHours < 24) {
-      return `${diffInHours}h ago`;
+      return t('taskCard.hoursAgo', { count: diffInHours });
     } else if (diffInDays < 7) {
-      return `${diffInDays}d ago`;
+      return t('taskCard.daysAgo', { count: diffInDays });
     } else {
       return date.toLocaleDateString();
-    }
-  };
-
-  // Get log type icon
-  const getLogTypeIcon = (type: "SYSTEM" | "USER" | "CONFLICT"): string => {
-    switch (type) {
-      case "SYSTEM":
-        return "⚙️";
-      case "USER":
-        return "👤";
-      case "CONFLICT":
-        return "⚠️";
-      default:
-        return "📝";
     }
   };
 
@@ -271,8 +328,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         {/* Touch gesture help for mobile */}
         {isTouch && (
           <div id={`touch-help-${task.id.value}`} className="sr-only">
-            Swipe right to complete, swipe left to add to today, tap to edit,
-            long press to add log
+            {t('taskCard.touchHelp')}
           </div>
         )}
         {/* Header with category and actions */}
@@ -284,12 +340,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               ${categoryColor}
             `}
             >
-              <span className="mr-1">{categoryIcon}</span>
-              {task.category}
+              <CategoryIcon className="w-3 h-3 mr-1" />
+              {t(`categories.${task.category.toLowerCase()}`)}
             </span>
             {isOverdue && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                ⚠️ Overdue
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                {t('taskCard.overdue')}
               </span>
             )}
           </div>
@@ -297,8 +354,30 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <div
             className="flex items-center gap-1"
             role="toolbar"
-            aria-label="Task actions"
+            aria-label={t('taskCard.taskActions')}
           >
+            {!isCompleted && (
+              <button
+                onClick={() => onComplete(task.id.value)}
+                className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                title={t('taskCard.completeTask')}
+                aria-label={t('taskCard.markTaskAsComplete', { title: task.title.value })}
+              >
+                <Check className="w-4 h-4" />
+              </button>
+            )}
+            
+            {isCompleted && (
+              <button
+                onClick={() => onComplete(task.id.value)}
+                className="p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                title={t('taskCard.revertTask')}
+                aria-label={t('taskCard.revertCompletion', { title: task.title.value })}
+              >
+                <Undo2 className="w-4 h-4" />
+              </button>
+            )}
+
             {showTodayButton && onAddToToday && (
               <button
                 onClick={() => onAddToToday(task.id.value)}
@@ -308,24 +387,25 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     : "text-gray-400 hover:text-gray-500 hover:bg-gray-50 focus:ring-gray-500"
                 }`}
                 title={
-                  isInTodaySelection ? "Remove from Today" : "Add to Today"
+                  isInTodaySelection ? t('taskCard.removeFromToday') : t('taskCard.addToToday')
                 }
                 aria-label={
                   isInTodaySelection
-                    ? "Remove task from today's selection"
-                    : "Add task to today's selection"
+                    ? t('taskCard.removeTaskFromToday')
+                    : t('taskCard.addTaskToToday')
                 }
               >
-                <span aria-hidden="true">☀️</span>
+                <Sun className="w-4 h-4" />
               </button>
             )}
+
             <button
               onClick={() => onDelete(task.id.value)}
               className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              title="Delete Task"
-              aria-label={`Delete task: ${task.title.value}`}
+              title={t('taskCard.deleteTask')}
+              aria-label={t('taskCard.deleteTaskWithTitle', { title: task.title.value })}
             >
-              <span aria-hidden="true">🗑️</span>
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -347,16 +427,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <button
                 onClick={handleSaveEdit}
                 className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors"
-                title="Save"
+                title={t('taskCard.save')}
               >
-                ✓
+                <Check className="w-4 h-4" />
               </button>
               <button
                 onClick={handleCancelEdit}
                 className="p-1 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
-                title="Cancel"
+                title={t('taskCard.cancel')}
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
           ) : (
@@ -375,100 +455,40 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               }}
               tabIndex={0}
               role="button"
-              aria-label={`Edit task: ${task.title.value}`}
+              aria-label={t('taskCard.editTask', { title: task.title.value })}
             >
               {task.title.value}
             </h3>
           )}
         </div>
 
-        {/* Task metadata */}
-        <div
-          id={`task-meta-${task.id.value}`}
-          className="flex items-center justify-between text-sm text-gray-500 mb-3"
-        >
-          <div className="flex items-center gap-4">
-            <time dateTime={task.createdAt.toISOString()}>
-              Created: {task.createdAt.toLocaleDateString()}
-            </time>
-            {task.updatedAt.getTime() !== task.createdAt.getTime() && (
-              <time dateTime={task.updatedAt.toISOString()}>
-                Updated: {task.updatedAt.toLocaleDateString()}
-              </time>
-            )}
-          </div>
-          {task.category === TaskCategory.INBOX && task.inboxEnteredAt && (
-            <span
-              className="text-xs"
-              aria-label={`Task has been in inbox for ${Math.floor(
-                (Date.now() - task.inboxEnteredAt.getTime()) /
-                  (1000 * 60 * 60 * 24)
-              )} days`}
-            >
-              In inbox for{" "}
-              {Math.floor(
-                (Date.now() - task.inboxEnteredAt.getTime()) /
-                  (1000 * 60 * 60 * 24)
-              )}{" "}
-              days
-            </span>
-          )}
-        </div>
 
-        {/* Logs section */}
+
+        {/* Logs section - compact */}
         {(lastLog || onCreateLog) && (
           <div className="mb-3">
-            {/* Log preview - single line */}
-            <div
-              className="p-2 bg-gray-50 rounded-md border cursor-pointer hover:bg-gray-100 transition-colors"
-              onClick={handleToggleLogHistory}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 flex-1 min-w-0">
-                  {lastLog ? (
-                    <>
-                      <span
-                        className={`text-xs ${getLogTypeColor(lastLog.type)}`}
-                      >
-                        {getLogTypeIcon(lastLog.type)}
-                      </span>
-                      <p className="text-sm text-gray-900 truncate flex-1">
-                        {lastLog.message}
-                      </p>
-                      <span className="text-xs text-gray-500 whitespace-nowrap">
-                        {formatLogDate(lastLog.createdAt)}
-                      </span>
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-500">No logs yet</p>
-                  )}
+            {/* Compact log display */}
+            <div className="text-xs text-gray-500 mb-1">
+              {lastLog ? (
+                <div 
+                  className="cursor-pointer hover:text-gray-700 transition-colors"
+                  onClick={handleToggleLogHistory}
+                >
+                  {t('taskCard.lastLog')}: {lastLog.message} ({formatLogDate(lastLog.createdAt)})
                 </div>
-                <div className="flex items-center space-x-1 ml-2">
-                  {onCreateLog && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCreateLog(task.id.value);
-                      }}
-                      className="p-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      title="Add Log"
-                      aria-label={`Add log to task: ${task.title.value}`}
-                    >
-                      <span aria-hidden="true">➕</span>
-                    </button>
-                  )}
-                  {onLoadTaskLogs && (
-                    <span className="text-gray-400" aria-hidden="true">
-                      {showLogHistory ? "🔼" : "🔽"}
-                    </span>
-                  )}
+              ) : (
+                <div 
+                  className="cursor-pointer hover:text-gray-700 transition-colors"
+                  onClick={handleToggleLogHistory}
+                >
+                  {t('taskCard.noLogsYet')}
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Expandable log history */}
+        {/* Expandable log history with inline editing */}
         {showLogHistory && (
           <div
             id={`log-history-${task.id.value}`}
@@ -481,122 +501,119 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 id={`log-history-title-${task.id.value}`}
                 className="text-sm font-medium text-gray-900"
               >
-                Log History
+                {t('taskCard.logHistory')}
               </h4>
               <button
                 onClick={handleToggleLogHistory}
                 className="text-xs text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 rounded px-2 py-1"
-                aria-label="Hide log history"
+                aria-label={t('taskCard.hideLogHistory')}
               >
-                Hide
+                <ChevronUp className="w-3 h-3" />
               </button>
             </div>
 
+            {/* New log input */}
+            {showNewLogInput && (
+              <div className="mb-3 p-2 bg-white rounded border">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={newLogInputRef}
+                    type="text"
+                    value={newLogText}
+                    onChange={(e) => setNewLogText(e.target.value)}
+                    onKeyDown={handleNewLogKeyDown}
+                    placeholder={t('taskCard.addNewLogPlaceholder')}
+                    className="flex-1 text-sm border-0 focus:outline-none focus:ring-0 p-1"
+                  />
+                  <button
+                    onClick={handleCreateNewLog}
+                    disabled={!newLogText.trim()}
+                    className="p-1 text-green-600 hover:text-green-700 disabled:text-gray-400 transition-colors"
+                    title={t('taskCard.saveLog')}
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowNewLogInput(false);
+                      setNewLogText('');
+                    }}
+                    className="p-1 text-gray-600 hover:text-gray-700 transition-colors"
+                    title={t('taskCard.cancel')}
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!showNewLogInput && onCreateLog && (
+              <button
+                onClick={() => setShowNewLogInput(true)}
+                className="mb-3 w-full p-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded border border-dashed border-gray-300 transition-colors flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                {t('taskCard.addNewLog')}
+              </button>
+            )}
+
             {loadingLogs ? (
               <div className="text-center py-4">
-                <span className="text-sm text-gray-500">Loading logs...</span>
+                <span className="text-sm text-gray-500">{t('taskCard.loadingLogs')}</span>
               </div>
             ) : taskLogs.length > 0 ? (
               <div
-                className="space-y-3 max-h-80 overflow-y-auto"
+                className="space-y-2 max-h-60 overflow-y-auto"
                 role="log"
-                aria-label="Task log entries"
+                aria-label={t('taskCard.taskLogEntries')}
               >
-                {taskLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="p-3 bg-white rounded border shadow-sm"
-                    role="listitem"
-                  >
-                    <div className="flex items-start space-x-3">
-                      <span
-                        className={`text-sm ${getLogTypeColor(
-                          log.type
-                        )} mt-0.5`}
-                        aria-hidden="true"
-                      >
-                        {getLogTypeIcon(log.type)}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
-                          {log.message}
-                        </p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              log.type === "SYSTEM"
-                                ? "bg-blue-100 text-blue-800"
-                                : log.type === "USER"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                            aria-label={`Log type: ${log.type}`}
-                          >
-                            {log.type}
-                          </span>
-                          <div className="text-xs text-gray-500">
-                            <time
-                              dateTime={log.createdAt.toISOString()}
-                              title={log.createdAt.toLocaleString()}
+                {taskLogs.map((log) => {
+                  const LogIcon = getLogTypeIcon(log.type);
+                  return (
+                    <div
+                      key={log.id}
+                      className="p-2 bg-white rounded border text-sm"
+                      role="listitem"
+                    >
+                      <div className="flex items-start space-x-2">
+                        <LogIcon
+                          className={`w-3 h-3 mt-0.5 ${getLogTypeColor(log.type)}`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+                            {log.message}
+                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span
+                              className={`text-xs px-1 py-0.5 rounded font-medium ${
+                                log.type === "SYSTEM"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : log.type === "USER"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
                             >
-                              {log.createdAt.toLocaleDateString()}{" "}
-                              {log.createdAt.toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </time>
+                              {log.type}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {formatLogDate(log.createdAt)}
+                            </span>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-4">
-                <p className="text-sm text-gray-500">No logs found</p>
-                {onCreateLog && (
-                  <button
-                    onClick={() => onCreateLog(task.id.value)}
-                    className="mt-2 px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
-                  >
-                    Add First Log
-                  </button>
-                )}
+                <p className="text-sm text-gray-500">{t('taskCard.noLogsFound')}</p>
               </div>
             )}
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => onComplete(task.id.value)}
-            className={`
-            px-4 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2
-            ${
-              isCompleted
-                ? "bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-500"
-                : "bg-green-600 text-white hover:bg-green-700 focus:ring-green-500"
-            }
-          `}
-            aria-label={
-              isCompleted
-                ? `Revert completion of task: ${task.title.value}`
-                : `Mark task as complete: ${task.title.value}`
-            }
-          >
-            <span aria-hidden="true">{isCompleted ? "↩️" : "✅"}</span>
-            <span className="ml-1">{isCompleted ? "Revert" : "Complete"}</span>
-          </button>
 
-          <div
-            className="text-xs text-gray-400"
-            aria-label={`Task ID: ${task.id.value.slice(-8)}`}
-          >
-            ID: {task.id.value.slice(-8)}
-          </div>
-        </div>
       </motion.article>
     </>
   );

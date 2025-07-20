@@ -1,7 +1,8 @@
 import React from "react";
+import { Sun, Zap, Target, Inbox, FileText, Plus, Menu } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
-import { Plus, Menu } from "lucide-react";
 
 interface HeaderProps {
   activeView: "today" | TaskCategory;
@@ -9,33 +10,33 @@ interface HeaderProps {
   onMobileMenuToggle: () => void;
 }
 
-const getViewTitle = (view: "today" | TaskCategory) => {
-  if (view === "today") return "Today";
+const getViewTitle = (view: "today" | TaskCategory, t: any) => {
+  if (view === "today") return t('navigation.today');
 
   switch (view) {
     case TaskCategory.SIMPLE:
-      return "Simple Tasks";
+      return t('categories.simple');
     case TaskCategory.FOCUS:
-      return "Focus Tasks";
+      return t('categories.focus');
     case TaskCategory.INBOX:
-      return "Inbox";
+      return t('categories.inbox');
     default:
-      return "Tasks";
+      return t('common.tasks');
   }
 };
 
 const getViewIcon = (view: "today" | TaskCategory) => {
-  if (view === "today") return "☀️";
+  if (view === "today") return Sun;
 
   switch (view) {
     case TaskCategory.SIMPLE:
-      return "⚡";
+      return Zap;
     case TaskCategory.FOCUS:
-      return "🎯";
+      return Target;
     case TaskCategory.INBOX:
-      return "📥";
+      return Inbox;
     default:
-      return "📝";
+      return FileText;
   }
 };
 
@@ -44,6 +45,8 @@ export const Header: React.FC<HeaderProps> = ({
   onNewTask,
   onMobileMenuToggle,
 }) => {
+  const { t } = useTranslation();
+  const IconComponent = getViewIcon(activeView);
   return (
     <>
       <header
@@ -57,19 +60,17 @@ export const Header: React.FC<HeaderProps> = ({
               size="icon"
               onClick={onMobileMenuToggle}
               className="md:hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              aria-label="Open navigation menu"
+              aria-label={t('common.openMenu')}
               aria-expanded="false"
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
             </Button>
 
             <div className="flex items-center space-x-3">
-              <span className="text-2xl" aria-hidden="true">
-                {getViewIcon(activeView)}
-              </span>
+              <IconComponent className="w-6 h-6 text-gray-600" aria-hidden="true" />
               <div>
                 <h1 className="text-2xl font-bold text-foreground">
-                  {getViewTitle(activeView)}
+                  {getViewTitle(activeView, t)}
                 </h1>
               </div>
             </div>
@@ -79,10 +80,10 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onNewTask}
             className="shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             data-testid="new-task-button"
-            aria-label="Create new task"
+            aria-label={t('tasks.createNew')}
           >
             <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
-            <span>New Task</span>
+            <span>{t('tasks.newTask')}</span>
           </Button>
         </div>
       </header>

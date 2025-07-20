@@ -1,4 +1,6 @@
 import React from 'react';
+import { Calendar, BarChart3, TrendingUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { StatsPeriod } from '../view-models/StatsViewModel';
 
 interface PeriodSelectorProps {
@@ -10,10 +12,12 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
   selectedPeriod,
   onPeriodChange
 }) => {
-  const periods: { value: StatsPeriod; label: string; icon: string }[] = [
-    { value: 'day', label: 'Day', icon: '📅' },
-    { value: 'week', label: 'Week', icon: '📊' },
-    { value: 'month', label: 'Month', icon: '📈' }
+  const { t } = useTranslation();
+  
+  const periods: { value: StatsPeriod; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { value: 'day', label: t('periods.day'), icon: Calendar },
+    { value: 'week', label: t('periods.week'), icon: BarChart3 },
+    { value: 'month', label: t('periods.month'), icon: TrendingUp }
   ];
 
   return (
@@ -31,7 +35,7 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
               }
             `}
           >
-            <span className="mr-2">{period.icon}</span>
+            <period.icon className="w-4 h-4 mr-2" />
             {period.label}
           </button>
         ))}

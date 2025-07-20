@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Clock, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { DateOnly } from '../../shared/domain/value-objects/DateOnly';
 import { useOnboardingViewModel } from '../../features/onboarding/presentation/view-models/OnboardingViewModel';
 import { getService, tokens } from '../../shared/infrastructure/di';
@@ -9,6 +11,7 @@ import { DailySelectionRepository } from '../../shared/domain/repositories/Daily
  * Allows developers to test daily modal behavior and task selection reset
  */
 export const DevTimeSimulator: React.FC = () => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     return DateOnly.today().value;
@@ -47,7 +50,7 @@ export const DevTimeSimulator: React.FC = () => {
           const dailySelectionRepository = getService<DailySelectionRepository>(tokens.DAILY_SELECTION_REPOSITORY_TOKEN);
           const today = DateOnly.today(); // This will use the mocked date
           await dailySelectionRepository.clearDay(today);
-          console.log('🗑️ Cleared daily task selection for:', today.value);
+          console.log('Cleared daily task selection for:', today.value);
         } catch (error) {
           console.error('Failed to clear daily selection:', error);
         }
@@ -59,7 +62,7 @@ export const DevTimeSimulator: React.FC = () => {
         window.location.reload();
       }
       
-      console.log('🕐 Time simulated to:', targetDate.toISOString());
+      console.log('Time simulated to:', targetDate.toISOString());
     } catch (error) {
       console.error('Failed to simulate time:', error);
     }
@@ -82,7 +85,7 @@ export const DevTimeSimulator: React.FC = () => {
       // Force page reload to apply the reset
       window.location.reload();
       
-      console.log('🕐 Time reset to current date');
+      console.log('Time reset to current date');
     } catch (error) {
       console.error('Failed to reset time:', error);
     }
@@ -107,11 +110,9 @@ export const DevTimeSimulator: React.FC = () => {
       <button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-4 left-4 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg transition-colors z-50"
-        title="Open Time Simulator (Dev Mode)"
+        title={t('devTimeSimulator.openTitle')}
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+        <Clock className="w-6 h-6" />
       </button>
     );
   }
@@ -119,14 +120,12 @@ export const DevTimeSimulator: React.FC = () => {
   return (
     <div className="fixed bottom-4 left-4 bg-white border border-gray-200 rounded-lg shadow-xl p-4 z-50 w-80">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">🕐 Time Simulator</h3>
+        <h3 className="text-lg font-semibold text-gray-900">{t('devTimeSimulator.title')}</h3>
         <button
           onClick={() => setIsOpen(false)}
           className="text-gray-400 hover:text-gray-600"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-5 h-5" />
         </button>
       </div>
 
@@ -134,15 +133,15 @@ export const DevTimeSimulator: React.FC = () => {
         {/* Status */}
         <div className="text-sm space-y-1">
           <div className="flex justify-between">
-            <span className="text-gray-600">Current Date:</span>
+            <span className="text-gray-600">{t('devTimeSimulator.currentDate')}:</span>
             <span className="font-medium">
               {DateOnly.today().value}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">Time Simulated:</span>
+            <span className="text-gray-600">{t('devTimeSimulator.timeSimulated')}:</span>
             <span className={isTimeSimulated ? 'text-purple-600 font-medium' : 'text-gray-400'}>
-              {isTimeSimulated ? 'Yes' : 'No'}
+              {isTimeSimulated ? t('devTimeSimulator.yes') : t('devTimeSimulator.no')}
             </span>
           </div>
         </div>
@@ -150,15 +149,15 @@ export const DevTimeSimulator: React.FC = () => {
         {/* Date Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Target Date:
+            {t('devTimeSimulator.targetDate')}:
           </label>
           <div className="flex items-center gap-2">
             <button
               onClick={handlePreviousDay}
               className="px-2 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-              title="Previous Day"
+              title={t('devTimeSimulator.previousDay')}
             >
-              ←
+              <ChevronLeft className="w-4 h-4" />
             </button>
             <input
               type="date"
@@ -169,9 +168,9 @@ export const DevTimeSimulator: React.FC = () => {
             <button
               onClick={handleNextDay}
               className="px-2 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-              title="Next Day"
+              title={t('devTimeSimulator.nextDay')}
             >
-              →
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -182,7 +181,7 @@ export const DevTimeSimulator: React.FC = () => {
             onClick={handleSimulateDay}
             className="w-full px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
           >
-            Simulate Day
+            {t('devTimeSimulator.simulateDay')}
           </button>
           
           {isTimeSimulated && (
@@ -190,14 +189,13 @@ export const DevTimeSimulator: React.FC = () => {
               onClick={handleResetTime}
               className="w-full px-3 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
             >
-              Reset to Current Time
+              {t('devTimeSimulator.resetToCurrentTime')}
             </button>
           )}
         </div>
 
         <div className="text-xs text-gray-500 bg-purple-50 p-2 rounded">
-          <strong>Dev Mode:</strong> This simulates time travel to test daily transitions. 
-          It will reset daily modal state and reload the page to apply changes.
+          <strong>{t('devTimeSimulator.devMode')}:</strong> {t('devTimeSimulator.description')}
         </div>
       </div>
     </div>
