@@ -8,8 +8,11 @@ import {
   TodayViewModelDependencies,
 } from "../view-models/TodayViewModel";
 import { Task } from "../../../../shared/domain/entities/Task";
+import { TaskCategory } from "../../../../shared/domain/types";
 import { toast } from "sonner";
 import { getService, tokens } from "../../../../shared/infrastructure/di";
+import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-cases/RevertTaskCompletionUseCase";
+import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
 
 interface TodayViewProps {
   dependencies: TodayViewModelDependencies;
@@ -20,6 +23,7 @@ interface TodayViewProps {
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
   onRefresh?: () => Promise<void>;
+  onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({
@@ -31,6 +35,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onCreateLog,
   lastLogs = {},
   onRefresh,
+  onCreateTask,
 }) => {
   const { t } = useTranslation();
   const [todayViewModel] = useState(() => createTodayViewModel(dependencies));
@@ -98,12 +103,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
           label: "Отменить",
           onClick: async () => {
             try {
-              const revertUseCase = getService(
+              const revertUseCase = getService<RevertTaskCompletionUseCase>(
                 tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN
               );
               const result = await revertUseCase.execute({ taskId });
 
-              if (result.isSuccess()) {
+              if (result.success) {
                 toast.success("Выполнение задачи отменено");
                 // Reload today's tasks to reflect changes
                 await loadTodayTasks();
@@ -306,6 +311,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
           </div>
         )}
       </header>
+
+      {/* Inline Task Creator */}
+      {onCreateTask && (
+        <div className="mb-6">
+          <InlineTaskCreator
+            onCreateTask={onCreateTask}
+            category={TaskCategory.INBOX}
+            placeholder="Добавить задачу на сегодня..."
+          />
+        </div>
+      )}
 
       {/* Error Message */}
       {error && (

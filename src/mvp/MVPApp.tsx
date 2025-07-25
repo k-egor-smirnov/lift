@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
 import { TaskList } from "../features/tasks/presentation/components/TaskList";
-import { CreateTaskModal } from "./components/CreateTaskModal";
 
 import { TodayView } from "../features/today/presentation/components/TodayView";
 import { TodayMobileView } from "../features/today/presentation/components/TodayMobileView";
@@ -435,10 +434,6 @@ export const MVPApp: React.FC = () => {
     setActiveView(view);
   };
 
-  const handleNewTask = () => {
-    setIsCreateModalOpen(true);
-  };
-
   const handleCreateTaskLog = async (
     taskId: string,
     message: string
@@ -602,7 +597,6 @@ export const MVPApp: React.FC = () => {
         {/* Header */}
         <Header
           activeView={activeView}
-          onNewTask={handleNewTask}
           onMobileMenuToggle={handleMobileMenuToggle}
         />
 
@@ -696,15 +690,6 @@ export const MVPApp: React.FC = () => {
           )}
         </main>
       </div>
-
-      {/* Create Task Modal */}
-      <CreateTaskModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreateTask}
-        initialCategory={currentCategory}
-        hideCategorySelection={hideCategorySelection}
-      />
 
       {/* Daily Modal for onboarding */}
       <DailyModalContainer onReturnTaskToToday={handleReturnTaskToToday} />

@@ -4,6 +4,7 @@ import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory } from "../../../../shared/domain/types";
 import { TaskCard } from "./TaskCard";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
 import {
   DndContext,
   closestCenter,
@@ -39,7 +40,8 @@ interface TaskListProps {
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
   emptyMessage?: string;
-
+  onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
+  currentCategory?: TaskCategory;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -57,7 +59,8 @@ export const TaskList: React.FC<TaskListProps> = ({
   onCreateLog,
   lastLogs = {},
   emptyMessage = "No tasks found",
-
+  onCreateTask,
+  currentCategory,
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
@@ -208,21 +211,42 @@ export const TaskList: React.FC<TaskListProps> = ({
 
   if (sortedTasks.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        <p>{emptyMessage}</p>
+      <div className="space-y-6">
+        {/* Inline Task Creator */}
+        {onCreateTask && currentCategory && (
+          <InlineTaskCreator
+            onCreateTask={onCreateTask}
+            category={currentCategory}
+            placeholder={`Добавить задачу в ${currentCategory.toLowerCase()}...`}
+          />
+        )}
+        
+        <div className="text-center py-8 text-gray-500">
+          <p>{emptyMessage}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      modifiers={[restrictToWindowEdges]}
-    >
-      <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Inline Task Creator */}
+      {onCreateTask && currentCategory && (
+        <InlineTaskCreator
+          onCreateTask={onCreateTask}
+          category={currentCategory}
+          placeholder={`Добавить задачу в ${currentCategory.toLowerCase()}...`}
+        />
+      )}
+      
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        modifiers={[restrictToWindowEdges]}
+      >
+        <div className="space-y-4">
         {Object.entries(groupedTasks).map(([categoryKey, categoryTasks]) => {
           const category = categoryKey as TaskCategory;
           const taskIds = categoryTasks.map((task) => task.id.value);
@@ -242,9 +266,9 @@ export const TaskList: React.FC<TaskListProps> = ({
             </div>
           );
         })}
-      </div>
+        </div>
 
-      <DragOverlay modifiers={[applyDragOffset, restrictToWindowEdges]}>
+        <DragOverlay modifiers={[applyDragOffset, restrictToWindowEdges]}>
         {activeTask ? (
           <motion.div
             className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-xs"
@@ -268,7 +292,8 @@ export const TaskList: React.FC<TaskListProps> = ({
             {activeTask.title.value}
           </motion.div>
         ) : null}
-      </DragOverlay>
-    </DndContext>
+        </DragOverlay>
+      </DndContext>
+    </div>
   );
 };

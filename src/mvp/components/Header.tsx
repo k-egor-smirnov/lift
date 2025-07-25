@@ -6,22 +6,21 @@ import { Button } from "../../shared/ui/button";
 
 interface HeaderProps {
   activeView: "today" | TaskCategory;
-  onNewTask: () => void;
   onMobileMenuToggle: () => void;
 }
 
 const getViewTitle = (view: "today" | TaskCategory, t: any) => {
-  if (view === "today") return t('navigation.today');
+  if (view === "today") return t("navigation.today");
 
   switch (view) {
     case TaskCategory.SIMPLE:
-      return t('categories.simple');
+      return t("categories.simple");
     case TaskCategory.FOCUS:
-      return t('categories.focus');
+      return t("categories.focus");
     case TaskCategory.INBOX:
-      return t('categories.inbox');
+      return t("categories.inbox");
     default:
-      return t('common.tasks');
+      return t("common.tasks");
   }
 };
 
@@ -42,7 +41,6 @@ const getViewIcon = (view: "today" | TaskCategory) => {
 
 export const Header: React.FC<HeaderProps> = ({
   activeView,
-  onNewTask,
   onMobileMenuToggle,
 }) => {
   const { t } = useTranslation();
@@ -60,14 +58,17 @@ export const Header: React.FC<HeaderProps> = ({
               size="icon"
               onClick={onMobileMenuToggle}
               className="md:hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              aria-label={t('common.openMenu')}
+              aria-label={t("common.openMenu")}
               aria-expanded="false"
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
             </Button>
 
             <div className="flex items-center space-x-3">
-              <IconComponent className="w-6 h-6 text-gray-600" aria-hidden="true" />
+              <IconComponent
+                className="w-6 h-6 text-gray-600"
+                aria-hidden="true"
+              />
               <div>
                 <h1 className="text-2xl font-bold text-foreground">
                   {getViewTitle(activeView, t)}
@@ -75,16 +76,6 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
           </div>
-
-          <Button
-            onClick={onNewTask}
-            className="shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            data-testid="new-task-button"
-            aria-label={t('tasks.createNew')}
-          >
-            <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
-            <span>{t('tasks.newTask')}</span>
-          </Button>
         </div>
       </header>
       <div className="h-16" aria-hidden="true"></div>

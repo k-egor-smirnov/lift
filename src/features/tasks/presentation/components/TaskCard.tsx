@@ -106,7 +106,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title.value);
   const [newLogText, setNewLogText] = useState('');
-  const [showNewLogInput, setShowNewLogInput] = useState(false);
+  // Removed showNewLogInput state - input is always visible
   const cardRef = useRef<HTMLElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const newLogInputRef = useRef<HTMLInputElement>(null);
@@ -156,7 +156,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     },
     onLongPress: () => {
       if (isTouch && onCreateLog) {
-        onCreateLog(task.id.value);
+        // Long press doesn't create log directly, just focus the input
+        if (newLogInputRef.current) {
+          newLogInputRef.current.focus();
+        }
       }
     },
   });
@@ -176,12 +179,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [isEditing]);
 
-  // Focus new log input when it appears
+  // Focus new log input when log history is shown
   useEffect(() => {
-    if (showNewLogInput && newLogInputRef.current) {
+    if (showLogHistory && newLogInputRef.current) {
       newLogInputRef.current.focus();
     }
-  }, [showNewLogInput]);
+  }, [showLogHistory]);
 
   // Handle edit mode
   const handleStartEdit = () => {
@@ -224,10 +227,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       }
     }
     setShowLogHistory(!showLogHistory);
-    if (!showLogHistory) {
-      setShowNewLogInput(true);
-    } else {
-      setShowNewLogInput(false);
+    if (showLogHistory) {
+      // Clear log text when closing
       setNewLogText('');
     }
   };
@@ -239,7 +240,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         const success = await onCreateLog(task.id.value, newLogText.trim());
         if (success) {
           setNewLogText('');
-          setShowNewLogInput(false);
           // Reload logs to show the new log
           if (onLoadTaskLogs) {
             const logs = await onLoadTaskLogs(task.id.value);
@@ -256,8 +256,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     if (e.key === 'Enter') {
       handleCreateNewLog();
     } else if (e.key === 'Escape') {
-      setShowNewLogInput(false);
       setNewLogText('');
+      if (newLogInputRef.current) {
+        newLogInputRef.current.blur();
+      }
     }
   };
 
@@ -521,8 +523,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </button>
             </div>
 
-            {/* New log input */}
-            {showNewLogInput && (
+            {/* New log input - always visible when onCreateLog is available */}
+            {onCreateLog && (
               <div className="mb-3 p-2 bg-white rounded border">
                 <div className="flex items-center gap-2">
                   <input
@@ -542,28 +544,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   >
                     <Check className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => {
-                      setShowNewLogInput(false);
-                      setNewLogText('');
-                    }}
-                    className="p-1 text-gray-600 hover:text-gray-700 transition-colors"
-                    title={t('taskCard.cancel')}
-                  >
-                    <ChevronUp className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
-            )}
-
-            {!showNewLogInput && onCreateLog && (
-              <button
-                onClick={() => setShowNewLogInput(true)}
-                className="mb-3 w-full p-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded border border-dashed border-gray-300 transition-colors flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                {t('taskCard.addNewLog')}
-              </button>
             )}
 
             {loadingLogs ? (
