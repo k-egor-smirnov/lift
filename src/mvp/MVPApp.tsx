@@ -195,7 +195,7 @@ export const MVPApp: React.FC = () => {
       ctrlKey: true,
       handler: (event) => {
         event.preventDefault();
-        setIsCreateLogModalOpen(true);
+        setIsCreateModalOpen(true);
       },
       description: "Create custom log",
       category: "logs",
@@ -314,7 +314,7 @@ export const MVPApp: React.FC = () => {
           label: "Отменить",
           onClick: async () => {
             try {
-              const revertUseCase = getService(
+              const revertUseCase = getService<any>(
                 tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN
               );
               const result = await revertUseCase.execute({ taskId });
@@ -601,7 +601,7 @@ export const MVPApp: React.FC = () => {
         />
 
         {/* Content */}
-        <main className="p-6">
+        <main className="p-6 pt-32 md:pt-6">
           {/* Error Message */}
           {error && (
             <div
@@ -665,6 +665,7 @@ export const MVPApp: React.FC = () => {
                   onEditTask={handleEditTask}
                   onDeleteTask={handleDeleteTask}
                   onLoadTaskLogs={loadTaskLogs}
+                  onCreateTask={handleCreateTask}
                   onCreateLog={handleCreateTaskLog}
                   lastLogs={lastLogs}
                   onRefresh={handleTodayRefresh}
@@ -674,6 +675,8 @@ export const MVPApp: React.FC = () => {
                   tasks={getFilteredTasks()}
                   groupByCategory={false}
                   showTodayButton={true}
+                  onCreateTask={handleCreateTask}
+                  currentCategory={currentCategory}
                   onComplete={handleCompleteTask}
                   onEdit={handleEditTask}
                   onDelete={handleDeleteTask}

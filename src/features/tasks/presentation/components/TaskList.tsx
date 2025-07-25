@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Zap, Target, Inbox } from 'lucide-react';
+import { Zap, Target, Inbox } from "lucide-react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory } from "../../../../shared/domain/types";
 import { TaskCard } from "./TaskCard";
@@ -155,32 +155,36 @@ export const TaskList: React.FC<TaskListProps> = ({
     }
 
     if (onReorder) {
-      const oldIndex = sortedTasks.findIndex((task) => task.id.value === active.id);
-      const newIndex = sortedTasks.findIndex((task) => task.id.value === over.id);
+      const oldIndex = sortedTasks.findIndex(
+        (task) => task.id.value === active.id
+      );
+      const newIndex = sortedTasks.findIndex(
+        (task) => task.id.value === over.id
+      );
       const newTasks = arrayMove(sortedTasks, oldIndex, newIndex);
       onReorder(newTasks);
     }
   };
 
-  
   const renderTaskCard = (task: Task) => {
-    console.log(todayTaskIds, todayTaskIds.includes(task.id.value))
-    return <TaskCard
-      key={task.id.value}
-      task={task}
-      onComplete={onComplete}
-      onEdit={onEdit}
-      onDelete={onDelete}
-      onAddToToday={onAddToToday}
-      showTodayButton={showTodayButton}
-      isOverdue={overdueTaskIds.includes(task.id.value)}
-      isInTodaySelection={todayTaskIds.includes(task.id.value)}
-      lastLog={lastLogs[task.id.value] || null}
-      onLoadTaskLogs={onLoadTaskLogs}
-      onCreateLog={onCreateLog}
-      isDraggable={!!onReorder}
-    
-    />
+    console.log(todayTaskIds, todayTaskIds.includes(task.id.value));
+    return (
+      <TaskCard
+        key={task.id.value}
+        task={task}
+        onComplete={onComplete}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onAddToToday={onAddToToday}
+        showTodayButton={showTodayButton}
+        isOverdue={overdueTaskIds.includes(task.id.value)}
+        isInTodaySelection={todayTaskIds.includes(task.id.value)}
+        lastLog={lastLogs[task.id.value] || null}
+        onLoadTaskLogs={onLoadTaskLogs}
+        onCreateLog={onCreateLog}
+        isDraggable={!!onReorder}
+      />
+    );
   };
 
   const getCategoryIcon = (category: TaskCategory) => {
@@ -203,7 +207,9 @@ export const TaskList: React.FC<TaskListProps> = ({
         <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
           <CategoryIcon className="w-5 h-5" />
           {category}
-          <span className="text-sm font-normal text-gray-500">({taskCount})</span>
+          <span className="text-sm font-normal text-gray-500">
+            ({taskCount})
+          </span>
         </h3>
       </div>
     );
@@ -220,7 +226,7 @@ export const TaskList: React.FC<TaskListProps> = ({
             placeholder={`Добавить задачу в ${currentCategory.toLowerCase()}...`}
           />
         )}
-        
+
         <div className="text-center py-8 text-gray-500">
           <p>{emptyMessage}</p>
         </div>
@@ -238,7 +244,7 @@ export const TaskList: React.FC<TaskListProps> = ({
           placeholder={`Добавить задачу в ${currentCategory.toLowerCase()}...`}
         />
       )}
-      
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -247,51 +253,51 @@ export const TaskList: React.FC<TaskListProps> = ({
         modifiers={[restrictToWindowEdges]}
       >
         <div className="space-y-4">
-        {Object.entries(groupedTasks).map(([categoryKey, categoryTasks]) => {
-          const category = categoryKey as TaskCategory;
-          const taskIds = categoryTasks.map((task) => task.id.value);
+          {Object.entries(groupedTasks).map(([categoryKey, categoryTasks]) => {
+            const category = categoryKey as TaskCategory;
+            const taskIds = categoryTasks.map((task) => task.id.value);
 
-          return (
-            <div key={category}>
-              {groupByCategory &&
-                renderCategoryHeader(category, categoryTasks.length)}
-              <SortableContext
-                items={taskIds}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-3">
-                  {categoryTasks.map(renderTaskCard)}
-                </div>
-              </SortableContext>
-            </div>
-          );
-        })}
+            return (
+              <div key={category}>
+                {groupByCategory &&
+                  renderCategoryHeader(category, categoryTasks.length)}
+                <SortableContext
+                  items={taskIds}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3">
+                    {categoryTasks.map(renderTaskCard)}
+                  </div>
+                </SortableContext>
+              </div>
+            );
+          })}
         </div>
 
         <DragOverlay modifiers={[applyDragOffset, restrictToWindowEdges]}>
-        {activeTask ? (
-          <motion.div
-            className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-xs"
-            initial={{ scale: 0.8, opacity: 0.8 }}
-            animate={{ scale: 1, opacity: 1 }}
-            style={{
-              width: "32px",
-              height: "32px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "12px",
-              fontWeight: "bold",
-              color: "#374151",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-            data-testid="drag-overlay"
-          >
-            {activeTask.title.value}
-          </motion.div>
-        ) : null}
+          {activeTask ? (
+            <motion.div
+              className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-xs"
+              initial={{ scale: 0.8, opacity: 0.8 }}
+              animate={{ scale: 1, opacity: 1 }}
+              style={{
+                width: "32px",
+                height: "32px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "12px",
+                fontWeight: "bold",
+                color: "#374151",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              data-testid="drag-overlay"
+            >
+              {activeTask.title.value}
+            </motion.div>
+          ) : null}
         </DragOverlay>
       </DndContext>
     </div>

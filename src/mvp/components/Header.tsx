@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Sun, Zap, Target, Inbox, FileText, Plus, Menu } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
@@ -24,6 +24,21 @@ const getViewTitle = (view: "today" | TaskCategory, t: any) => {
   }
 };
 
+const getViewDescription = (view: "today" | TaskCategory, t: any) => {
+  if (view === "today") return t("navigation.descriptions.today");
+
+  switch (view) {
+    case TaskCategory.SIMPLE:
+      return t("navigation.descriptions.simple");
+    case TaskCategory.FOCUS:
+      return t("navigation.descriptions.focus");
+    case TaskCategory.INBOX:
+      return t("navigation.descriptions.inbox");
+    default:
+      return t("navigation.descriptions.today");
+  }
+};
+
 const getViewIcon = (view: "today" | TaskCategory) => {
   if (view === "today") return Sun;
 
@@ -44,41 +59,89 @@ export const Header: React.FC<HeaderProps> = ({
   onMobileMenuToggle,
 }) => {
   const { t } = useTranslation();
+  const [scrollY, setScrollY] = useState(0);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const IconComponent = getViewIcon(activeView);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      setScrollY(currentScrollY);
+
+      // Collapse header when scrolling down on mobile
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        setIsCollapsed(currentScrollY > 80);
+      } else {
+        setIsCollapsed(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const headerHeight = isCollapsed ? "h-14" : "";
+
   return (
     <>
       <header
-        className="bg-background border-b px-4 py-4 fixed h-16 w-full md:w-[calc(100%-256px)] z-40"
+        className={`bg-background/95 backdrop-blur-sm md:pt-12 px-4 py-4 fixed md:static w-full md:w-full z-40 transition-all duration-300 ease-in-out ${headerHeight}`}
         role="banner"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+        <div className="flex items-start justify-between h-full">
+          <div className="flex items-start space-x-4 h-full">
             <Button
               variant="ghost"
               size="icon"
               onClick={onMobileMenuToggle}
-              className="md:hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="md:hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-1"
               aria-label={t("common.openMenu")}
               aria-expanded="false"
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
             </Button>
 
-            <div className="flex items-center space-x-3">
-              <IconComponent
-                className="w-6 h-6 text-gray-600"
-                aria-hidden="true"
-              />
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  {getViewTitle(activeView, t)}
-                </h1>
+            <div className="flex flex-col space-y-2 flex-1">
+              {/* Icon and title row */}
+              <div className="flex items-center space-x-3">
+                <div
+                  className={`transition-all duration-300 ${
+                    isCollapsed ? "scale-75" : "scale-100"
+                  }`}
+                >
+                  <IconComponent
+                    className={`transition-all duration-300 text-gray-600 ${
+                      isCollapsed ? "w-5 h-5" : "w-8 h-8 md:w-6 md:h-6"
+                    }`}
+                    aria-hidden="true"
+                  />
+                </div>
+                <div>
+                  <h1
+                    className={`font-bold text-foreground transition-all duration-300 ${
+                      isCollapsed ? "text-lg" : "text-3xl md:text-2xl"
+                    }`}
+                  >
+                    {getViewTitle(activeView, t)}
+                  </h1>
+                </div>
+              </div>
+
+              {/* Description - hidden when collapsed */}
+              <div
+                className={`transition-all duration-300 overflow-hidden ${
+                  isCollapsed ? "max-h-0 opacity-0" : "max-h-20 opacity-100"
+                }`}
+              >
+                <p className="text-gray-500 text-sm md:text-base leading-relaxed">
+                  {getViewDescription(activeView, t)}
+                </p>
               </div>
             </div>
           </div>
         </div>
       </header>
-      <div className="h-16" aria-hidden="true"></div>
     </>
   );
 };

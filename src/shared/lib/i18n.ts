@@ -9,6 +9,15 @@ const resources = {
         FOCUS: "Focus",
         INBOX: "Inbox",
       },
+      navigation: {
+        today: 'Today',
+        descriptions: {
+          today: 'Focus on what matters most today',
+          simple: 'Quick tasks that take less than 15 minutes',
+          focus: 'Important tasks requiring deep concentration',
+          inbox: 'New tasks waiting to be organized'
+        }
+      },
     },
   },
   ru: {
@@ -19,7 +28,13 @@ const resources = {
         inbox: "Входящие",
       },
       navigation: {
-        today: 'Сегодня'
+        today: 'Сегодня',
+        descriptions: {
+          today: 'Сосредоточьтесь на самом важном сегодня',
+          simple: 'Быстрые задачи, которые займут менее 15 минут',
+          focus: 'Важные задачи, требующие глубокой концентрации',
+          inbox: 'Новые задачи, ожидающие организации'
+        }
       },
       todayView: {
         progress: "Прогресс",

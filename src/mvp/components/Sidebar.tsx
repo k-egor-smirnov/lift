@@ -17,11 +17,11 @@ interface SidebarProps {
 const getCategoryInfo = (category: TaskCategory, t: any) => {
   switch (category) {
     case TaskCategory.SIMPLE:
-      return { icon: Zap, name: t('categories.simple') };
+      return { icon: Zap, name: t("categories.simple") };
     case TaskCategory.FOCUS:
-      return { icon: Target, name: t('categories.focus') };
+      return { icon: Target, name: t("categories.focus") };
     case TaskCategory.INBOX:
-      return { icon: Inbox, name: t('categories.inbox') };
+      return { icon: Inbox, name: t("categories.inbox") };
   }
 };
 
@@ -33,12 +33,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onMobileMenuClose,
 }) => {
   const { t } = useTranslation();
-  
+
   const menuItems = [
     {
       id: "today" as const,
       icon: Sun,
-      name: t('navigation.today'),
+      name: t("navigation.today"),
       count: null,
     },
     ...Object.values(TaskCategory).map((category) => ({
@@ -55,11 +55,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-white" role="navigation" aria-label="Main navigation">
-      <div className="flex items-center justify-between p-6 border-b h-16 box-border">
+    <div
+      className="flex flex-col h-full bg-white"
+      role="navigation"
+      aria-label="Main navigation"
+    >
+      <div className="flex items-center justify-between p-6 h-16 box-border">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg" aria-hidden="true">L</span>
+            <span className="text-white font-bold text-lg" aria-hidden="true">
+              L
+            </span>
           </div>
           <h2 className="text-xl font-bold text-foreground">Lift</h2>
         </div>
@@ -87,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </Button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 border-r" role="list">
+      <nav className="flex-1 p-4 space-y-1" role="list">
         {menuItems.map((item) => (
           <Button
             key={item.id}
@@ -100,7 +106,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
             data-testid={`sidebar-${item.id.toLowerCase()}`}
             aria-current={activeView === item.id ? "page" : undefined}
-            aria-label={`${item.name}${item.count !== null ? ` (${item.count} tasks)` : ''}`}
+            aria-label={`${item.name}${
+              item.count !== null ? ` (${item.count} tasks)` : ""
+            }`}
             role="listitem"
           >
             <div className="flex items-center space-x-3">
@@ -137,7 +145,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Mobile Sidebar */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
+        <div
+          className="fixed inset-0 z-50 md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation menu"
+        >
           <div
             className="fixed inset-0 bg-black/50 transition-opacity"
             onClick={onMobileMenuClose}

@@ -187,21 +187,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      {/* Header */}
-      <header className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3">
-              <Sun className="w-8 h-8 sm:w-10 sm:h-10 text-orange-500" />
-              {formatDate(currentDate)}
-            </h1>
-            <p className="mt-2 text-sm sm:text-base text-gray-600">
-              {t("todayView.focusOnTasks")}
-            </p>
-          </div>
-        </div>
-
-        {/* Stats */}
+      {/* Stats */}
+      <div className="mb-8">
         <div
           className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5"
           role="region"
@@ -310,7 +297,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
             </div>
           </div>
         )}
-      </header>
+      </div>
 
       {/* Inline Task Creator */}
       {onCreateTask && (
