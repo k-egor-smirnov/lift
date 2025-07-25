@@ -4,6 +4,8 @@ import { AddTaskToTodayUseCase, AddTaskToTodayRequest } from '../../../../shared
 import { RemoveTaskFromTodayUseCase, RemoveTaskFromTodayRequest } from '../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase';
 import { CompleteTaskUseCase } from '../../../../shared/application/use-cases/CompleteTaskUseCase';
 import { DateOnly } from '../../../../shared/domain/value-objects/DateOnly';
+import { taskEventBus } from '../../../../shared/infrastructure/events/TaskEventBus';
+import { TaskEventType, AnyTaskEvent } from '../../../../shared/domain/events/TaskEvent';
 
 /**
  * Today view model state
@@ -17,6 +19,7 @@ export interface TodayViewModelState {
   totalCount: number;
   completedCount: number;
   activeCount: number;
+  autoRefreshEnabled: boolean;
 
   // Actions
   loadTodayTasks: (date?: string) => Promise<void>;
@@ -25,6 +28,8 @@ export interface TodayViewModelState {
   completeTask: (taskId: string) => Promise<boolean>;
   refreshToday: () => Promise<void>;
   clearError: () => void;
+  enableAutoRefresh: () => void;
+  disableAutoRefresh: () => void;
 
   // Computed properties
   getActiveTasks: () => TodayTaskInfo[];
@@ -48,8 +53,9 @@ export interface TodayViewModelDependencies {
  */
 export const createTodayViewModel = (dependencies: TodayViewModelDependencies) => {
   const { getTodayTasksUseCase, addTaskToTodayUseCase, removeTaskFromTodayUseCase, completeTaskUseCase } = dependencies;
+  let unsubscribeFromEvents: (() => void) | null = null;
 
-  return create<TodayViewModelState>((set, get) => ({
+  const store = create<TodayViewModelState>((set, get) => ({
     // Initial state
     tasks: [],
     loading: false,
@@ -58,6 +64,7 @@ export const createTodayViewModel = (dependencies: TodayViewModelDependencies) =
     totalCount: 0,
     completedCount: 0,
     activeCount: 0,
+    autoRefreshEnabled: true,
 
     // Computed properties
     getActiveTasks: () => {
@@ -189,15 +196,60 @@ export const createTodayViewModel = (dependencies: TodayViewModelDependencies) =
     },
 
     refreshToday: async () => {
-      const { currentDate } = get();
-      await get().loadTodayTasks(currentDate);
+      // Always use the current date (which respects mocked date)
+      const today = DateOnly.today().value;
+      set({ currentDate: today });
+      await get().loadTodayTasks(today);
     },
 
     clearError: () => {
       set({ error: null });
     },
-  }));
-};
+
+    enableAutoRefresh: () => {
+      set({ autoRefreshEnabled: true });
+      
+      // Subscribe to task events for auto-refresh
+      if (!unsubscribeFromEvents) {
+        unsubscribeFromEvents = taskEventBus.subscribeToAll(async (event: AnyTaskEvent) => {
+          const { autoRefreshEnabled } = get();
+          if (!autoRefreshEnabled) return;
+          
+          // Auto-refresh on relevant events
+          if ([
+            TaskEventType.TASK_CREATED,
+            TaskEventType.TASK_UPDATED,
+            TaskEventType.TASK_COMPLETED,
+            TaskEventType.TASK_DELETED,
+            TaskEventType.TASK_ADDED_TO_TODAY,
+            TaskEventType.TASK_REMOVED_FROM_TODAY
+          ].includes(event.type)) {
+            // Small delay to avoid rapid successive updates
+            setTimeout(async () => {
+              const { currentDate } = get();
+              await get().loadTodayTasks(currentDate);
+            }, 100);
+          }
+        });
+      }
+    },
+
+    disableAutoRefresh: () => {
+      set({ autoRefreshEnabled: false });
+      
+      // Unsubscribe from events
+      if (unsubscribeFromEvents) {
+        unsubscribeFromEvents();
+        unsubscribeFromEvents = null;
+      }
+    },
+   }));
+
+   // Enable auto-refresh by default
+   store.getState().enableAutoRefresh();
+
+   return store;
+ };
 
 /**
  * Today ViewModel hook type

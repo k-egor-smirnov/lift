@@ -3,6 +3,8 @@ import { TaskId } from '../../domain/value-objects/TaskId';
 import { DateOnly } from '../../domain/value-objects/DateOnly';
 import { DailySelectionRepository } from '../../domain/repositories/DailySelectionRepository';
 import { TaskRepository } from '../../domain/repositories/TaskRepository';
+import { EventBus } from '../../domain/events/EventBus';
+import { TaskAddedToTodayEvent } from '../../domain/events/TaskEvents';
 import { Result, ResultUtils } from '../../domain/Result';
 import * as tokens from '../../infrastructure/di/tokens';
 
@@ -31,7 +33,8 @@ export class AddTaskToTodayError extends Error {
 export class AddTaskToTodayUseCase {
   constructor(
     @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN) private readonly dailySelectionRepository: DailySelectionRepository,
-    @inject(tokens.TASK_REPOSITORY_TOKEN) private readonly taskRepository: TaskRepository
+    @inject(tokens.TASK_REPOSITORY_TOKEN) private readonly taskRepository: TaskRepository,
+    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus
   ) {}
 
   async execute(request: AddTaskToTodayRequest): Promise<Result<void, AddTaskToTodayError>> {
@@ -70,6 +73,10 @@ export class AddTaskToTodayUseCase {
 
       // Add task to daily selection (idempotent operation)
       await this.dailySelectionRepository.addTaskToDay(date, taskId);
+
+      // Publish event
+      const event = new TaskAddedToTodayEvent(taskId, date);
+      await this.eventBus.publish(event);
 
       return ResultUtils.ok(undefined);
     } catch (error) {

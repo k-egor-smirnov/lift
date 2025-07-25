@@ -2,6 +2,7 @@ import { DomainEvent } from './DomainEvent';
 import { DomainEventType, TaskCategory } from '../types';
 import { TaskId } from '../value-objects/TaskId';
 import { NonEmptyTitle } from '../value-objects/NonEmptyTitle';
+import { DateOnly } from '../value-objects/DateOnly';
 
 /**
  * Event emitted when a task is created
@@ -138,6 +139,44 @@ export class TaskSoftDeletedEvent extends DomainEvent {
     return {
       taskId: this.taskId.value,
       deletedAt: this.deletedAt.toISOString()
+    };
+  }
+}
+
+/**
+ * Event emitted when a task is added to today's list
+ */
+export class TaskAddedToTodayEvent extends DomainEvent {
+  constructor(
+    public readonly taskId: TaskId,
+    public readonly date: DateOnly
+  ) {
+    super(DomainEventType.TASK_ADDED_TO_TODAY);
+  }
+
+  getEventData(): Record<string, any> {
+    return {
+      taskId: this.taskId.value,
+      date: this.date.value
+    };
+  }
+}
+
+/**
+ * Event emitted when a task is removed from today's list
+ */
+export class TaskRemovedFromTodayEvent extends DomainEvent {
+  constructor(
+    public readonly taskId: TaskId,
+    public readonly date: DateOnly
+  ) {
+    super(DomainEventType.TASK_REMOVED_FROM_TODAY);
+  }
+
+  getEventData(): Record<string, any> {
+    return {
+      taskId: this.taskId.value,
+      date: this.date.value
     };
   }
 }

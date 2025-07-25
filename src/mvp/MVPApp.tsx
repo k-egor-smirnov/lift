@@ -288,6 +288,8 @@ export const MVPApp: React.FC = () => {
               console.log("Task automatically added to today");
               // Reload today task IDs
               await loadTodayTaskIds();
+              // Refresh TodayView to show the new task
+              await handleTodayRefresh();
             } else {
               console.error(
                 "Failed to automatically add task to today:",
@@ -600,7 +602,7 @@ export const MVPApp: React.FC = () => {
         />
 
         {/* Content */}
-        <main className="p-6 pt-32 md:pt-6">
+        <main className="p-6 px-4 md:px-6 pt-32 md:pt-6">
           {/* Error Message */}
           {error && (
             <div

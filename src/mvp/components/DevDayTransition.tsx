@@ -53,6 +53,11 @@ export const DevDayTransition: React.FC = () => {
       await loadDailyModalData(overdueDays);
       showDailyModal();
       
+      // Force refresh of TodayView to update with new date
+      if ((window as any).__todayViewRefresh) {
+        await (window as any).__todayViewRefresh();
+      }
+      
       console.log('🧪 Day transition simulated to:', tomorrow.value);
       console.log('🧪 Daily modal triggered for new day');
       

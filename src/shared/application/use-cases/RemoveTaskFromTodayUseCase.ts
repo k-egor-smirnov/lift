@@ -2,6 +2,8 @@ import { injectable, inject } from 'tsyringe';
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { DateOnly } from '../../domain/value-objects/DateOnly';
 import { DailySelectionRepository } from '../../domain/repositories/DailySelectionRepository';
+import { EventBus } from '../../domain/events/EventBus';
+import { TaskRemovedFromTodayEvent } from '../../domain/events/TaskEvents';
 import { Result, ResultUtils } from '../../domain/Result';
 import * as tokens from '../../infrastructure/di/tokens';
 
@@ -29,7 +31,8 @@ export class RemoveTaskFromTodayError extends Error {
 @injectable()
 export class RemoveTaskFromTodayUseCase {
   constructor(
-    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN) private readonly dailySelectionRepository: DailySelectionRepository
+    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN) private readonly dailySelectionRepository: DailySelectionRepository,
+    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus
   ) {}
 
   async execute(request: RemoveTaskFromTodayRequest): Promise<Result<void, RemoveTaskFromTodayError>> {
@@ -60,6 +63,10 @@ export class RemoveTaskFromTodayUseCase {
 
       // Remove task from daily selection
       await this.dailySelectionRepository.removeTaskFromDay(date, taskId);
+
+      // Publish event
+      const event = new TaskRemovedFromTodayEvent(taskId, date);
+      await this.eventBus.publish(event);
 
       return ResultUtils.ok(undefined);
     } catch (error) {

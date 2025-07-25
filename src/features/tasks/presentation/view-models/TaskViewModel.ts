@@ -13,6 +13,7 @@ import { CompleteTaskUseCase } from "../../../../shared/application/use-cases/Co
 import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepository";
 import { GetTodayTasksUseCase } from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
 
+
 /**
  * Task filter options
  */
@@ -187,6 +188,7 @@ export const createTaskViewModel = (
         if (result.success) {
           // Reload tasks to get the updated list
           await get().loadTasks();
+          
           return true;
         } else {
           set({ error: (result as any).error.message });
@@ -210,6 +212,7 @@ export const createTaskViewModel = (
         if (result.success) {
           // Reload tasks to get the updated list
           await get().loadTasks();
+          
           return true;
         } else {
           set({ error: (result as any).error.message });
@@ -233,6 +236,7 @@ export const createTaskViewModel = (
         if (result.success) {
           // Reload tasks to get the updated list
           await get().loadTasks();
+          
           return true;
         } else {
           set({ error: (result as any).error.message });
@@ -290,6 +294,7 @@ export const createTaskViewModel = (
 
         // Reload tasks to get the updated list
         await get().loadTasks();
+        
         return true;
       } catch (error) {
         set({
