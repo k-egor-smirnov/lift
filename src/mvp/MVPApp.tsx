@@ -19,8 +19,7 @@ import { useKeyboardShortcuts } from "../shared/infrastructure/services/useKeybo
 import { DailyModalContainer } from "../features/onboarding";
 import { useOnboardingViewModel } from "../features/onboarding/presentation/view-models/OnboardingViewModel";
 import { LogEntry } from "../shared/application/use-cases/GetTaskLogsUseCase";
-import { DevDailyModalSimulator } from "./components/DevDailyModalSimulator";
-import { DevTimeSimulator } from "./components/DevTimeSimulator";
+import { DevDayTransition } from "./components/DevDayTransition";
 
 // Import DI container and tokens
 import { getService, tokens } from "../shared/infrastructure/di";
@@ -697,11 +696,8 @@ export const MVPApp: React.FC = () => {
       {/* Daily Modal for onboarding */}
       <DailyModalContainer onReturnTaskToToday={handleReturnTaskToToday} />
 
-      {/* Dev Daily Modal Simulator - only show in development */}
-      {process.env.NODE_ENV === "development" && <DevDailyModalSimulator />}
-
-      {/* Dev Time Simulator - only show in development */}
-      {process.env.NODE_ENV === "development" && <DevTimeSimulator />}
+      {/* Dev Day Transition - only show in development */}
+      {process.env.NODE_ENV === "development" && <DevDayTransition />}
 
       {/* Toast notifications */}
       <Toaster position="top-right" richColors />
