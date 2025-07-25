@@ -18,6 +18,20 @@ const resources = {
           inbox: 'New tasks waiting to be organized'
         }
       },
+      dailyModal: {
+        goodMorning: 'Good Morning!',
+        closeModal: 'Close modal',
+        unfinishedFromYesterday: 'Unfinished from yesterday',
+        overdueInboxTasks: 'Overdue inbox tasks',
+        inboxTasks: 'Inbox tasks',
+        needsReview: 'Needs review',
+        inInboxFor: 'In inbox for',
+        days: 'days',
+        returnToToday: 'Return to Today',
+        allCaughtUp: 'All caught up!',
+        readyToStart: 'Ready to start your productive day',
+        letsGetStarted: "Let's get started!"
+      },
     },
   },
   ru: {
@@ -41,6 +55,20 @@ const resources = {
       },
       tasks: {
         newTask: 'Новая задача'
+      },
+      dailyModal: {
+        goodMorning: 'Доброе утро!',
+        closeModal: 'Закрыть модальное окно',
+        unfinishedFromYesterday: 'Незавершенные со вчера',
+        overdueInboxTasks: 'Просроченные задачи из входящих',
+        inboxTasks: 'Задачи из входящих',
+        needsReview: 'Требует рассмотрения',
+        inInboxFor: 'Во входящих уже',
+        days: 'дней',
+        returnToToday: 'Вернуть в Сегодня',
+        allCaughtUp: 'Все дела в порядке!',
+        readyToStart: 'Готовы начать продуктивный день',
+        letsGetStarted: 'Давайте начнем!'
       }
     },
   },

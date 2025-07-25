@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import 'reflect-metadata';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TaskRepositoryImpl } from '../TaskRepositoryImpl';
 import { TodoDatabase } from '../../database/TodoDatabase';
 import { Task } from '../../../domain/entities/Task';
@@ -200,6 +201,7 @@ describe('TaskRepositoryImpl', () => {
         new NonEmptyTitle('Recent Task'),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
+        oneDayAgo.getTime(),
         oneDayAgo,
         oneDayAgo,
         undefined,
@@ -211,6 +213,7 @@ describe('TaskRepositoryImpl', () => {
         new NonEmptyTitle('Overdue Task'),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
+        fiveDaysAgo.getTime(),
         fiveDaysAgo,
         fiveDaysAgo,
         undefined,
@@ -222,6 +225,7 @@ describe('TaskRepositoryImpl', () => {
         new NonEmptyTitle('Completed Overdue'),
         TaskCategory.INBOX,
         TaskStatus.COMPLETED,
+        fiveDaysAgo.getTime(),
         fiveDaysAgo,
         fiveDaysAgo,
         undefined,
@@ -233,6 +237,7 @@ describe('TaskRepositoryImpl', () => {
         new NonEmptyTitle('Non-Inbox Overdue'),
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
+        fiveDaysAgo.getTime(),
         fiveDaysAgo,
         fiveDaysAgo
       );
@@ -243,6 +248,47 @@ describe('TaskRepositoryImpl', () => {
       
       expect(overdueTasks).toHaveLength(1);
       expect(overdueTasks[0].id.equals(overdueTaskId)).toBe(true);
+    });
+
+    it('should respect mocked date in dev mode', async () => {
+      // Mock localStorage for dev mode
+      const originalLocalStorage = global.localStorage;
+      global.localStorage = {
+        getItem: vi.fn().mockReturnValue('2023-12-10T09:00:00.000Z'), // Mocked date
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+        clear: vi.fn(),
+        length: 0,
+        key: vi.fn()
+      } as any;
+
+      const taskId = TaskId.generate();
+      
+      // Create task that was entered 5 days before the mocked date (2023-12-05)
+      const taskEnteredDate = new Date('2023-12-05T10:00:00.000Z');
+      
+      const task = new Task(
+        taskId,
+        new NonEmptyTitle('Task from 5 days ago'),
+        TaskCategory.INBOX,
+        TaskStatus.ACTIVE,
+        taskEnteredDate.getTime(),
+        taskEnteredDate,
+        taskEnteredDate,
+        undefined,
+        taskEnteredDate
+      );
+
+      await repository.save(task);
+
+      // Should find the task as overdue (5 days >= 3 days threshold)
+      const overdueTasks = await repository.findOverdueTasks(3);
+      
+      expect(overdueTasks).toHaveLength(1);
+      expect(overdueTasks[0].id.equals(taskId)).toBe(true);
+
+      // Restore original localStorage
+      global.localStorage = originalLocalStorage;
     });
   });
 

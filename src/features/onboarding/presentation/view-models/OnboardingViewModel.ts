@@ -24,15 +24,14 @@ interface OnboardingState {
   
   // Actions
   loadDailyModalData: (overdueDays?: number) => Promise<void>;
-  showDailyModal: () => Promise<void>;
-  hideDailyModal: () => Promise<void>;
+  showDailyModal: () => void;
+  hideDailyModal: () => void;
   markModalShownToday: () => void;
   checkShouldShowModal: (overdueDays?: number) => Promise<boolean>;
   checkDayTransition: () => boolean;
-  resetForNewDay: () => Promise<void>;
+  resetForNewDay: () => void;
   reset: () => void;
   returnTaskToToday: (taskId: string) => Promise<void>;
-  addTaskToToday: (taskId: string) => Promise<void>;
 }
 
 /**
@@ -95,26 +94,14 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     },
 
     // Show the daily modal
-    showDailyModal: async () => {
-      const state = get();
+    showDailyModal: () => {
       set({ isModalVisible: true });
-      
-      // Log modal shown event
-      if (state.dailyModalData) {
-        await onboardingService.logModalShown(
-          state.dailyModalData.unfinishedTasks.length,
-          state.dailyModalData.overdueInboxTasks.length
-        );
-      }
     },
 
     // Hide the daily modal and mark as shown
-    hideDailyModal: async () => {
+    hideDailyModal: () => {
       set({ isModalVisible: false, modalShownToday: true });
       markModalAsShown();
-      
-      // Log modal closed event
-      await onboardingService.logModalClosed();
     },
 
     // Mark modal as shown for today
@@ -156,26 +143,15 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     },
 
     // Reset state for new day
-    resetForNewDay: async () => {
+    resetForNewDay: () => {
       const today = new Date().toISOString().split('T')[0];
-      
-      try {
-        // Handle new day transition in the service
-        await onboardingService.handleNewDayTransition();
-        
-        set({
-          modalShownToday: false,
-          currentDay: today,
-          dailyModalData: null,
-          isModalVisible: false,
-          error: null
-        });
-      } catch (error) {
-        console.error('Error during new day transition:', error);
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to handle new day transition'
-        });
-      }
+      set({
+        modalShownToday: false,
+        currentDay: today,
+        dailyModalData: null,
+        isModalVisible: false,
+        error: null
+      });
     },
 
     // Reset state
@@ -206,35 +182,6 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
         console.error('Error returning task to today:', error);
         set({ 
           error: error instanceof Error ? error.message : 'Failed to return task to today'
-        });
-      }
-    },
-
-    // Add task to today's selection (for overdue inbox tasks)
-    addTaskToToday: async (taskId: string) => {
-      try {
-        const dailySelectionService = onboardingService.getDailySelectionService();
-        
-        // Get task details for logging
-        const taskRepository = dailySelectionService['taskRepository'];
-        const task = await taskRepository.findById(new (await import('../../../../shared/domain/value-objects/TaskId')).TaskId(taskId));
-        
-        await dailySelectionService.addTaskToToday(taskId);
-        
-        // Log the action
-        if (task) {
-          await onboardingService.logTaskAddedToToday(taskId, task.title.value);
-        }
-        
-        // Refresh modal data to reflect changes
-        const state = get();
-        if (state.dailyModalData) {
-          await get().loadDailyModalData();
-        }
-      } catch (error) {
-        console.error('Error adding task to today:', error);
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to add task to today'
         });
       }
     }

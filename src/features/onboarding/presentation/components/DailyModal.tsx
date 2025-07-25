@@ -8,11 +8,11 @@ interface DailyModalProps {
   isVisible: boolean;
   unfinishedTasks: Task[];
   overdueInboxTasks: Task[];
+  regularInboxTasks: Task[];
   motivationalMessage: string;
   date: string;
   onClose: () => void;
   onReturnTaskToToday?: (taskId: string) => void;
-  onAddTaskToToday?: (taskId: string) => void;
 }
 
 /**
@@ -22,11 +22,11 @@ export const DailyModal: React.FC<DailyModalProps> = ({
   isVisible,
   unfinishedTasks,
   overdueInboxTasks,
+  regularInboxTasks,
   motivationalMessage,
   date,
   onClose,
-  onReturnTaskToToday,
-  onAddTaskToToday
+  onReturnTaskToToday
 }) => {
   const { t } = useTranslation();
   if (!isVisible) return null;
@@ -67,7 +67,7 @@ export const DailyModal: React.FC<DailyModalProps> = ({
     }
   };
 
-  const hasContent = unfinishedTasks.length > 0 || overdueInboxTasks.length > 0;
+  const hasContent = unfinishedTasks.length > 0 || overdueInboxTasks.length > 0 || regularInboxTasks.length > 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -127,9 +127,9 @@ export const DailyModal: React.FC<DailyModalProps> = ({
                         {t(`categories.${task.category.toLowerCase()}`)}
                       </p>
                     </div>
-                    {onAddTaskToToday && (
+                    {onReturnTaskToToday && (
                       <button
-                        onClick={() => onAddTaskToToday(task.id.value)}
+                        onClick={() => onReturnTaskToToday(task.id.value)}
                         className="ml-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
                         title={t('dailyModal.returnToToday')}
                       >
@@ -168,11 +168,52 @@ export const DailyModal: React.FC<DailyModalProps> = ({
                           : '?'} {t('dailyModal.days')}
                       </p>
                     </div>
-                    {onAddTaskToToday && (
+                    {onReturnTaskToToday && (
                       <button
-                        onClick={() => onAddTaskToToday(task.id.value)}
+                        onClick={() => onReturnTaskToToday(task.id.value)}
                         className="ml-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
                         title="Вернуть в Сегодня"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Regular Inbox Tasks */}
+          {regularInboxTasks.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+                <Inbox className="w-5 h-5 mr-2 text-orange-600" />
+                {t('dailyModal.inboxTasks')} ({regularInboxTasks.length})
+              </h3>
+              <div className="space-y-2">
+                {regularInboxTasks.map((task) => (
+                  <div
+                    key={task.id.value}
+                    className="flex items-center p-3 bg-orange-50 rounded-lg border border-orange-200"
+                  >
+                    <div className="mr-3 text-orange-600">
+                      <Inbox className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-gray-900 font-medium">
+                        {task.title.value}
+                      </p>
+                      <p className="text-xs text-orange-600">
+                        {t('dailyModal.inInboxFor')} {task.inboxEnteredAt ? 
+                          Math.ceil((Date.now() - task.inboxEnteredAt.getTime()) / (1000 * 60 * 60 * 24)) 
+                          : '?'} {t('dailyModal.days')}
+                      </p>
+                    </div>
+                    {onReturnTaskToToday && (
+                      <button
+                        onClick={() => onReturnTaskToToday(task.id.value)}
+                        className="ml-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
+                        title={t('dailyModal.returnToToday')}
                       >
                         <RotateCcw className="w-4 h-4" />
                       </button>

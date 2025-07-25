@@ -135,4 +135,21 @@ export class DateOnly extends ValueObject<string> {
     const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
+
+  /**
+   * Get current Date object with dev mode mocking support
+   * This should be used instead of new Date() when you need current time
+   * that respects dev mode time simulation
+   */
+  static getCurrentDate(): Date {
+    // Check for dev mode mocked date
+    if (typeof window !== 'undefined') {
+      const mockedDate = localStorage.getItem('__dev_mocked_date__');
+      if (mockedDate) {
+        return new Date(mockedDate);
+      }
+    }
+    
+    return new Date();
+  }
 }

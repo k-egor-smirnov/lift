@@ -3,6 +3,7 @@ import { TaskRepository } from '../../domain/repositories/TaskRepository';
 import { Task } from '../../domain/entities/Task';
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { NonEmptyTitle } from '../../domain/value-objects/NonEmptyTitle';
+import { DateOnly } from '../../domain/value-objects/DateOnly';
 import { TaskCategory, TaskStatus } from '../../domain/types';
 import { TodoDatabase, TaskRecord } from '../database/TodoDatabase';
 import * as tokens from '../di/tokens';
@@ -61,7 +62,8 @@ export class TaskRepositoryImpl implements TaskRepository {
   }
 
   async findOverdueTasks(overdueDays: number): Promise<Task[]> {
-    const cutoffDate = new Date();
+    // Use DateOnly.getCurrentDate() to respect dev mode time simulation
+    const cutoffDate = DateOnly.getCurrentDate();
     cutoffDate.setDate(cutoffDate.getDate() - overdueDays);
 
     const records = await this.db.tasks

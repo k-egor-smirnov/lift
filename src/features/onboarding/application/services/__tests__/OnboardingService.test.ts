@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import { OnboardingService } from '../OnboardingService';
 import { TaskRepository } from '../../../../../shared/domain/repositories/TaskRepository';
 import { DailySelectionRepository } from '../../../../../shared/domain/repositories/DailySelectionRepository';
+import { LogService } from '../../../../../shared/application/services/LogService';
 import { Task } from '../../../../../shared/domain/entities/Task';
 import { TaskId } from '../../../../../shared/domain/value-objects/TaskId';
 import { NonEmptyTitle } from '../../../../../shared/domain/value-objects/NonEmptyTitle';
@@ -38,6 +39,15 @@ const mockDailySelectionRepository: jest.Mocked<DailySelectionRepository> = {
   getLastSelectionDateForTask: vi.fn()
 };
 
+const mockLogService: jest.Mocked<LogService> = {
+  createLog: vi.fn(),
+  getLogs: vi.fn(),
+  getLogsByType: vi.fn(),
+  getLogsByDateRange: vi.fn(),
+  clearLogs: vi.fn(),
+  clearLogsByType: vi.fn()
+};
+
 describe('OnboardingService', () => {
   let onboardingService: OnboardingService;
 
@@ -45,7 +55,8 @@ describe('OnboardingService', () => {
     vi.clearAllMocks();
     onboardingService = new OnboardingService(
       mockTaskRepository,
-      mockDailySelectionRepository
+      mockDailySelectionRepository,
+      mockLogService
     );
   });
 
@@ -188,6 +199,7 @@ describe('OnboardingService', () => {
         new NonEmptyTitle('Deleted Task'),
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
+        new Date().getTime(),
         new Date(),
         new Date(),
         new Date() // deletedAt
@@ -235,6 +247,60 @@ describe('OnboardingService', () => {
     });
   });
 
+  describe('getRegularInboxTasks', () => {
+    it('should return regular inbox tasks', async () => {
+      const regularTask = new Task(
+        TaskId.generate(),
+        new NonEmptyTitle('Regular Inbox Task'),
+        TaskCategory.INBOX,
+        TaskStatus.ACTIVE,
+        new Date().getTime(),
+        new Date(),
+        new Date(),
+        undefined,
+        new Date() // inboxEnteredAt - recent date
+      );
+
+      mockTaskRepository.findByCategoryAndStatus.mockResolvedValue([regularTask]);
+
+      const result = await onboardingService.getRegularInboxTasks();
+
+      expect(mockTaskRepository.findByCategoryAndStatus).toHaveBeenCalledWith(TaskCategory.INBOX, TaskStatus.ACTIVE);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBe(regularTask);
+    });
+
+    it('should filter out overdue tasks', async () => {
+      const regularTask = new Task(
+        TaskId.generate(),
+        new NonEmptyTitle('Regular Inbox Task'),
+        TaskCategory.INBOX,
+        TaskStatus.ACTIVE,
+        new Date(),
+        new Date()
+      );
+
+      const overdueTask = new Task(
+        TaskId.generate(),
+        new NonEmptyTitle('Overdue Inbox Task'),
+        TaskCategory.INBOX,
+        TaskStatus.ACTIVE,
+        new Date().getTime(),
+        new Date(),
+        new Date(),
+        undefined,
+        new Date(Date.now() - 4 * 24 * 60 * 60 * 1000) // 4 days ago
+      );
+
+      mockTaskRepository.findByCategoryAndStatus.mockResolvedValue([regularTask, overdueTask]);
+
+      const result = await onboardingService.getRegularInboxTasks();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBe(regularTask);
+    });
+  });
+
   describe('aggregateDailyModalData', () => {
     it('should aggregate all data for the daily modal', async () => {
       vi.useFakeTimers();
@@ -245,6 +311,7 @@ describe('OnboardingService', () => {
         new NonEmptyTitle('Unfinished Task'),
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
+        new Date().getTime(),
         new Date(),
         new Date()
       );
@@ -254,10 +321,23 @@ describe('OnboardingService', () => {
         new NonEmptyTitle('Overdue Task'),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
+        new Date().getTime(),
         new Date(),
         new Date(),
         undefined,
         new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)
+      );
+
+      const regularInboxTask = new Task(
+        TaskId.generate(),
+        new NonEmptyTitle('Regular Inbox Task'),
+        TaskCategory.INBOX,
+        TaskStatus.ACTIVE,
+        new Date().getTime(),
+        new Date(),
+        new Date(),
+        undefined,
+        new Date()
       );
 
       // Mock yesterday's unfinished tasks
@@ -273,11 +353,15 @@ describe('OnboardingService', () => {
 
       // Mock overdue tasks
       mockTaskRepository.findOverdueTasks.mockResolvedValue([overdueTask]);
+      
+      // Mock regular inbox tasks
+      mockTaskRepository.findByCategoryAndStatus.mockResolvedValue([regularInboxTask]);
 
       const result = await onboardingService.aggregateDailyModalData(3);
 
       expect(result.unfinishedTasks).toHaveLength(1);
       expect(result.overdueInboxTasks).toHaveLength(1);
+      expect(result.regularInboxTasks).toHaveLength(1);
       expect(result.shouldShow).toBe(true);
       expect(typeof result.motivationalMessage).toBe('string');
       expect(result.date).toBe(DateOnly.today().value);
@@ -310,6 +394,7 @@ describe('OnboardingService', () => {
         new NonEmptyTitle('Task'),
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
+        new Date().getTime(),
         new Date(),
         new Date()
       );
@@ -349,6 +434,7 @@ describe('OnboardingService', () => {
 
       mockDailySelectionRepository.getTasksForDay.mockResolvedValue([]);
       mockTaskRepository.findOverdueTasks.mockResolvedValue([]);
+      mockTaskRepository.findByCategoryAndStatus.mockResolvedValue([]);
 
       const result = await onboardingService.shouldShowDailyModal(3);
 

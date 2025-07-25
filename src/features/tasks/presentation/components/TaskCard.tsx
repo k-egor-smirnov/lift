@@ -9,25 +9,25 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
-import { useTranslation } from 'react-i18next';
-import { 
-  Zap, 
-  Target, 
-  Inbox, 
-  FileText, 
-  Sun, 
-  Trash2, 
-  Check, 
-  Undo2, 
-  Plus, 
-  ChevronDown, 
+import { useTranslation } from "react-i18next";
+import {
+  Zap,
+  Target,
+  Inbox,
+  FileText,
+  Sun,
+  Trash2,
+  Check,
+  Undo2,
+  Plus,
+  ChevronDown,
   ChevronUp,
   Settings,
   User,
   AlertTriangle,
-  X
-} from 'lucide-react';
-
+  X,
+  Pen,
+} from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
@@ -43,7 +43,6 @@ interface TaskCardProps {
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>; // Function to load all logs for this task
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>; // Function to create a new log for this task
   isDraggable?: boolean; // Whether this task card is draggable
-
 }
 
 const getCategoryColor = (category: TaskCategory): string => {
@@ -99,7 +98,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onLoadTaskLogs,
   onCreateLog,
   isDraggable = false,
-
 }) => {
   const { t } = useTranslation();
   const [showLogHistory, setShowLogHistory] = useState(false);
@@ -107,7 +105,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title.value);
-  const [newLogText, setNewLogText] = useState('');
+  const [newLogText, setNewLogText] = useState("");
   // Removed showNewLogInput state - input is always visible
   const cardRef = useRef<HTMLElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -231,7 +229,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     setShowLogHistory(!showLogHistory);
     if (showLogHistory) {
       // Clear log text when closing
-      setNewLogText('');
+      setNewLogText("");
     }
   };
 
@@ -241,7 +239,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       try {
         const success = await onCreateLog(task.id.value, newLogText.trim());
         if (success) {
-          setNewLogText('');
+          setNewLogText("");
           // Reload logs to show the new log
           if (onLoadTaskLogs) {
             const logs = await onLoadTaskLogs(task.id.value);
@@ -249,16 +247,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           }
         }
       } catch (error) {
-        console.error('Failed to create log:', error);
+        console.error("Failed to create log:", error);
       }
     }
   };
 
   const handleNewLogKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleCreateNewLog();
-    } else if (e.key === 'Escape') {
-      setNewLogText('');
+    } else if (e.key === "Escape") {
+      setNewLogText("");
       if (newLogInputRef.current) {
         newLogInputRef.current.blur();
       }
@@ -274,13 +272,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     const diffInDays = Math.floor(diffInHours / 24);
 
     if (diffInMinutes < 1) {
-      return t('taskCard.justNow');
+      return t("taskCard.justNow");
     } else if (diffInMinutes < 60) {
-      return t('taskCard.minutesAgo', { count: diffInMinutes });
+      return t("taskCard.minutesAgo", { count: diffInMinutes });
     } else if (diffInHours < 24) {
-      return t('taskCard.hoursAgo', { count: diffInHours });
+      return t("taskCard.hoursAgo", { count: diffInHours });
     } else if (diffInDays < 7) {
-      return t('taskCard.daysAgo', { count: diffInDays });
+      return t("taskCard.daysAgo", { count: diffInDays });
     } else {
       return date.toLocaleDateString();
     }
@@ -341,7 +339,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         {/* Touch gesture help for mobile */}
         {isTouch && (
           <div id={`touch-help-${task.id.value}`} className="sr-only">
-            {t('taskCard.touchHelp')}
+            {t("taskCard.touchHelp")}
           </div>
         )}
         {/* Header with category and actions */}
@@ -359,7 +357,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             {isOverdue && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
                 <AlertTriangle className="w-3 h-3 mr-1" />
-                {t('taskCard.overdue')}
+                {t("taskCard.overdue")}
               </span>
             )}
           </div>
@@ -367,25 +365,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <div
             className="flex items-center gap-1"
             role="toolbar"
-            aria-label={t('taskCard.taskActions')}
+            aria-label={t("taskCard.taskActions")}
           >
             {!isCompleted && (
               <button
                 onClick={() => onComplete(task.id.value)}
                 className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                title={t('taskCard.completeTask')}
-                aria-label={t('taskCard.markTaskAsComplete', { title: task.title.value })}
+                title={t("taskCard.completeTask")}
+                aria-label={t("taskCard.markTaskAsComplete", {
+                  title: task.title.value,
+                })}
               >
                 <Check className="w-4 h-4" />
               </button>
             )}
-            
+
             {isCompleted && onRevertCompletion && (
               <button
                 onClick={() => onRevertCompletion(task.id.value)}
                 className="p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                title={t('taskCard.revertTask')}
-                aria-label={t('taskCard.revertCompletion', { title: task.title.value })}
+                title={t("taskCard.revertTask")}
+                aria-label={t("taskCard.revertCompletion", {
+                  title: task.title.value,
+                })}
               >
                 <Undo2 className="w-4 h-4" />
               </button>
@@ -400,12 +402,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     : "text-gray-400 hover:text-gray-500 hover:bg-gray-50 focus:ring-gray-500"
                 }`}
                 title={
-                  isInTodaySelection ? t('taskCard.removeFromToday') : t('taskCard.addToToday')
+                  isInTodaySelection
+                    ? t("taskCard.removeFromToday")
+                    : t("taskCard.addToToday")
                 }
                 aria-label={
                   isInTodaySelection
-                    ? t('taskCard.removeTaskFromToday')
-                    : t('taskCard.addTaskToToday')
+                    ? t("taskCard.removeTaskFromToday")
+                    : t("taskCard.addTaskToToday")
                 }
               >
                 <Sun className="w-4 h-4" />
@@ -415,8 +419,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <button
               onClick={() => onDelete(task.id.value)}
               className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              title={t('taskCard.deleteTask')}
-              aria-label={t('taskCard.deleteTaskWithTitle', { title: task.title.value })}
+              title={t("taskCard.deleteTask")}
+              aria-label={t("taskCard.deleteTaskWithTitle", {
+                title: task.title.value,
+              })}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -440,14 +446,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <button
                 onClick={handleSaveEdit}
                 className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors"
-                title={t('taskCard.save')}
+                title={t("taskCard.save")}
               >
                 <Check className="w-4 h-4" />
               </button>
               <button
                 onClick={handleCancelEdit}
                 className="p-1 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
-                title={t('taskCard.cancel')}
+                title={t("taskCard.cancel")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -468,14 +474,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               }}
               tabIndex={0}
               role="button"
-              aria-label={t('taskCard.editTask', { title: task.title.value })}
+              aria-label={t("taskCard.editTask", { title: task.title.value })}
             >
               {task.title.value}
             </h3>
           )}
         </div>
-
-
 
         {/* Logs section - compact */}
         {(lastLog || onCreateLog) && (
@@ -483,18 +487,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             {/* Compact log display */}
             <div className="text-xs text-gray-500 mb-1">
               {lastLog ? (
-                <div 
+                <div
                   className="cursor-pointer hover:text-gray-700 transition-colors"
                   onClick={handleToggleLogHistory}
                 >
-                  {t('taskCard.lastLog')}: {lastLog.message} ({formatLogDate(lastLog.createdAt)})
+                  {t("taskCard.lastLog")}: {lastLog.message} (
+                  {formatLogDate(lastLog.createdAt)})
                 </div>
               ) : (
-                <div 
+                <div
                   className="cursor-pointer hover:text-gray-700 transition-colors"
                   onClick={handleToggleLogHistory}
                 >
-                  {t('taskCard.noLogsYet')}
+                  {t("taskCard.noLogsYet")}
                 </div>
               )}
             </div>
@@ -514,12 +519,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 id={`log-history-title-${task.id.value}`}
                 className="text-sm font-medium text-gray-900"
               >
-                {t('taskCard.logHistory')}
+                {t("taskCard.logHistory")}
               </h4>
               <button
                 onClick={handleToggleLogHistory}
                 className="text-xs text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 rounded px-2 py-1"
-                aria-label={t('taskCard.hideLogHistory')}
+                aria-label={t("taskCard.hideLogHistory")}
               >
                 <ChevronUp className="w-3 h-3" />
               </button>
@@ -535,16 +540,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     value={newLogText}
                     onChange={(e) => setNewLogText(e.target.value)}
                     onKeyDown={handleNewLogKeyDown}
-                    placeholder={t('taskCard.addNewLogPlaceholder')}
+                    placeholder={t("taskCard.addNewLogPlaceholder")}
                     className="flex-1 text-sm border-0 focus:outline-none focus:ring-0 p-1"
                   />
                   <button
                     onClick={handleCreateNewLog}
                     disabled={!newLogText.trim()}
                     className="p-1 text-green-600 hover:text-green-700 disabled:text-gray-400 transition-colors"
-                    title={t('taskCard.saveLog')}
+                    title={t("taskCard.saveLog")}
                   >
-                    <Check className="w-4 h-4" />
+                    <Pen className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -552,13 +557,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
             {loadingLogs ? (
               <div className="text-center py-4">
-                <span className="text-sm text-gray-500">{t('taskCard.loadingLogs')}</span>
+                <span className="text-sm text-gray-500">
+                  {t("taskCard.loadingLogs")}
+                </span>
               </div>
             ) : taskLogs.length > 0 ? (
               <div
                 className="space-y-2 max-h-60 overflow-y-auto"
                 role="log"
-                aria-label={t('taskCard.taskLogEntries')}
+                aria-label={t("taskCard.taskLogEntries")}
               >
                 {taskLogs.map((log) => {
                   const LogIcon = getLogTypeIcon(log.type);
@@ -570,7 +577,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     >
                       <div className="flex items-start space-x-2">
                         <LogIcon
-                          className={`w-3 h-3 mt-0.5 ${getLogTypeColor(log.type)}`}
+                          className={`w-3 h-3 mt-0.5 ${getLogTypeColor(
+                            log.type
+                          )}`}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
@@ -600,13 +609,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </div>
             ) : (
               <div className="text-center py-4">
-                <p className="text-sm text-gray-500">{t('taskCard.noLogsFound')}</p>
+                <p className="text-sm text-gray-500">
+                  {t("taskCard.noLogsFound")}
+                </p>
               </div>
             )}
           </div>
         )}
-
-
       </motion.article>
     </>
   );

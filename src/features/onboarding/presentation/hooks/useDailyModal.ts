@@ -34,7 +34,7 @@ export const useDailyModal = (overdueDays?: number) => {
         if (shouldShow) {
           // Load data and show modal
           await loadDailyModalData(overdueDays);
-          await showDailyModal();
+          showDailyModal();
         }
       } catch (error) {
         console.error('Error initializing daily modal:', error);
@@ -63,7 +63,7 @@ export const useDailyModal = (overdueDays?: number) => {
             if (shouldShow) {
               // Load fresh data and show modal
               await loadDailyModalData(overdueDays);
-              await showDailyModal();
+              showDailyModal();
             }
           } catch (error) {
             console.error('Error handling day transition:', error);
@@ -77,31 +77,6 @@ export const useDailyModal = (overdueDays?: number) => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [checkDayTransition, checkShouldShowModal, loadDailyModalData, showDailyModal, overdueDays]);
-
-  // Periodic check for day transition (every 30 seconds when app is active)
-  useEffect(() => {
-    const intervalId = setInterval(async () => {
-      // Only check when document is visible
-      if (!document.hidden) {
-        const dayChanged = checkDayTransition();
-        
-        if (dayChanged) {
-          try {
-            const shouldShow = await checkShouldShowModal(overdueDays);
-            
-            if (shouldShow) {
-              await loadDailyModalData(overdueDays);
-              await showDailyModal();
-            }
-          } catch (error) {
-            console.error('Error during periodic day transition check:', error);
-          }
-        }
-      }
-    }, 30000); // Check every 30 seconds
-
-    return () => clearInterval(intervalId);
   }, [checkDayTransition, checkShouldShowModal, loadDailyModalData, showDailyModal, overdueDays]);
 
   return {

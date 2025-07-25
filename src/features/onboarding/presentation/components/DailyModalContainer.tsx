@@ -22,7 +22,7 @@ export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
     hideDailyModal
   } = useDailyModal(overdueDays);
   
-  const { addTaskToToday } = useOnboardingViewModel();
+  const { returnTaskToToday } = useOnboardingViewModel();
 
   // Don't render anything if there's an error or no data
   if (error || !dailyModalData) {
@@ -39,10 +39,11 @@ export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
       isVisible={isModalVisible}
       unfinishedTasks={dailyModalData.unfinishedTasks}
       overdueInboxTasks={dailyModalData.overdueInboxTasks}
+      regularInboxTasks={dailyModalData.regularInboxTasks}
       motivationalMessage={dailyModalData.motivationalMessage}
       date={dailyModalData.date}
       onClose={hideDailyModal}
-      onAddTaskToToday={addTaskToToday}
+      onReturnTaskToToday={returnTaskToToday}
     />
   );
 };

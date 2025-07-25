@@ -13,6 +13,7 @@ import { LogService } from '../../../../shared/application/services/LogService';
 export interface DailyModalData {
   unfinishedTasks: Task[];
   overdueInboxTasks: Task[];
+  regularInboxTasks: Task[];
   motivationalMessage: string;
   shouldShow: boolean;
   date: string;
@@ -120,22 +121,55 @@ export class OnboardingService {
   }
 
   /**
+   * Get regular (non-overdue) inbox tasks
+   */
+  async getRegularInboxTasks(overdueDays?: number): Promise<Task[]> {
+    let days = overdueDays;
+    
+    // Use user settings if available and no explicit days provided
+    if (days === undefined && this.userSettingsService) {
+      try {
+        days = await this.userSettingsService.getInboxOverdueDays();
+      } catch (error) {
+        console.warn('Failed to get inbox overdue days from settings, using default:', error);
+        days = this.DEFAULT_OVERDUE_DAYS;
+      }
+    }
+    
+    // Fallback to default if still undefined
+    if (days === undefined) {
+      days = this.DEFAULT_OVERDUE_DAYS;
+    }
+    
+    // Get all inbox tasks and filter out overdue ones
+    const allInboxTasks = await this.taskRepository.findByCategoryAndStatus(
+      TaskCategory.INBOX,
+      TaskStatus.ACTIVE
+    );
+    
+    return allInboxTasks.filter(task => !task.isOverdue(days));
+  }
+
+  /**
    * Aggregate all data needed for the daily modal
    */
   async aggregateDailyModalData(overdueDays?: number): Promise<DailyModalData> {
-    const [unfinishedTasks, overdueInboxTasks] = await Promise.all([
+    const [unfinishedTasks, overdueInboxTasks, regularInboxTasks] = await Promise.all([
       this.getUnfinishedTasksFromYesterday(),
-      this.getOverdueInboxTasks(overdueDays)
+      this.getOverdueInboxTasks(overdueDays),
+      this.getRegularInboxTasks(overdueDays)
     ]);
 
     const shouldShow = this.isInMorningWindow() && (
       unfinishedTasks.length > 0 || 
-      overdueInboxTasks.length > 0
+      overdueInboxTasks.length > 0 ||
+      regularInboxTasks.length > 0
     );
 
     return {
       unfinishedTasks,
       overdueInboxTasks,
+      regularInboxTasks,
       motivationalMessage: this.getRandomMotivationalMessage(),
       shouldShow,
       date: DateOnly.today().value
@@ -150,50 +184,21 @@ export class OnboardingService {
       return false;
     }
 
-    const [unfinishedTasks, overdueInboxTasks] = await Promise.all([
+    const [unfinishedTasks, overdueInboxTasks, regularInboxTasks] = await Promise.all([
       this.getUnfinishedTasksFromYesterday(),
-      this.getOverdueInboxTasks(overdueDays)
+      this.getOverdueInboxTasks(overdueDays),
+      this.getRegularInboxTasks(overdueDays)
     ]);
 
-    const shouldShow = unfinishedTasks.length > 0 || overdueInboxTasks.length > 0;
+    const shouldShow = unfinishedTasks.length > 0 || overdueInboxTasks.length > 0 || regularInboxTasks.length > 0;
     
     // Log modal check
     await this.logService.createLog(
       'system',
-      `Daily modal check: shouldShow=${shouldShow}, unfinished=${unfinishedTasks.length}, overdue=${overdueInboxTasks.length}`
+      `Daily modal check: shouldShow=${shouldShow}, unfinished=${unfinishedTasks.length}, overdue=${overdueInboxTasks.length}, regular=${regularInboxTasks.length}`
     );
 
     return shouldShow;
-  }
-
-  /**
-   * Log modal shown event
-   */
-  async logModalShown(unfinishedCount: number, overdueCount: number): Promise<void> {
-    await this.logService.createLog(
-      'system',
-      `Daily modal shown: ${unfinishedCount} unfinished tasks, ${overdueCount} overdue tasks`
-    );
-  }
-
-  /**
-   * Log modal closed event
-   */
-  async logModalClosed(): Promise<void> {
-    await this.logService.createLog(
-      'system',
-      'Daily modal closed'
-    );
-  }
-
-  /**
-   * Log task added to today from modal
-   */
-  async logTaskAddedToToday(taskId: string, taskTitle: string): Promise<void> {
-    await this.logService.createLog(
-      taskId,
-      `Task "${taskTitle}" added to today from daily modal`
-    );
   }
 
   /**
