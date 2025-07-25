@@ -1,5 +1,5 @@
 import React from "react";
-import { Sun, Zap, Target, Inbox, Clock } from "lucide-react";
+import { Sun, Zap, Target, Inbox, Clock, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
@@ -7,8 +7,8 @@ import { cn } from "../../shared/lib/utils";
 // import Logo from "../../../assets/icon.png";
 
 interface SidebarProps {
-  activeView: "today" | TaskCategory;
-  onViewChange: (view: "today" | TaskCategory) => void;
+  activeView: "today" | "logs" | TaskCategory;
+  onViewChange: (view: "today" | "logs" | TaskCategory) => void;
   taskCounts: Record<TaskCategory, number>;
   isMobileMenuOpen: boolean;
   onMobileMenuClose: () => void;
@@ -51,9 +51,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       name: getCategoryInfo(category, t).name,
       count: taskCounts[category] || 0,
     })),
+    {
+      id: "logs" as const,
+      icon: FileText,
+      name: t("navigation.logs", "Logs"),
+      count: null,
+    },
   ];
 
-  const handleItemClick = (viewId: "today" | TaskCategory) => {
+  const handleItemClick = (viewId: "today" | "logs" | TaskCategory) => {
     onViewChange(viewId);
     onMobileMenuClose();
   };

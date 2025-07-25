@@ -6,6 +6,7 @@ import { TaskList } from "../features/tasks/presentation/components/TaskList";
 
 import { TodayView } from "../features/today/presentation/components/TodayView";
 import { TodayMobileView } from "../features/today/presentation/components/TodayMobileView";
+import { AllLogsView } from "../features/logs/presentation/components";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import {
@@ -36,12 +37,15 @@ import { RemoveTaskFromTodayUseCase } from "../shared/application/use-cases/Remo
 import { LogService } from "../shared/application/services/LogService";
 import { DeferTaskUseCase } from "../shared/application/use-cases/DeferTaskUseCase";
 import { UndeferTaskUseCase } from "../shared/application/use-cases/UndeferTaskUseCase";
+import { GetTaskLogsUseCase } from "../shared/application/use-cases/GetTaskLogsUseCase";
+import { CreateUserLogUseCase } from "../shared/application/use-cases/CreateUserLogUseCase";
+import { LogViewModelDependencies } from "../features/logs/presentation/view-models/LogViewModel";
 import { toast, Toaster } from "sonner";
 
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const [activeView, setActiveView] = useState<"today" | TaskCategory>("today");
+  const [activeView, setActiveView] = useState<"today" | "logs" | TaskCategory>("today");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
@@ -92,6 +96,8 @@ export const MVPApp: React.FC = () => {
   const logService = getService<LogService>(tokens.LOG_SERVICE_TOKEN);
   const deferTaskUseCase = getService<DeferTaskUseCase>(tokens.DEFER_TASK_USE_CASE_TOKEN);
   const undeferTaskUseCase = getService<UndeferTaskUseCase>(tokens.UNDEFER_TASK_USE_CASE_TOKEN);
+  const getTaskLogsUseCase = getService<GetTaskLogsUseCase>(tokens.GET_TASK_LOGS_USE_CASE_TOKEN);
+  const createUserLogUseCase = getService<CreateUserLogUseCase>(tokens.CREATE_USER_LOG_USE_CASE_TOKEN);
 
   // Create dependencies for view models
   const taskDependencies: TaskViewModelDependencies = useMemo(
@@ -111,6 +117,14 @@ export const MVPApp: React.FC = () => {
       addTaskToTodayUseCase,
       removeTaskFromTodayUseCase,
       completeTaskUseCase,
+    }),
+    []
+  );
+
+  const logDependencies: LogViewModelDependencies = useMemo(
+    () => ({
+      getTaskLogsUseCase,
+      createUserLogUseCase,
     }),
     []
   );
@@ -277,7 +291,7 @@ export const MVPApp: React.FC = () => {
 
   // Update view model filter when active view changes
   useEffect(() => {
-    if (activeView === "today") {
+    if (activeView === "today" || activeView === "logs") {
       setViewModelFilter({});
     } else {
       setViewModelFilter({ category: activeView });
@@ -487,7 +501,7 @@ export const MVPApp: React.FC = () => {
     }
   }, [addTaskToTodayUseCase]);
 
-  const handleViewChange = useCallback((view: "today" | TaskCategory) => {
+  const handleViewChange = useCallback((view: "today" | "logs" | TaskCategory) => {
     setActiveView(view);
   }, []);
 
@@ -614,7 +628,7 @@ export const MVPApp: React.FC = () => {
 
   // Get the current category for modal
   const currentCategory =
-    activeView === "today" ? TaskCategory.INBOX : activeView;
+    activeView === "today" || activeView === "logs" ? TaskCategory.INBOX : activeView;
   const hideCategorySelection = activeView !== "today";
 
   // If mobile view should be used, render it directly without sidebar/header
@@ -725,6 +739,8 @@ export const MVPApp: React.FC = () => {
                   onCreateLog={handleCreateTaskLog}
                   lastLogs={lastLogs}
                 />
+              ) : activeView === "logs" ? (
+                <AllLogsView dependencies={logDependencies} />
               ) : (
                 <TaskList
                   tasks={getFilteredTasks()}

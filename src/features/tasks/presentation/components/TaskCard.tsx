@@ -28,6 +28,7 @@ import {
   X,
   Pen,
   Clock,
+  MoreHorizontal,
 } from "lucide-react";
 
 interface TaskCardProps {
@@ -112,10 +113,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const [editTitle, setEditTitle] = useState(task.title.value);
   const [newLogText, setNewLogText] = useState("");
   const [showDeferModal, setShowDeferModal] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   // Removed showNewLogInput state - input is always visible
   const cardRef = useRef<HTMLElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const newLogInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Drag and drop functionality
   const {
@@ -191,6 +194,22 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       newLogInputRef.current.focus();
     }
   }, [showLogHistory]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showDropdown]);
 
   // Handle edit mode
   const handleStartEdit = () => {
@@ -355,107 +374,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             {t("taskCard.touchHelp")}
           </div>
         )}
-        {/* Header with category and actions */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className={`
-              inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border
-              ${categoryColor}
-            `}
-            >
-              <CategoryIcon className="w-3 h-3 mr-1" />
-              {t(`categories.${task.category.toLowerCase()}`)}
-            </span>
-            {isOverdue && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                <AlertTriangle className="w-3 h-3 mr-1" />
-                {t("taskCard.overdue")}
-              </span>
-            )}
-          </div>
-
-          <div
-            className="flex items-center gap-1"
-            role="toolbar"
-            aria-label={t("taskCard.taskActions")}
+        {/* Header with category */}
+        <div className="flex items-center gap-2 mb-3">
+          <span
+            className={`
+            inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border
+            ${categoryColor}
+          `}
           >
-            {!isCompleted && (
-              <button
-                onClick={() => onComplete(task.id.value)}
-                className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                title={t("taskCard.completeTask")}
-                aria-label={t("taskCard.markTaskAsComplete", {
-                  title: task.title.value,
-                })}
-              >
-                <Check className="w-4 h-4" />
-              </button>
-            )}
-
-            {isCompleted && onRevertCompletion && (
-              <button
-                onClick={() => onRevertCompletion(task.id.value)}
-                className="p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                title={t("taskCard.revertTask")}
-                aria-label={t("taskCard.revertCompletion", {
-                  title: task.title.value,
-                })}
-              >
-                <Undo2 className="w-4 h-4" />
-              </button>
-            )}
-
-            {showTodayButton && onAddToToday && (
-              <button
-                onClick={() => onAddToToday(task.id.value)}
-                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  isInTodaySelection
-                    ? "text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 focus:ring-yellow-500"
-                    : "text-gray-400 hover:text-gray-500 hover:bg-gray-50 focus:ring-gray-500"
-                }`}
-                title={
-                  isInTodaySelection
-                    ? t("taskCard.removeFromToday")
-                    : t("taskCard.addToToday")
-                }
-                aria-label={
-                  isInTodaySelection
-                    ? t("taskCard.removeTaskFromToday")
-                    : t("taskCard.addTaskToToday")
-                }
-              >
-                <Sun className="w-4 h-4" />
-              </button>
-            )}
-
-            {showDeferButton && onDefer && !isCompleted && (
-              <button
-                onClick={() => setShowDeferModal(true)}
-                className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-                title={t("taskCard.deferTask")}
-                aria-label={t("taskCard.deferTaskWithTitle", {
-                  title: task.title.value,
-                })}
-              >
-                <Clock className="w-4 h-4" />
-              </button>
-            )}
-
-            <button
-              onClick={() => onDelete(task.id.value)}
-              className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              title={t("taskCard.deleteTask")}
-              aria-label={t("taskCard.deleteTaskWithTitle", {
-                title: task.title.value,
-              })}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
+            <CategoryIcon className="w-3 h-3 mr-1" />
+            {t(`categories.${task.category.toLowerCase()}`)}
+          </span>
+          {isOverdue && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              {t("taskCard.overdue")}
+            </span>
+          )}
         </div>
 
-        {/* Task title */}
+        {/* Task title with sun icon and actions */}
         <div className="mb-3">
           {isEditing ? (
             <div className="flex items-center gap-2">
@@ -485,25 +423,127 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </button>
             </div>
           ) : (
-            <h3
-              id={`task-title-${task.id.value}`}
-              className={`
-              text-lg font-medium text-gray-900 cursor-pointer hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded px-1 py-1
-              ${isCompleted ? "line-through" : ""}
-            `}
-              onClick={handleStartEdit}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleStartEdit();
-                }
-              }}
-              tabIndex={0}
-              role="button"
-              aria-label={t("taskCard.editTask", { title: task.title.value })}
-            >
-              {task.title.value}
-            </h3>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-1">
+                {/* Sun icon for today tasks */}
+                {showTodayButton && onAddToToday && (
+                  <button
+                    onClick={() => onAddToToday(task.id.value)}
+                    className={`p-1 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      isInTodaySelection
+                        ? "text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 focus:ring-yellow-500"
+                        : "text-gray-400 hover:text-gray-500 hover:bg-gray-50 focus:ring-gray-500"
+                    }`}
+                    title={
+                      isInTodaySelection
+                        ? t("taskCard.removeFromToday")
+                        : t("taskCard.addToToday")
+                    }
+                    aria-label={
+                      isInTodaySelection
+                        ? t("taskCard.removeTaskFromToday")
+                        : t("taskCard.addTaskToToday")
+                    }
+                  >
+                    <Sun className="w-4 h-4" />
+                  </button>
+                )}
+                
+                {/* Task title */}
+                <h3
+                  id={`task-title-${task.id.value}`}
+                  className={`
+                  text-lg font-medium text-gray-900 cursor-pointer hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded px-1 py-1 flex-1
+                  ${isCompleted ? "line-through" : ""}
+                `}
+                  onClick={handleStartEdit}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleStartEdit();
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={t("taskCard.editTask", { title: task.title.value })}
+                >
+                  {task.title.value}
+                </h3>
+              </div>
+              
+              {/* Actions */}
+              <div className="flex items-center gap-1" role="toolbar" aria-label={t("taskCard.taskActions")}>
+                {/* Complete/Revert button - always visible */}
+                {!isCompleted && (
+                  <button
+                    onClick={() => onComplete(task.id.value)}
+                    className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    title={t("taskCard.completeTask")}
+                    aria-label={t("taskCard.markTaskAsComplete", {
+                      title: task.title.value,
+                    })}
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                )}
+
+                {isCompleted && onRevertCompletion && (
+                  <button
+                    onClick={() => onRevertCompletion(task.id.value)}
+                    className="p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    title={t("taskCard.revertTask")}
+                    aria-label={t("taskCard.revertCompletion", {
+                      title: task.title.value,
+                    })}
+                  >
+                    <Undo2 className="w-4 h-4" />
+                  </button>
+                )}
+                
+                {/* Dropdown menu for other actions */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    title={t("taskCard.moreActions")}
+                    aria-label={t("taskCard.moreActions")}
+                    aria-expanded={showDropdown}
+                    aria-haspopup="true"
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                  
+                  {/* Dropdown menu */}
+                  {showDropdown && (
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-10">
+                      {showDeferButton && onDefer && !isCompleted && (
+                        <button
+                          onClick={() => {
+                            setShowDeferModal(true);
+                            setShowDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <Clock className="w-4 h-4 text-orange-600" />
+                          {t("taskCard.deferTask")}
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={() => {
+                          onDelete(task.id.value);
+                          setShowDropdown(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {t("taskCard.deleteTask")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 

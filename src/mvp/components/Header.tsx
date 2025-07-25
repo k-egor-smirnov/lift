@@ -5,12 +5,13 @@ import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
 
 interface HeaderProps {
-  activeView: "today" | TaskCategory;
+  activeView: "today" | "logs" | TaskCategory;
   onMobileMenuToggle: () => void;
 }
 
-const getViewTitle = (view: "today" | TaskCategory, t: any) => {
+const getViewTitle = (view: "today" | "logs" | TaskCategory, t: any) => {
   if (view === "today") return t("navigation.today");
+  if (view === "logs") return t("logs.title", "Activity Logs");
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -24,8 +25,9 @@ const getViewTitle = (view: "today" | TaskCategory, t: any) => {
   }
 };
 
-const getViewDescription = (view: "today" | TaskCategory, t: any) => {
+const getViewDescription = (view: "today" | "logs" | TaskCategory, t: any) => {
   if (view === "today") return t("navigation.descriptions.today");
+  if (view === "logs") return t("logs.subtitle", "View all system and user activity");
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -39,8 +41,9 @@ const getViewDescription = (view: "today" | TaskCategory, t: any) => {
   }
 };
 
-const getViewIcon = (view: "today" | TaskCategory) => {
+const getViewIcon = (view: "today" | "logs" | TaskCategory) => {
   if (view === "today") return Sun;
+  if (view === "logs") return FileText;
 
   switch (view) {
     case TaskCategory.SIMPLE:
