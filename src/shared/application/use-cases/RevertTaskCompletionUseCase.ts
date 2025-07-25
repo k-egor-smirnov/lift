@@ -48,7 +48,7 @@ export class RevertTaskCompletionUseCase {
       }
 
       // Execute in transaction
-      await this.database.transaction('rw', [this.database.tasks], async () => {
+      await this.database.transaction('rw', [this.database.tasks, this.database.eventStore], async () => {
         // Find the task
         const task = await this.taskRepository.findById(taskId);
         if (!task) {
@@ -62,9 +62,7 @@ export class RevertTaskCompletionUseCase {
         await this.taskRepository.save(task);
 
         // Publish domain events
-        for (const event of events) {
-          await this.eventBus.publish(event);
-        }
+        await this.eventBus.publishAll(events);
       });
 
       return ResultUtils.ok(undefined);

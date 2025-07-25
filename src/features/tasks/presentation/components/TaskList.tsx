@@ -31,7 +31,8 @@ interface TaskListProps {
   showTodayButton?: boolean;
   overdueDays?: number;
   todayTaskIds?: string[]; // Array of task IDs that are selected for today
-  onComplete: (taskId: string) => void;
+  onComplete?: (taskId: string) => void;
+  onRevertCompletion?: (taskId: string) => void;
   onEdit: (taskId: string, newTitle: string) => void;
   onDelete: (taskId: string) => void;
   onAddToToday?: (taskId: string) => void;
@@ -51,6 +52,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   overdueDays = 3,
   todayTaskIds = [],
   onComplete,
+  onRevertCompletion,
   onEdit,
   onDelete,
   onAddToToday,
@@ -172,7 +174,8 @@ export const TaskList: React.FC<TaskListProps> = ({
       <TaskCard
         key={task.id.value}
         task={task}
-        onComplete={onComplete}
+        onComplete={onComplete || (() => {})}
+        onRevertCompletion={onRevertCompletion}
         onEdit={onEdit}
         onDelete={onDelete}
         onAddToToday={onAddToToday}

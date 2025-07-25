@@ -32,6 +32,7 @@ import {
 interface TaskCardProps {
   task: Task;
   onComplete: (taskId: string) => void;
+  onRevertCompletion?: (taskId: string) => void;
   onEdit: (taskId: string, newTitle: string) => void;
   onDelete: (taskId: string) => void;
   onAddToToday?: (taskId: string) => void;
@@ -87,6 +88,7 @@ const getLogTypeIcon = (type: "SYSTEM" | "USER" | "CONFLICT") => {
 export const TaskCard: React.FC<TaskCardProps> = ({
   task,
   onComplete,
+  onRevertCompletion,
   onEdit,
   onDelete,
   onAddToToday,
@@ -378,9 +380,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </button>
             )}
             
-            {isCompleted && (
+            {isCompleted && onRevertCompletion && (
               <button
-                onClick={() => onComplete(task.id.value)}
+                onClick={() => onRevertCompletion(task.id.value)}
                 className="p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                 title={t('taskCard.revertTask')}
                 aria-label={t('taskCard.revertCompletion', { title: task.title.value })}
