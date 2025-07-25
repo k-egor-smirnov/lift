@@ -96,7 +96,7 @@ export class GetTodayTasksUseCase {
 
       // Calculate counts
       const totalCount = taskInfos.length;
-      const completedCount = taskInfos.filter(info => info.completedInSelection).length;
+      const completedCount = taskInfos.filter(info => info.completedInSelection || info.task.isCompleted).length;
       const activeCount = totalCount - completedCount;
 
       return ResultUtils.ok({
