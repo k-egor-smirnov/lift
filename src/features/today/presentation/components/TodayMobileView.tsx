@@ -5,6 +5,8 @@ import { TaskList } from '../../../tasks/presentation/components/TaskList';
 import { LogEntry } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
 import { createTodayViewModel, TodayViewModelDependencies } from '../view-models/TodayViewModel';
 import { Task } from '../../../../shared/domain/entities/Task';
+import { toast } from 'sonner';
+import { getService, tokens } from '../../../../shared/infrastructure/di';
 
 interface TodayMobileViewProps {
   dependencies: TodayViewModelDependencies;
@@ -56,7 +58,37 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   }, [loadTodayTasks]);
 
   const handleCompleteTask = async (taskId: string) => {
-    await completeTask(taskId);
+    try {
+      await completeTask(taskId);
+      
+      // Show success toast with undo option
+      toast.success('Задача выполнена', {
+        action: {
+          label: 'Отменить',
+          onClick: async () => {
+            try {
+              const revertUseCase = getService(tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN);
+              const result = await revertUseCase.execute({ taskId });
+              
+              if (result.isSuccess()) {
+                toast.success('Выполнение задачи отменено');
+                // Reload today's tasks to reflect changes
+                await loadTodayTasks();
+              } else {
+                toast.error('Не удалось отменить выполнение задачи');
+              }
+            } catch (error) {
+              console.error('Error reverting task completion:', error);
+              toast.error('Произошла ошибка при отмене');
+            }
+          },
+        },
+        duration: 5000, // 5 seconds to allow undo
+      });
+    } catch (error) {
+      console.error('Error completing task:', error);
+      toast.error('Не удалось выполнить задачу');
+    }
   };
 
   const handleRemoveFromToday = async (taskId: string) => {

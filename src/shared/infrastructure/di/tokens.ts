@@ -15,6 +15,7 @@ export const CREATE_TASK_USE_CASE_TOKEN = Symbol('CreateTaskUseCase');
 export const UPDATE_TASK_USE_CASE_TOKEN = Symbol('UpdateTaskUseCase');
 export const REORDER_TASKS_USE_CASE_TOKEN = Symbol('ReorderTasksUseCase');
 export const COMPLETE_TASK_USE_CASE_TOKEN = Symbol('CompleteTaskUseCase');
+export const REVERT_TASK_COMPLETION_USE_CASE_TOKEN = Symbol('RevertTaskCompletionUseCase');
 export const GET_TODAY_TASKS_USE_CASE_TOKEN = Symbol('GetTodayTasksUseCase');
 export const ADD_TASK_TO_TODAY_USE_CASE_TOKEN = Symbol('AddTaskToTodayUseCase');
 export const REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN = Symbol('RemoveTaskFromTodayUseCase');

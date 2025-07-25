@@ -12,6 +12,7 @@ import { CreateTaskUseCase } from '../../application/use-cases/CreateTaskUseCase
 import { UpdateTaskUseCase } from '../../application/use-cases/UpdateTaskUseCase';
 import { ReorderTasksUseCase } from '../../application/use-cases/ReorderTasksUseCase';
 import { CompleteTaskUseCase } from '../../application/use-cases/CompleteTaskUseCase';
+import { RevertTaskCompletionUseCase } from '../../application/use-cases/RevertTaskCompletionUseCase';
 import { GetTodayTasksUseCase } from '../../application/use-cases/GetTodayTasksUseCase';
 import { AddTaskToTodayUseCase } from '../../application/use-cases/AddTaskToTodayUseCase';
 import { RemoveTaskFromTodayUseCase } from '../../application/use-cases/RemoveTaskFromTodayUseCase';
@@ -43,6 +44,7 @@ export function configureContainer(): void {
   container.registerSingleton(tokens.UPDATE_TASK_USE_CASE_TOKEN, UpdateTaskUseCase);
   container.registerSingleton(tokens.REORDER_TASKS_USE_CASE_TOKEN, ReorderTasksUseCase);
   container.registerSingleton(tokens.COMPLETE_TASK_USE_CASE_TOKEN, CompleteTaskUseCase);
+  container.registerSingleton(tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN, RevertTaskCompletionUseCase);
   container.registerSingleton(tokens.GET_TODAY_TASKS_USE_CASE_TOKEN, GetTodayTasksUseCase);
   container.registerSingleton(tokens.ADD_TASK_TO_TODAY_USE_CASE_TOKEN, AddTaskToTodayUseCase);
   container.registerSingleton(tokens.REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN, RemoveTaskFromTodayUseCase);
