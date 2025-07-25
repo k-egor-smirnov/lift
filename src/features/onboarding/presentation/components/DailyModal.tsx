@@ -12,6 +12,7 @@ interface DailyModalProps {
   date: string;
   onClose: () => void;
   onReturnTaskToToday?: (taskId: string) => void;
+  onAddTaskToToday?: (taskId: string) => void;
 }
 
 /**
@@ -24,7 +25,8 @@ export const DailyModal: React.FC<DailyModalProps> = ({
   motivationalMessage,
   date,
   onClose,
-  onReturnTaskToToday
+  onReturnTaskToToday,
+  onAddTaskToToday
 }) => {
   const { t } = useTranslation();
   if (!isVisible) return null;
@@ -125,9 +127,9 @@ export const DailyModal: React.FC<DailyModalProps> = ({
                         {t(`categories.${task.category.toLowerCase()}`)}
                       </p>
                     </div>
-                    {onReturnTaskToToday && (
+                    {onAddTaskToToday && (
                       <button
-                        onClick={() => onReturnTaskToToday(task.id.value)}
+                        onClick={() => onAddTaskToToday(task.id.value)}
                         className="ml-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
                         title={t('dailyModal.returnToToday')}
                       >
@@ -166,9 +168,9 @@ export const DailyModal: React.FC<DailyModalProps> = ({
                           : '?'} {t('dailyModal.days')}
                       </p>
                     </div>
-                    {onReturnTaskToToday && (
+                    {onAddTaskToToday && (
                       <button
-                        onClick={() => onReturnTaskToToday(task.id.value)}
+                        onClick={() => onAddTaskToToday(task.id.value)}
                         className="ml-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
                         title="Вернуть в Сегодня"
                       >

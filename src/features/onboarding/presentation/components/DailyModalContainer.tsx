@@ -1,10 +1,10 @@
 import React from 'react';
 import { DailyModal } from './DailyModal';
 import { useDailyModal } from '../hooks/useDailyModal';
+import { useOnboardingViewModel } from '../view-models/OnboardingViewModel';
 
 interface DailyModalContainerProps {
   overdueDays?: number;
-  onReturnTaskToToday?: (taskId: string) => void;
 }
 
 /**
@@ -12,8 +12,7 @@ interface DailyModalContainerProps {
  * This should be included in the main app component
  */
 export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
-  overdueDays,
-  onReturnTaskToToday
+  overdueDays
 }) => {
   const {
     dailyModalData,
@@ -22,6 +21,8 @@ export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
     error,
     hideDailyModal
   } = useDailyModal(overdueDays);
+  
+  const { addTaskToToday } = useOnboardingViewModel();
 
   // Don't render anything if there's an error or no data
   if (error || !dailyModalData) {
@@ -41,7 +42,7 @@ export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
       motivationalMessage={dailyModalData.motivationalMessage}
       date={dailyModalData.date}
       onClose={hideDailyModal}
-      onReturnTaskToToday={onReturnTaskToToday}
+      onAddTaskToToday={addTaskToToday}
     />
   );
 };

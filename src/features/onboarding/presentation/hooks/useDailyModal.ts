@@ -15,7 +15,8 @@ export const useDailyModal = (overdueDays?: number) => {
     loadDailyModalData,
     showDailyModal,
     hideDailyModal,
-    checkShouldShowModal
+    checkShouldShowModal,
+    checkDayTransition
   } = useOnboardingViewModel();
 
   // Check and show modal on app startup
@@ -33,7 +34,7 @@ export const useDailyModal = (overdueDays?: number) => {
         if (shouldShow) {
           // Load data and show modal
           await loadDailyModalData(overdueDays);
-          showDailyModal();
+          await showDailyModal();
         }
       } catch (error) {
         console.error('Error initializing daily modal:', error);
@@ -45,6 +46,63 @@ export const useDailyModal = (overdueDays?: number) => {
     
     return () => clearTimeout(timer);
   }, [modalShownToday, overdueDays, checkShouldShowModal, loadDailyModalData, showDailyModal]);
+
+  // Handle day transition when app returns from background
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      // Only check when app becomes visible
+      if (!document.hidden) {
+        // Check if day has transitioned
+        const dayChanged = checkDayTransition();
+        
+        if (dayChanged) {
+          // Day has changed, check if we should show modal
+          try {
+            const shouldShow = await checkShouldShowModal(overdueDays);
+            
+            if (shouldShow) {
+              // Load fresh data and show modal
+              await loadDailyModalData(overdueDays);
+              await showDailyModal();
+            }
+          } catch (error) {
+            console.error('Error handling day transition:', error);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [checkDayTransition, checkShouldShowModal, loadDailyModalData, showDailyModal, overdueDays]);
+
+  // Periodic check for day transition (every 30 seconds when app is active)
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      // Only check when document is visible
+      if (!document.hidden) {
+        const dayChanged = checkDayTransition();
+        
+        if (dayChanged) {
+          try {
+            const shouldShow = await checkShouldShowModal(overdueDays);
+            
+            if (shouldShow) {
+              await loadDailyModalData(overdueDays);
+              await showDailyModal();
+            }
+          } catch (error) {
+            console.error('Error during periodic day transition check:', error);
+          }
+        }
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(intervalId);
+  }, [checkDayTransition, checkShouldShowModal, loadDailyModalData, showDailyModal, overdueDays]);
 
   return {
     dailyModalData,

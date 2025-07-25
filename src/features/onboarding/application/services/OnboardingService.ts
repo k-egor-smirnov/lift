@@ -4,6 +4,8 @@ import { DailySelectionRepository } from '../../../../shared/domain/repositories
 import { TaskCategory, TaskStatus } from '../../../../shared/domain/types';
 import { Task } from '../../../../shared/domain/entities/Task';
 import { UserSettingsService } from './UserSettingsService';
+import { DailySelectionService } from '../../domain/services/DailySelectionService';
+import { LogService } from '../../../../shared/application/services/LogService';
 
 /**
  * Data aggregated for the daily modal
@@ -40,8 +42,18 @@ export class OnboardingService {
   constructor(
     private readonly taskRepository: TaskRepository,
     private readonly dailySelectionRepository: DailySelectionRepository,
+    private readonly logService: LogService,
     private readonly userSettingsService?: UserSettingsService
-  ) {}
+  ) {
+    // Initialize DailySelectionService for task management
+    this.dailySelectionService = new DailySelectionService(
+      taskRepository,
+      dailySelectionRepository,
+      logService
+    );
+  }
+
+  private readonly dailySelectionService: DailySelectionService;
 
   /**
    * Check if we're in the morning window (6-11 AM local time)
@@ -143,6 +155,71 @@ export class OnboardingService {
       this.getOverdueInboxTasks(overdueDays)
     ]);
 
-    return unfinishedTasks.length > 0 || overdueInboxTasks.length > 0;
+    const shouldShow = unfinishedTasks.length > 0 || overdueInboxTasks.length > 0;
+    
+    // Log modal check
+    await this.logService.createLog(
+      'system',
+      `Daily modal check: shouldShow=${shouldShow}, unfinished=${unfinishedTasks.length}, overdue=${overdueInboxTasks.length}`
+    );
+
+    return shouldShow;
+  }
+
+  /**
+   * Log modal shown event
+   */
+  async logModalShown(unfinishedCount: number, overdueCount: number): Promise<void> {
+    await this.logService.createLog(
+      'system',
+      `Daily modal shown: ${unfinishedCount} unfinished tasks, ${overdueCount} overdue tasks`
+    );
+  }
+
+  /**
+   * Log modal closed event
+   */
+  async logModalClosed(): Promise<void> {
+    await this.logService.createLog(
+      'system',
+      'Daily modal closed'
+    );
+  }
+
+  /**
+   * Log task added to today from modal
+   */
+  async logTaskAddedToToday(taskId: string, taskTitle: string): Promise<void> {
+    await this.logService.createLog(
+      taskId,
+      `Task "${taskTitle}" added to today from daily modal`
+    );
+  }
+
+  /**
+   * Get the DailySelectionService instance for task management
+   */
+  getDailySelectionService(): DailySelectionService {
+    return this.dailySelectionService;
+  }
+
+  /**
+   * Handle new day transition - clear previous day's selection
+   */
+  async handleNewDayTransition(): Promise<void> {
+    try {
+      await this.dailySelectionService.clearTodaySelection();
+      
+      await this.logService.createLog(
+        'system',
+        `New day transition handled: ${DateOnly.today().value}`
+      );
+    } catch (error) {
+      console.error('Error handling new day transition:', error);
+      await this.logService.createLog(
+        'system',
+        `Error in new day transition: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 }
