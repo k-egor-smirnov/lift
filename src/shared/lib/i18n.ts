@@ -8,6 +8,7 @@ const resources = {
         SIMPLE: "Simple",
         FOCUS: "Focus",
         INBOX: "Inbox",
+        DEFERRED: "Deferred",
       },
       navigation: {
         today: 'Today',
@@ -15,7 +16,8 @@ const resources = {
           today: 'Focus on what matters most today',
           simple: 'Quick tasks that take less than 15 minutes',
           focus: 'Important tasks requiring deep concentration',
-          inbox: 'New tasks waiting to be organized'
+          inbox: 'New tasks waiting to be organized',
+          deferred: 'Tasks postponed until a specific date'
         }
       },
       dailyModal: {
@@ -31,6 +33,10 @@ const resources = {
         allCaughtUp: 'All caught up!',
         readyToStart: 'Ready to start your productive day',
         letsGetStarted: "Let's get started!"
+      },
+      taskCard: {
+        deferTask: "Defer Task",
+        deferTaskWithTitle: "Defer task: {{title}}"
       },
     },
   },
@@ -53,6 +59,10 @@ const resources = {
       todayView: {
         progress: "Прогресс",
       },
+      taskCard: {
+        deferTask: 'Отложить задачу',
+        deferTaskWithTitle: 'Отложить задачу: {{title}}'
+      },
       tasks: {
         newTask: 'Новая задача'
       },
@@ -70,7 +80,7 @@ const resources = {
         readyToStart: 'Готовы начать продуктивный день',
         letsGetStarted: 'Давайте начнем!'
       }
-    },
+    }
   },
 };
 

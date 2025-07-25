@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   X,
   Pen,
+  Clock,
 } from "lucide-react";
 
 interface TaskCardProps {
@@ -36,7 +37,9 @@ interface TaskCardProps {
   onEdit: (taskId: string, newTitle: string) => void;
   onDelete: (taskId: string) => void;
   onAddToToday?: (taskId: string) => void;
+  onDefer?: (taskId: string, deferDate: Date) => void;
   showTodayButton?: boolean;
+  showDeferButton?: boolean;
   isOverdue?: boolean;
   isInTodaySelection?: boolean; // New prop to indicate if task is in today's selection
   lastLog?: LogEntry | null; // Last log for this task
@@ -91,7 +94,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onEdit,
   onDelete,
   onAddToToday,
+  onDefer,
   showTodayButton = false,
+  showDeferButton = false,
   isOverdue = false,
   isInTodaySelection = false,
   lastLog = null,
@@ -106,6 +111,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title.value);
   const [newLogText, setNewLogText] = useState("");
+  const [showDeferModal, setShowDeferModal] = useState(false);
   // Removed showNewLogInput state - input is always visible
   const cardRef = useRef<HTMLElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -250,6 +256,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         console.error("Failed to create log:", error);
       }
     }
+  };
+
+  const handleDeferConfirm = (deferDate: Date) => {
+    if (onDefer) {
+      onDefer(task.id.value, deferDate);
+    }
+    setShowDeferModal(false);
   };
 
   const handleNewLogKeyDown = (e: React.KeyboardEvent) => {
@@ -413,6 +426,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 }
               >
                 <Sun className="w-4 h-4" />
+              </button>
+            )}
+
+            {showDeferButton && onDefer && !isCompleted && (
+              <button
+                onClick={() => setShowDeferModal(true)}
+                className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                title={t("taskCard.deferTask")}
+                aria-label={t("taskCard.deferTaskWithTitle", {
+                  title: task.title.value,
+                })}
+              >
+                <Clock className="w-4 h-4" />
               </button>
             )}
 
@@ -617,6 +643,69 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         )}
       </motion.article>
+
+      {/* Defer Date Modal */}
+      {showDeferModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-80 max-w-sm mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              {t("taskCard.deferTask")}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Выберите дату, на которую отложить задачу:
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  const tomorrow = new Date();
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  handleDeferConfirm(tomorrow);
+                }}
+                className="w-full p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="font-medium">Завтра</div>
+                <div className="text-sm text-gray-500">
+                  {new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString()}
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  const nextWeek = new Date();
+                  nextWeek.setDate(nextWeek.getDate() + 7);
+                  handleDeferConfirm(nextWeek);
+                }}
+                className="w-full p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="font-medium">Через неделю</div>
+                <div className="text-sm text-gray-500">
+                  {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  const nextMonth = new Date();
+                  nextMonth.setMonth(nextMonth.getMonth() + 1);
+                  handleDeferConfirm(nextMonth);
+                }}
+                className="w-full p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="font-medium">Через месяц</div>
+                <div className="text-sm text-gray-500">
+                  {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                </div>
+              </button>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setShowDeferModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -108,6 +108,25 @@ export class TaskRepositoryImpl implements TaskRepository {
       .count();
   }
 
+  async findDeferredTasks(): Promise<Task[]> {
+    const records = await this.db.tasks
+      .where('category')
+      .equals(TaskCategory.DEFERRED)
+      .and(record => !record.deletedAt)
+      .toArray();
+    return records.map(record => this.mapRecordToEntity(record));
+  }
+
+  async findDueDeferred(): Promise<Task[]> {
+    const now = new Date();
+    const records = await this.db.tasks
+      .where('category')
+      .equals(TaskCategory.DEFERRED)
+      .and(record => !record.deletedAt && record.deferredUntil != null && new Date(record.deferredUntil) <= now)
+      .toArray();
+    return records.map(record => this.mapRecordToEntity(record));
+  }
+
   async exists(id: TaskId): Promise<boolean> {
     const record = await this.db.tasks.get(id.value);
     return record !== undefined && !record.deletedAt;
@@ -126,7 +145,9 @@ export class TaskRepositoryImpl implements TaskRepository {
       record.createdAt,
       record.updatedAt,
       record.deletedAt,
-      record.inboxEnteredAt
+      record.inboxEnteredAt,
+      record.deferredUntil,
+      record.originalCategory
     );
   }
 
@@ -143,7 +164,9 @@ export class TaskRepositoryImpl implements TaskRepository {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       deletedAt: task.deletedAt,
-      inboxEnteredAt: task.inboxEnteredAt
+      inboxEnteredAt: task.inboxEnteredAt,
+      deferredUntil: task.deferredUntil,
+      originalCategory: task.originalCategory,
     };
   }
 }

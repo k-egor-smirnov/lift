@@ -13,6 +13,8 @@ export interface TaskRecord {
   updatedAt: Date;
   deletedAt?: Date;
   inboxEnteredAt?: Date;
+  deferredUntil?: Date;
+  originalCategory?: TaskCategory;
 }
 
 export interface DailySelectionEntryRecord {
@@ -169,6 +171,31 @@ export class TodoDatabase extends Dexie {
             });
           }
         }
+      });
+
+    // Version 4 - Add deferred tasks support
+    this.version(4)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory",
+        dailySelectionEntries:
+          "++id, [date+taskId], date, taskId, completedFlag, createdAt",
+        taskLogs: "++id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 4 - adding deferred tasks support"
+        );
+        // No migration needed for new optional fields
       });
 
     // Add hooks for automatic timestamp updates

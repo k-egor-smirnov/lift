@@ -3,8 +3,10 @@ import { Zap, Target, Inbox } from "lucide-react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory } from "../../../../shared/domain/types";
 import { TaskCard } from "./TaskCard";
+import { DeferredTaskCard } from "./DeferredTaskCard";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
+import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 import {
   DndContext,
   closestCenter,
@@ -29,6 +31,7 @@ interface TaskListProps {
   tasks: Task[];
   groupByCategory?: boolean;
   showTodayButton?: boolean;
+  showDeferButton?: boolean;
   overdueDays?: number;
   todayTaskIds?: string[]; // Array of task IDs that are selected for today
   onComplete?: (taskId: string) => void;
@@ -36,6 +39,8 @@ interface TaskListProps {
   onEdit: (taskId: string, newTitle: string) => void;
   onDelete: (taskId: string) => void;
   onAddToToday?: (taskId: string) => void;
+  onDefer?: (taskId: string, deferDate: Date) => void;
+  onUndefer?: (taskId: TaskId) => Promise<void>;
   onReorder?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
@@ -49,6 +54,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   tasks,
   groupByCategory = false,
   showTodayButton = false,
+  showDeferButton = false,
   overdueDays = 3,
   todayTaskIds = [],
   onComplete,
@@ -56,6 +62,8 @@ export const TaskList: React.FC<TaskListProps> = ({
   onEdit,
   onDelete,
   onAddToToday,
+  onDefer,
+  onUndefer,
   onReorder,
   onLoadTaskLogs,
   onCreateLog,
@@ -169,6 +177,17 @@ export const TaskList: React.FC<TaskListProps> = ({
   };
 
   const renderTaskCard = (task: Task) => {
+    // Use DeferredTaskCard for deferred tasks
+    if (task.category === TaskCategory.DEFERRED && onUndefer) {
+      return (
+        <DeferredTaskCard
+          key={task.id.value}
+          task={task}
+          onUndefer={onUndefer}
+        />
+      );
+    }
+
     return (
       <TaskCard
         key={task.id.value}
@@ -178,7 +197,9 @@ export const TaskList: React.FC<TaskListProps> = ({
         onEdit={onEdit}
         onDelete={onDelete}
         onAddToToday={onAddToToday}
+        onDefer={onDefer}
         showTodayButton={showTodayButton}
+        showDeferButton={showDeferButton}
         isOverdue={overdueTaskIds.includes(task.id.value)}
         isInTodaySelection={todayTaskIds.includes(task.id.value)}
         lastLog={lastLogs[task.id.value] || null}

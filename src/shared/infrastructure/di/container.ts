@@ -18,9 +18,12 @@ import { AddTaskToTodayUseCase } from '../../application/use-cases/AddTaskToToda
 import { RemoveTaskFromTodayUseCase } from '../../application/use-cases/RemoveTaskFromTodayUseCase';
 import { GetTaskLogsUseCase } from '../../application/use-cases/GetTaskLogsUseCase';
 import { CreateUserLogUseCase } from '../../application/use-cases/CreateUserLogUseCase';
+import { DeferTaskUseCase } from '../../application/use-cases/DeferTaskUseCase';
+import { UndeferTaskUseCase } from '../../application/use-cases/UndeferTaskUseCase';
 
 // Import services
 import { LogService } from '../../application/services/LogService';
+import { DeferredTaskService } from '../../application/services/DeferredTaskService';
 
 // Import tokens
 import * as tokens from './tokens';
@@ -50,9 +53,12 @@ export function configureContainer(): void {
   container.registerSingleton(tokens.REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN, RemoveTaskFromTodayUseCase);
   container.registerSingleton(tokens.GET_TASK_LOGS_USE_CASE_TOKEN, GetTaskLogsUseCase);
   container.registerSingleton(tokens.CREATE_USER_LOG_USE_CASE_TOKEN, CreateUserLogUseCase);
+  container.registerSingleton(tokens.DEFER_TASK_USE_CASE_TOKEN, DeferTaskUseCase);
+  container.registerSingleton(tokens.UNDEFER_TASK_USE_CASE_TOKEN, UndeferTaskUseCase);
   
   // Register services as singletons
   container.registerSingleton(tokens.LOG_SERVICE_TOKEN, LogService);
+  container.registerSingleton(tokens.DEFERRED_TASK_SERVICE_TOKEN, DeferredTaskService);
 }
 
 export { container };

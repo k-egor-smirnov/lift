@@ -10,7 +10,9 @@ import {
   TaskCategoryChangedEvent,
   TaskReviewedEvent,
   TaskTitleChangedEvent,
-  TaskSoftDeletedEvent
+  TaskSoftDeletedEvent,
+  TaskDeferredEvent,
+  TaskUndeferredEvent
 } from '../events/TaskEvents';
 
 /**
@@ -34,6 +36,8 @@ export class Task {
   private _updatedAt: Date;
   private _deletedAt?: Date;
   private _wasEverReviewed: boolean = false;
+  private _deferredUntil?: Date;
+  private _originalCategory?: TaskCategory;
   public readonly inboxEnteredAt?: Date;
 
   constructor(
@@ -45,7 +49,9 @@ export class Task {
     public readonly createdAt: Date = new Date(),
     updatedAt: Date = new Date(),
     deletedAt?: Date,
-    inboxEnteredAt?: Date
+    inboxEnteredAt?: Date,
+    deferredUntil?: Date,
+    originalCategory?: TaskCategory
   ) {
     this._title = title;
     this._category = category;
@@ -53,6 +59,8 @@ export class Task {
     this._order = order;
     this._updatedAt = updatedAt;
     this._deletedAt = deletedAt;
+    this._deferredUntil = deferredUntil;
+    this._originalCategory = originalCategory;
     
     // Set inboxEnteredAt if not provided and category is INBOX
     this.inboxEnteredAt = inboxEnteredAt ?? (category === TaskCategory.INBOX ? this.createdAt : undefined);
@@ -100,6 +108,29 @@ export class Task {
 
   get wasEverReviewed(): boolean {
     return this._wasEverReviewed;
+  }
+
+  get deferredUntil(): Date | undefined {
+    return this._deferredUntil;
+  }
+
+  get originalCategory(): TaskCategory | undefined {
+    return this._originalCategory;
+  }
+
+  get isDeferred(): boolean {
+    return this._category === TaskCategory.DEFERRED && this._deferredUntil !== undefined;
+  }
+
+  get isDeferredAndDue(): boolean {
+    if (!this.isDeferred || !this._deferredUntil) {
+      return false;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deferredDate = new Date(this._deferredUntil);
+    deferredDate.setHours(0, 0, 0, 0);
+    return deferredDate <= today;
   }
 
   /**
@@ -246,6 +277,51 @@ export class Task {
   }
 
   /**
+   * Defer the task until a specific date
+   */
+  defer(deferredUntil: Date): DomainEvent[] {
+    if (this.isDeleted) {
+      throw new InvalidTaskOperationError('Cannot defer deleted task');
+    }
+
+    if (this._category === TaskCategory.DEFERRED) {
+      // Already deferred, just update the date
+      this._deferredUntil = deferredUntil;
+      this._updatedAt = new Date();
+      return [new TaskDeferredEvent(this.id, deferredUntil, this._originalCategory || TaskCategory.INBOX)];
+    }
+
+    // Store original category before deferring
+    this._originalCategory = this._category;
+    this._category = TaskCategory.DEFERRED;
+    this._deferredUntil = deferredUntil;
+    this._updatedAt = new Date();
+
+    return [new TaskDeferredEvent(this.id, deferredUntil, this._originalCategory)];
+  }
+
+  /**
+   * Restore task from deferred state
+   */
+  undefer(): DomainEvent[] {
+    if (this.isDeleted) {
+      throw new InvalidTaskOperationError('Cannot undefer deleted task');
+    }
+
+    if (this._category !== TaskCategory.DEFERRED) {
+      return []; // Not deferred
+    }
+
+    const restoredCategory = this._originalCategory || TaskCategory.INBOX;
+    this._category = restoredCategory;
+    this._deferredUntil = undefined;
+    this._originalCategory = undefined;
+    this._updatedAt = new Date();
+
+    return [new TaskUndeferredEvent(this.id, restoredCategory)];
+  }
+
+  /**
    * Soft delete the task
    */
   softDelete(): DomainEvent[] {
@@ -277,6 +353,8 @@ export class Task {
     order?: number;
     updatedAt?: Date;
     deletedAt?: Date;
+    deferredUntil?: Date;
+    originalCategory?: TaskCategory;
   }): Task {
     return new Task(
       this.id,
@@ -287,7 +365,9 @@ export class Task {
       this.createdAt,
       updates.updatedAt ?? this._updatedAt,
       updates.deletedAt ?? this._deletedAt,
-      this.inboxEnteredAt
+      this.inboxEnteredAt,
+      updates.deferredUntil ?? this._deferredUntil,
+      updates.originalCategory ?? this._originalCategory
     );
   }
 }

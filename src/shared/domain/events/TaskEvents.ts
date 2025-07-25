@@ -180,3 +180,43 @@ export class TaskRemovedFromTodayEvent extends DomainEvent {
     };
   }
 }
+
+/**
+ * Event emitted when a task is deferred
+ */
+export class TaskDeferredEvent extends DomainEvent {
+  constructor(
+    public readonly taskId: TaskId,
+    public readonly deferredUntil: Date,
+    public readonly originalCategory: TaskCategory
+  ) {
+    super(DomainEventType.TASK_DEFERRED);
+  }
+
+  getEventData(): Record<string, any> {
+    return {
+      taskId: this.taskId.value,
+      deferredUntil: this.deferredUntil.toISOString(),
+      originalCategory: this.originalCategory
+    };
+  }
+}
+
+/**
+ * Event emitted when a task is undeferred (restored from deferred state)
+ */
+export class TaskUndeferredEvent extends DomainEvent {
+  constructor(
+    public readonly taskId: TaskId,
+    public readonly restoredCategory: TaskCategory
+  ) {
+    super(DomainEventType.TASK_UNDEFERRED);
+  }
+
+  getEventData(): Record<string, any> {
+    return {
+      taskId: this.taskId.value,
+      restoredCategory: this.restoredCategory
+    };
+  }
+}

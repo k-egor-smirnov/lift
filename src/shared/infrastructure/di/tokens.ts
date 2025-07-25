@@ -21,6 +21,9 @@ export const ADD_TASK_TO_TODAY_USE_CASE_TOKEN = Symbol('AddTaskToTodayUseCase');
 export const REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN = Symbol('RemoveTaskFromTodayUseCase');
 export const GET_TASK_LOGS_USE_CASE_TOKEN = Symbol('GetTaskLogsUseCase');
 export const CREATE_USER_LOG_USE_CASE_TOKEN = Symbol('CreateUserLogUseCase');
+export const DEFER_TASK_USE_CASE_TOKEN = Symbol('DeferTaskUseCase');
+export const UNDEFER_TASK_USE_CASE_TOKEN = Symbol('UndeferTaskUseCase');
 
 // Services
 export const LOG_SERVICE_TOKEN = Symbol('LogService');
+export const DEFERRED_TASK_SERVICE_TOKEN = Symbol('DeferredTaskService');

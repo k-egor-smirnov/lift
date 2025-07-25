@@ -120,6 +120,9 @@ export const createTaskViewModel = (
         [TaskCategory.INBOX]: activeTasks.filter(
           (task) => task.category === TaskCategory.INBOX
         ),
+        [TaskCategory.DEFERRED]: activeTasks.filter(
+          (task) => task.category === TaskCategory.DEFERRED
+        ),
       };
     },
 

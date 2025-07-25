@@ -1,5 +1,5 @@
 import React from "react";
-import { Sun, Zap, Target, Inbox } from "lucide-react";
+import { Sun, Zap, Target, Inbox, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
@@ -22,6 +22,10 @@ const getCategoryInfo = (category: TaskCategory, t: any) => {
       return { icon: Target, name: t("categories.focus") };
     case TaskCategory.INBOX:
       return { icon: Inbox, name: t("categories.inbox") };
+    case TaskCategory.DEFERRED:
+      return { icon: Clock, name: t("categories.deferred") };
+    default:
+      return { icon: Inbox, name: "Unknown" };
   }
 };
 

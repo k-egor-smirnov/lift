@@ -13,11 +13,14 @@ import { getService, tokens } from "../../../../shared/infrastructure/di";
 import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-cases/RevertTaskCompletionUseCase";
 import { ResultUtils } from "../../../../shared/domain/Result";
 import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
+import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 
 interface TodayViewProps {
   dependencies: TodayViewModelDependencies;
   onEditTask?: (taskId: string, newTitle: string) => void;
   onDeleteTask?: (taskId: string) => void;
+  onDefer?: (taskId: string, deferDate: Date) => void;
+  onUndefer?: (taskId: TaskId) => Promise<void>;
   onReorderTasks?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
@@ -29,6 +32,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
   dependencies,
   onEditTask,
   onDeleteTask,
+  onDefer,
+  onUndefer,
   onReorderTasks,
   onLoadTaskLogs,
   onCreateLog,
@@ -355,8 +360,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onEdit={handleEditTask}
                 onDelete={handleDeleteTask}
                 onAddToToday={handleToggleToday}
+                onDefer={onDefer}
+                onUndefer={onUndefer}
                 onReorder={onReorderTasks}
                 showTodayButton={true}
+                showDeferButton={true}
                 lastLogs={lastLogs}
                 onLoadTaskLogs={onLoadTaskLogs}
                 onCreateLog={onCreateLog}
@@ -391,8 +399,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onEdit={handleEditTask}
                 onDelete={handleDeleteTask}
                 onAddToToday={handleToggleToday}
+                onDefer={onDefer}
+                onUndefer={onUndefer}
                 onReorder={onReorderTasks}
                 showTodayButton={true}
+                showDeferButton={false}
                 lastLogs={lastLogs}
                 onLoadTaskLogs={onLoadTaskLogs}
                 onCreateLog={onCreateLog}

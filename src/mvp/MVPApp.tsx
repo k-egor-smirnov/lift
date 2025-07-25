@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
+import { TaskId } from "../shared/domain/value-objects/TaskId";
 import { TaskList } from "../features/tasks/presentation/components/TaskList";
 
 import { TodayView } from "../features/today/presentation/components/TodayView";
@@ -33,6 +34,8 @@ import { GetTodayTasksUseCase } from "../shared/application/use-cases/GetTodayTa
 import { AddTaskToTodayUseCase } from "../shared/application/use-cases/AddTaskToTodayUseCase";
 import { RemoveTaskFromTodayUseCase } from "../shared/application/use-cases/RemoveTaskFromTodayUseCase";
 import { LogService } from "../shared/application/services/LogService";
+import { DeferTaskUseCase } from "../shared/application/use-cases/DeferTaskUseCase";
+import { UndeferTaskUseCase } from "../shared/application/use-cases/UndeferTaskUseCase";
 import { toast, Toaster } from "sonner";
 
 export const MVPApp: React.FC = () => {
@@ -87,6 +90,8 @@ export const MVPApp: React.FC = () => {
     tokens.REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN
   );
   const logService = getService<LogService>(tokens.LOG_SERVICE_TOKEN);
+  const deferTaskUseCase = getService<DeferTaskUseCase>(tokens.DEFER_TASK_USE_CASE_TOKEN);
+  const undeferTaskUseCase = getService<UndeferTaskUseCase>(tokens.UNDEFER_TASK_USE_CASE_TOKEN);
 
   // Create dependencies for view models
   const taskDependencies: TaskViewModelDependencies = useMemo(
@@ -237,6 +242,16 @@ export const MVPApp: React.FC = () => {
       category: "navigation",
     });
 
+    registerShortcut("nav-deferred", {
+      key: "4",
+      handler: (event) => {
+        event.preventDefault();
+        setActiveView(TaskCategory.DEFERRED);
+      },
+      description: "Navigate to Deferred tasks",
+      category: "navigation",
+    });
+
     // Today view shortcut (T)
     registerShortcut("nav-today", {
       key: "t",
@@ -255,6 +270,7 @@ export const MVPApp: React.FC = () => {
       unregisterShortcut("nav-simple");
       unregisterShortcut("nav-focus");
       unregisterShortcut("nav-inbox");
+      unregisterShortcut("nav-deferred");
       unregisterShortcut("nav-today");
     };
   }, [isEnabled, registerShortcut, unregisterShortcut]);
@@ -408,6 +424,47 @@ export const MVPApp: React.FC = () => {
     }
   }, [todayTaskIds, removeTaskFromTodayUseCase, addTaskToTodayUseCase]);
 
+  const handleDeferTask = useCallback(async (taskId: string, deferDate: Date) => {
+    try {
+      // Remove task from today's list before deferring
+      await removeTaskFromTodayUseCase.execute({ taskId });
+      
+      // Defer the task using the use case
+      const result = await deferTaskUseCase.execute({ taskId, deferredUntil: deferDate });
+      
+      if (result.success) {
+        // Reload tasks to reflect the changes
+        await loadTasks();
+        toast.success(`Задача отложена до ${deferDate.toLocaleDateString()}`);
+      } else {
+        console.error("Failed to defer task:", result.error);
+        toast.error("Не удалось отложить задачу");
+      }
+    } catch (error) {
+      console.error("Error deferring task:", error);
+      toast.error("Не удалось отложить задачу");
+    }
+  }, [deferTaskUseCase, loadTasks, removeTaskFromTodayUseCase]);
+
+  const handleUndeferTask = useCallback(async (taskId: TaskId) => {
+    try {
+      // Undefer the task using the use case
+      const result = await undeferTaskUseCase.execute({ taskId: taskId.value });
+      
+      if (result.success) {
+        // Reload tasks to reflect the changes
+        await loadTasks();
+        toast.success("Задача возвращена из отложенных");
+      } else {
+        console.error("Failed to undefer task:", result.error);
+        toast.error("Не удалось вернуть задачу из отложенных");
+      }
+    } catch (error) {
+      console.error("Error undeferring task:", error);
+      toast.error("Не удалось вернуть задачу из отложенных");
+    }
+  }, [undeferTaskUseCase, loadTasks]);
+
   const handleReturnTaskToToday = useCallback(async (taskId: string) => {
     try {
       const result = await addTaskToTodayUseCase.execute({ taskId });
@@ -540,6 +597,7 @@ export const MVPApp: React.FC = () => {
     [TaskCategory.INBOX]: tasksByCategory[TaskCategory.INBOX]?.length || 0,
     [TaskCategory.SIMPLE]: tasksByCategory[TaskCategory.SIMPLE]?.length || 0,
     [TaskCategory.FOCUS]: tasksByCategory[TaskCategory.FOCUS]?.length || 0,
+    [TaskCategory.DEFERRED]: tasksByCategory[TaskCategory.DEFERRED]?.length || 0,
   }), [tasksByCategory]);
 
   // Show loading state while database is initializing
@@ -566,6 +624,8 @@ export const MVPApp: React.FC = () => {
         dependencies={todayDependencies}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
+        onDefer={handleDeferTask}
+        onUndefer={handleUndeferTask}
         onReorderTasks={handleReorderTasks}
         onLoadTaskLogs={loadTaskLogs}
         onCreateLog={handleCreateTaskLog}
@@ -658,6 +718,8 @@ export const MVPApp: React.FC = () => {
                   dependencies={todayDependencies}
                   onEditTask={handleEditTask}
                   onDeleteTask={handleDeleteTask}
+                  onDefer={handleDeferTask}
+                  onUndefer={handleUndeferTask}
                   onLoadTaskLogs={loadTaskLogs}
                   onCreateTask={handleCreateTask}
                   onCreateLog={handleCreateTaskLog}
@@ -680,6 +742,9 @@ export const MVPApp: React.FC = () => {
                   lastLogs={lastLogs}
                   emptyMessage={`No ${activeView.toLowerCase()} tasks found`}
                   todayTaskIds={todayTaskIds}
+                  showDeferButton={true}
+                  onDefer={handleDeferTask}
+                  onUndefer={handleUndeferTask}
                 />
               )}
             </>
@@ -688,7 +753,7 @@ export const MVPApp: React.FC = () => {
       </div>
 
       {/* Daily Modal for onboarding */}
-      <DailyModalContainer onReturnTaskToToday={handleReturnTaskToToday} />
+      <DailyModalContainer />
 
       {/* Dev Day Transition - only show in development */}
       {process.env.NODE_ENV === "development" && <DevDayTransition />}

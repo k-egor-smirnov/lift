@@ -10,11 +10,14 @@ import { toast } from 'sonner';
 import { getService, tokens } from '../../../../shared/infrastructure/di';
 import { ResultUtils } from '../../../../shared/domain/Result';
 import { RevertTaskCompletionUseCase } from '../../../../shared/application/use-cases/RevertTaskCompletionUseCase';
+import { TaskId } from '../../../../shared/domain/value-objects/TaskId';
 
 interface TodayMobileViewProps {
   dependencies: TodayViewModelDependencies;
   onEditTask?: (taskId: string, newTitle: string) => void;
   onDeleteTask?: (taskId: string) => void;
+  onDefer?: (taskId: string, deferDate: Date) => void;
+  onUndefer?: (taskId: TaskId) => Promise<void>;
   onReorderTasks?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
@@ -26,6 +29,8 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   dependencies,
   onEditTask,
   onDeleteTask,
+  onDefer,
+  onUndefer,
   onReorderTasks,
   onLoadTaskLogs,
   onCreateLog,
@@ -286,8 +291,11 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                           onEdit={handleEditTask}
                           onDelete={handleDeleteTask}
                           onAddToToday={handleToggleToday}
+                          onDefer={onDefer}
+                          onUndefer={onUndefer}
                           onReorder={onReorderTasks}
                           showTodayButton={true}
+                          showDeferButton={true}
                           lastLogs={lastLogs}
                           onLoadTaskLogs={onLoadTaskLogs}
                           onCreateLog={onCreateLog}
@@ -311,8 +319,11 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                           onEdit={handleEditTask}
                           onDelete={handleDeleteTask}
                           onAddToToday={handleToggleToday}
+                          onDefer={onDefer}
+                          onUndefer={onUndefer}
                           onReorder={onReorderTasks}
                           showTodayButton={true}
+                          showDeferButton={false}
                           lastLogs={lastLogs}
                           onLoadTaskLogs={onLoadTaskLogs}
                           onCreateLog={onCreateLog}
