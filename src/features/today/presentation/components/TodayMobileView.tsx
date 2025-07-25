@@ -3,7 +3,8 @@ import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { TaskList } from '../../../tasks/presentation/components/TaskList';
 import { LogEntry } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
-import { createTodayViewModel, TodayViewModelDependencies } from '../view-models/TodayViewModel';
+import { TodayViewModelDependencies } from '../view-models/TodayViewModel';
+import { useTodayViewModelStore } from '../view-models/TodayViewModelStore';
 import { Task } from '../../../../shared/domain/entities/Task';
 import { toast } from 'sonner';
 import { getService, tokens } from '../../../../shared/infrastructure/di';
@@ -18,7 +19,6 @@ interface TodayMobileViewProps {
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
-  onRefresh?: () => Promise<void>;
   onCreateTask?: (title: string) => Promise<void>;
 }
 
@@ -30,20 +30,20 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   onLoadTaskLogs,
   onCreateLog,
   lastLogs = {},
-  onRefresh,
   onCreateTask,
 }) => {
   const { t } = useTranslation();
-  const [todayViewModel] = useState(() => createTodayViewModel(dependencies));
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Subscribe to the view model state
+  // Use global store
   const {
     tasks,
     loading,
+    refreshing,
     error,
+    initialize,
     loadTodayTasks,
     removeTaskFromToday,
     completeTask,
@@ -52,7 +52,12 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     getActiveTasks,
     getCompletedTasks,
     getTodayTaskIds,
-  } = todayViewModel();
+  } = useTodayViewModelStore();
+
+  // Initialize store with dependencies
+  useEffect(() => {
+    initialize(dependencies);
+  }, [dependencies, initialize]);
 
   // Load today's tasks on component mount
   useEffect(() => {
@@ -90,8 +95,8 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
       
       if (ResultUtils.isSuccess(result)) {
         toast.success('Выполнение задачи отменено');
-        // Reload today's tasks to reflect changes
-        await loadTodayTasks();
+        // Reload today's tasks to reflect changes (silent refresh)
+        await loadTodayTasks(undefined, true);
       } else {
         toast.error('Не удалось отменить выполнение задачи');
       }
@@ -210,6 +215,16 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                   {activeTasks.length} active, {completedTasks.length} completed
                 </p>
               )}
+              
+              {/* Refreshing indicator */}
+              {refreshing && (
+                <div className="flex items-center justify-center mt-3">
+                  <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm">
+                    <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    Обновление...
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Error Message */}
@@ -238,7 +253,8 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
             )}
 
             {/* Task List */}
-            {!loading && (
+            {/* Show tasks if not loading OR if we have existing tasks (to prevent flickering during refresh) */}
+            {(!loading || allTasks.length > 0) && (
               <>
                 {allTasks.length === 0 ? (
                   <div className="text-center py-12">

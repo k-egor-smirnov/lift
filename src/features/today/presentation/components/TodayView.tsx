@@ -1,14 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useId } from "react";
 import { Sun, FileText, Zap, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskList } from "../../../tasks/presentation/components/TaskList";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
-import {
-  createTodayViewModel,
-  TodayViewModelDependencies,
-} from "../view-models/TodayViewModel";
+import { TodayViewModelDependencies } from "../view-models/TodayViewModel";
+import { useTodayViewModelStore } from "../view-models/TodayViewModelStore";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory } from "../../../../shared/domain/types";
+import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
 import { toast } from "sonner";
 import { getService, tokens } from "../../../../shared/infrastructure/di";
 import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-cases/RevertTaskCompletionUseCase";
@@ -23,7 +22,6 @@ interface TodayViewProps {
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
-  onRefresh?: () => Promise<void>;
   onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
 }
 
@@ -35,24 +33,24 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onLoadTaskLogs,
   onCreateLog,
   lastLogs = {},
-  onRefresh,
   onCreateTask,
 }) => {
   const { t } = useTranslation();
-  const [todayViewModel] = useState(() => createTodayViewModel(dependencies));
-
-  // Subscribe to the view model state
+  
+  // Use global store
   const {
     tasks,
     loading,
+    refreshing,
     error,
     currentDate,
     totalCount,
     completedCount,
     activeCount,
+    initialize,
     loadTodayTasks,
-    removeTaskFromToday,
     addTaskToToday,
+    removeTaskFromToday,
     completeTask,
     refreshToday,
     clearError,
@@ -60,25 +58,20 @@ export const TodayView: React.FC<TodayViewProps> = ({
     getCompletedTasks,
     getTodayTaskIds,
     isToday,
-  } = todayViewModel();
+  } = useTodayViewModelStore();
+  const id = useId();
+
+  // Initialize store with dependencies
+  useEffect(() => {
+    initialize(dependencies);
+  }, [dependencies, initialize]);
 
   // Load today's tasks on component mount
   useEffect(() => {
     loadTodayTasks();
   }, [loadTodayTasks]);
 
-  // Expose refresh function to parent component
-  useEffect(() => {
-    if (onRefresh) {
-      // Store the refresh function reference for external calls
-      (window as any).__todayViewRefresh = refreshToday;
-    }
-    return () => {
-      if ((window as any).__todayViewRefresh) {
-        delete (window as any).__todayViewRefresh;
-      }
-    };
-  }, [onRefresh, refreshToday]);
+  // Note: Removed __todayViewRefresh as it's replaced by event bus auto-refresh
 
   // Auto-refresh when it becomes a new day (daily reset handling)
   useEffect(() => {
@@ -97,24 +90,29 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const handleCompleteTask = async (taskId: string) => {
     try {
       // Find task to get its title for the notification
-      const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(t => t.task.id.value === taskId);
-      const taskTitle = taskInfo?.task.title.value || 'Задача';
-      
-      await completeTask(taskId);
+      const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(
+        (t) => t.task.id.value === taskId
+      );
+      const taskTitle = taskInfo?.task.title.value || "Task";
 
-      // Show success toast with undo option
-      toast.success(`${taskTitle} выполнена`, {
-        action: {
-          label: "Отменить",
-          onClick: async () => {
-            await handleRevertCompletion(taskId);
+      const success = await completeTask(taskId);
+      if (success) {
+        // Show success toast with undo option
+        toast.success(`"${taskTitle}" completed!`, {
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              await handleRevertCompletion(taskId);
+            },
           },
-        },
-        duration: 5000, // 5 seconds to allow undo
-      });
+          duration: 5000, // 5 seconds to allow undo
+        });
+      }
+      return success;
     } catch (error) {
       console.error("Error completing task:", error);
-      toast.error("Не удалось выполнить задачу");
+      toast.error("Failed to complete task");
+      return false;
     }
   };
 
@@ -126,15 +124,23 @@ export const TodayView: React.FC<TodayViewProps> = ({
       const result = await revertUseCase.execute({ taskId });
 
       if (ResultUtils.isSuccess(result)) {
-        toast.success("Выполнение задачи отменено");
-        // Reload today's tasks to reflect changes
-        await loadTodayTasks();
+        // Find task to get its title for the notification
+        const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(
+          (t) => t.task.id.value === taskId
+        );
+        const taskTitle = taskInfo?.task.title.value || "Task";
+        toast.success(`"${taskTitle}" reverted to active!`);
+        // Reload today's tasks to reflect changes (silent refresh)
+        await loadTodayTasks(undefined, true);
+        return true;
       } else {
-        toast.error("Не удалось отменить выполнение задачи");
+        toast.error("Failed to revert task completion");
+        return false;
       }
     } catch (error) {
       console.error("Error reverting task completion:", error);
-      toast.error("Произошла ошибка при отмене");
+      toast.error("Failed to revert task completion");
+      return false;
     }
   };
 
@@ -296,7 +302,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
       )}
 
       {/* Content */}
-      {!loading && (
+      {/* Show content if not loading OR if we have existing tasks (to prevent flickering during refresh) */}
+      {(!loading || totalCount > 0) && (
         <>
           {/* Empty State */}
           {totalCount === 0 && (

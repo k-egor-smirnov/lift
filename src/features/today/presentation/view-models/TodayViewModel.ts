@@ -1,11 +1,24 @@
-import { create } from 'zustand';
-import { TodayTaskInfo, GetTodayTasksUseCase, GetTodayTasksRequest } from '../../../../shared/application/use-cases/GetTodayTasksUseCase';
-import { AddTaskToTodayUseCase, AddTaskToTodayRequest } from '../../../../shared/application/use-cases/AddTaskToTodayUseCase';
-import { RemoveTaskFromTodayUseCase, RemoveTaskFromTodayRequest } from '../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase';
-import { CompleteTaskUseCase } from '../../../../shared/application/use-cases/CompleteTaskUseCase';
-import { DateOnly } from '../../../../shared/domain/value-objects/DateOnly';
-import { taskEventBus } from '../../../../shared/infrastructure/events/TaskEventBus';
-import { TaskEventType, AnyTaskEvent } from '../../../../shared/domain/events/TaskEvent';
+import { create } from "zustand";
+import {
+  TodayTaskInfo,
+  GetTodayTasksUseCase,
+  GetTodayTasksRequest,
+} from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
+import {
+  AddTaskToTodayUseCase,
+  AddTaskToTodayRequest,
+} from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
+import {
+  RemoveTaskFromTodayUseCase,
+  RemoveTaskFromTodayRequest,
+} from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
+import { CompleteTaskUseCase } from "../../../../shared/application/use-cases/CompleteTaskUseCase";
+import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
+import { taskEventBus } from "../../../../shared/infrastructure/events/TaskEventBus";
+import {
+  TaskEventType,
+  AnyTaskEvent,
+} from "../../../../shared/domain/events/TaskEvent";
 
 /**
  * Today view model state
@@ -14,6 +27,7 @@ export interface TodayViewModelState {
   // State
   tasks: TodayTaskInfo[];
   loading: boolean;
+  refreshing: boolean; // New state for background refresh
   error: string | null;
   currentDate: string;
   totalCount: number;
@@ -22,7 +36,7 @@ export interface TodayViewModelState {
   autoRefreshEnabled: boolean;
 
   // Actions
-  loadTodayTasks: (date?: string) => Promise<void>;
+  loadTodayTasks: (date?: string, silent?: boolean) => Promise<void>;
   addTaskToToday: (taskId: string) => Promise<boolean>;
   removeTaskFromToday: (taskId: string) => Promise<boolean>;
   completeTask: (taskId: string) => Promise<boolean>;
@@ -51,14 +65,23 @@ export interface TodayViewModelDependencies {
 /**
  * Create TodayViewModel store
  */
-export const createTodayViewModel = (dependencies: TodayViewModelDependencies) => {
-  const { getTodayTasksUseCase, addTaskToTodayUseCase, removeTaskFromTodayUseCase, completeTaskUseCase } = dependencies;
+export const createTodayViewModel = (
+  dependencies: TodayViewModelDependencies
+) => {
+  console.log("create today");
+  const {
+    getTodayTasksUseCase,
+    addTaskToTodayUseCase,
+    removeTaskFromTodayUseCase,
+    completeTaskUseCase,
+  } = dependencies;
   let unsubscribeFromEvents: (() => void) | null = null;
 
   const store = create<TodayViewModelState>((set, get) => ({
     // Initial state
     tasks: [],
     loading: false,
+    refreshing: false,
     error: null,
     currentDate: DateOnly.today().value,
     totalCount: 0,
@@ -69,17 +92,21 @@ export const createTodayViewModel = (dependencies: TodayViewModelDependencies) =
     // Computed properties
     getActiveTasks: () => {
       const { tasks } = get();
-      return tasks.filter(info => !info.completedInSelection && info.task.isActive);
+      return tasks.filter(
+        (info) => !info.completedInSelection && info.task.isActive
+      );
     },
 
     getCompletedTasks: () => {
       const { tasks } = get();
-      return tasks.filter(info => info.completedInSelection || info.task.isCompleted);
+      return tasks.filter(
+        (info) => info.completedInSelection || info.task.isCompleted
+      );
     },
 
     getTodayTaskIds: () => {
       const { tasks } = get();
-      return tasks.map(info => info.task.id.value);
+      return tasks.map((info) => info.task.id.value);
     },
 
     isToday: () => {
@@ -88,17 +115,25 @@ export const createTodayViewModel = (dependencies: TodayViewModelDependencies) =
     },
 
     // Actions
-    loadTodayTasks: async (date?: string) => {
-      set({ loading: true, error: null });
-      
+    loadTodayTasks: async (date?: string, silent = false) => {
+      const { tasks: currentTasks } = get();
+
+      // For optimistic loading: only show loading spinner on initial load or when no data exists
+      if (!silent && currentTasks.length === 0) {
+        set({ loading: true, error: null });
+      } else if (silent || currentTasks.length > 0) {
+        // Silent refresh - show refreshing indicator instead of loading
+        set({ refreshing: true, error: null });
+      }
+
       try {
         const request: GetTodayTasksRequest = {
           date,
-          includeCompleted: true
+          includeCompleted: true,
         };
 
         const result = await getTodayTasksUseCase.execute(request);
-        
+
         if (result.success) {
           set({
             tasks: result.data.tasks,
@@ -106,91 +141,110 @@ export const createTodayViewModel = (dependencies: TodayViewModelDependencies) =
             totalCount: result.data.totalCount,
             completedCount: result.data.completedCount,
             activeCount: result.data.activeCount,
-            loading: false
+            loading: false,
+            refreshing: false,
           });
         } else {
-          set({ 
+          set({
             error: (result as any).error.message,
-            loading: false 
+            loading: false,
+            refreshing: false,
           });
         }
       } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to load today\'s tasks',
-          loading: false 
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load today's tasks",
+          loading: false,
+          refreshing: false,
         });
       }
     },
 
     addTaskToToday: async (taskId: string) => {
       set({ error: null });
-      
+
       try {
         const { currentDate } = get();
         const request: AddTaskToTodayRequest = {
           taskId,
-          date: currentDate
+          date: currentDate,
         };
 
         const result = await addTaskToTodayUseCase.execute(request);
-        
+
         if (result.success) {
-          // Reload today's tasks to get the updated list
-          await get().loadTodayTasks(currentDate);
+          // Reload today's tasks to get the updated list (silent refresh)
+          await get().loadTodayTasks(currentDate, true);
           return true;
         } else {
           set({ error: (result as any).error.message });
           return false;
         }
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : 'Failed to add task to today' });
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to add task to today",
+        });
         return false;
       }
     },
 
     removeTaskFromToday: async (taskId: string) => {
       set({ error: null });
-      
+
       try {
         const { currentDate } = get();
         const request: RemoveTaskFromTodayRequest = {
           taskId,
-          date: currentDate
+          date: currentDate,
         };
 
         const result = await removeTaskFromTodayUseCase.execute(request);
-        
+
         if (result.success) {
-          // Reload today's tasks to get the updated list
-          await get().loadTodayTasks(currentDate);
+          // Reload today's tasks to get the updated list (silent refresh)
+          await get().loadTodayTasks(currentDate, true);
           return true;
         } else {
           set({ error: (result as any).error.message });
           return false;
         }
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : 'Failed to remove task from today' });
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to remove task from today",
+        });
         return false;
       }
     },
 
     completeTask: async (taskId: string) => {
       set({ error: null });
-      
+
       try {
         const result = await completeTaskUseCase.execute({ taskId });
-        
+
         if (result.success) {
-          // Reload today's tasks to get the updated list
+          // Reload today's tasks to get the updated list (silent refresh)
           const { currentDate } = get();
-          await get().loadTodayTasks(currentDate);
+          await get().loadTodayTasks(currentDate, true);
           return true;
         } else {
           set({ error: (result as any).error.message });
           return false;
         }
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : 'Failed to complete task' });
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to complete task",
+        });
         return false;
       }
     },
@@ -208,48 +262,61 @@ export const createTodayViewModel = (dependencies: TodayViewModelDependencies) =
 
     enableAutoRefresh: () => {
       set({ autoRefreshEnabled: true });
-      
+
+      // Debounce timer for batching multiple events
+      let debounceTimer: NodeJS.Timeout | null = null;
+
       // Subscribe to task events for auto-refresh
       if (!unsubscribeFromEvents) {
-        unsubscribeFromEvents = taskEventBus.subscribeToAll(async (event: AnyTaskEvent) => {
-          const { autoRefreshEnabled } = get();
-          if (!autoRefreshEnabled) return;
-          
-          // Auto-refresh on relevant events
-          if ([
-            TaskEventType.TASK_CREATED,
-            TaskEventType.TASK_UPDATED,
-            TaskEventType.TASK_COMPLETED,
-            TaskEventType.TASK_DELETED,
-            TaskEventType.TASK_ADDED_TO_TODAY,
-            TaskEventType.TASK_REMOVED_FROM_TODAY
-          ].includes(event.type)) {
-            // Small delay to avoid rapid successive updates
-            setTimeout(async () => {
-              const { currentDate } = get();
-              await get().loadTodayTasks(currentDate);
-            }, 100);
+        unsubscribeFromEvents = taskEventBus.subscribeToAll(
+          async (event: AnyTaskEvent) => {
+            const { autoRefreshEnabled } = get();
+            if (!autoRefreshEnabled) return;
+
+            // Auto-refresh on relevant events
+            if (
+              [
+                TaskEventType.TASK_CREATED,
+                TaskEventType.TASK_UPDATED,
+                TaskEventType.TASK_COMPLETED,
+                TaskEventType.TASK_DELETED,
+                TaskEventType.TASK_ADDED_TO_TODAY,
+                TaskEventType.TASK_REMOVED_FROM_TODAY,
+              ].includes(event.type)
+            ) {
+              // Clear existing timer to debounce rapid successive events
+              if (debounceTimer) {
+                clearTimeout(debounceTimer);
+              }
+
+              // Set new timer to batch events within 200ms window
+              debounceTimer = setTimeout(async () => {
+                const { currentDate } = get();
+                await get().loadTodayTasks(currentDate, true);
+                debounceTimer = null;
+              }, 200);
+            }
           }
-        });
+        );
       }
     },
 
     disableAutoRefresh: () => {
       set({ autoRefreshEnabled: false });
-      
+
       // Unsubscribe from events
       if (unsubscribeFromEvents) {
         unsubscribeFromEvents();
         unsubscribeFromEvents = null;
       }
     },
-   }));
+  }));
 
-   // Enable auto-refresh by default
-   store.getState().enableAutoRefresh();
+  // Enable auto-refresh by default
+  store.getState().enableAutoRefresh();
 
-   return store;
- };
+  return store;
+};
 
 /**
  * Today ViewModel hook type

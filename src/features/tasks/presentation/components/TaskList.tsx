@@ -169,7 +169,6 @@ export const TaskList: React.FC<TaskListProps> = ({
   };
 
   const renderTaskCard = (task: Task) => {
-    console.log(todayTaskIds, todayTaskIds.includes(task.id.value));
     return (
       <TaskCard
         key={task.id.value}

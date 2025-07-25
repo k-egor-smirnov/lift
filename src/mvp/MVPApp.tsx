@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
 import { TaskList } from "../features/tasks/presentation/components/TaskList";
@@ -89,20 +89,26 @@ export const MVPApp: React.FC = () => {
   const logService = getService<LogService>(tokens.LOG_SERVICE_TOKEN);
 
   // Create dependencies for view models
-  const taskDependencies: TaskViewModelDependencies = {
-    taskRepository,
-    createTaskUseCase,
-    updateTaskUseCase,
-    completeTaskUseCase,
-    getTodayTasksUseCase,
-  };
+  const taskDependencies: TaskViewModelDependencies = useMemo(
+    () => ({
+      taskRepository,
+      createTaskUseCase,
+      updateTaskUseCase,
+      completeTaskUseCase,
+      getTodayTasksUseCase,
+    }),
+    []
+  );
 
-  const todayDependencies: TodayViewModelDependencies = {
-    getTodayTasksUseCase,
-    addTaskToTodayUseCase,
-    removeTaskFromTodayUseCase,
-    completeTaskUseCase,
-  };
+  const todayDependencies: TodayViewModelDependencies = useMemo(
+    () => ({
+      getTodayTasksUseCase,
+      addTaskToTodayUseCase,
+      removeTaskFromTodayUseCase,
+      completeTaskUseCase,
+    }),
+    []
+  );
 
   // Create the view model instances
   const taskViewModel = useMemo(
@@ -262,7 +268,7 @@ export const MVPApp: React.FC = () => {
     }
   }, [activeView]); // Remove setViewModelFilter from dependencies
 
-  const handleCreateTask = async (
+  const handleCreateTask = useCallback(async (
     title: string,
     category: TaskCategory
   ): Promise<boolean> => {
@@ -286,10 +292,8 @@ export const MVPApp: React.FC = () => {
             });
             if (result.success) {
               console.log("Task automatically added to today");
-              // Reload today task IDs
-              await loadTodayTaskIds();
-              // Refresh TodayView to show the new task
-              await handleTodayRefresh();
+              // Note: Don't reload todayTaskIds here - let the event bus handle updates
+              // This prevents unnecessary state updates that cause UI flickering
             } else {
               console.error(
                 "Failed to automatically add task to today:",
@@ -303,9 +307,9 @@ export const MVPApp: React.FC = () => {
       }
     }
     return success;
-  };
+  }, [createTask, activeView, taskRepository, addTaskToTodayUseCase]);
 
-  const handleCompleteTask = async (taskId: string) => {
+  const handleCompleteTask = useCallback(async (taskId: string) => {
     try {
       await completeTask(taskId);
 
@@ -324,7 +328,7 @@ export const MVPApp: React.FC = () => {
                 toast.success("Выполнение задачи отменено");
                 // Reload tasks to reflect changes
                 await loadTasks();
-                await loadTodayTaskIds();
+                // Note: Event bus will handle today updates automatically
               } else {
                 toast.error("Не удалось отменить выполнение задачи");
               }
@@ -340,9 +344,9 @@ export const MVPApp: React.FC = () => {
       console.error("Error completing task:", error);
       toast.error("Не удалось выполнить задачу");
     }
-  };
+  }, [completeTask, loadTasks]);
 
-  const handleEditTask = async (taskId: string, newTitle: string) => {
+  const handleEditTask = useCallback(async (taskId: string, newTitle: string) => {
     try {
       const success = await updateTaskUseCase.execute({
         taskId,
@@ -361,15 +365,15 @@ export const MVPApp: React.FC = () => {
     } catch (error) {
       console.error("Error updating task:", error);
     }
-  };
+  }, [updateTaskUseCase, loadTasks]);
 
-  const handleDeleteTask = async (taskId: string) => {
+  const handleDeleteTask = useCallback(async (taskId: string) => {
     if (confirm("Are you sure you want to delete this task?")) {
       await deleteTask(taskId);
     }
-  };
+  }, [deleteTask]);
 
-  const handleAddToToday = async (taskId: string) => {
+  const handleAddToToday = useCallback(async (taskId: string) => {
     try {
       // Check if task is already in today's selection
       const isInToday = todayTaskIds.includes(taskId);
@@ -379,8 +383,7 @@ export const MVPApp: React.FC = () => {
         const result = await removeTaskFromTodayUseCase.execute({ taskId });
         if (result.success) {
           console.log("Task removed from today successfully");
-          // Reload today task IDs
-          await loadTodayTaskIds();
+          // Note: Event bus will handle UI updates automatically
         } else {
           console.error(
             "Failed to remove task from today:",
@@ -392,8 +395,7 @@ export const MVPApp: React.FC = () => {
         const result = await addTaskToTodayUseCase.execute({ taskId });
         if (result.success) {
           console.log("Task added to today successfully");
-          // Reload today task IDs
-          await loadTodayTaskIds();
+          // Note: Event bus will handle UI updates automatically
         } else {
           console.error(
             "Failed to add task to today:",
@@ -404,9 +406,9 @@ export const MVPApp: React.FC = () => {
     } catch (error) {
       console.error("Error toggling task in today:", error);
     }
-  };
+  }, [todayTaskIds, removeTaskFromTodayUseCase, addTaskToTodayUseCase]);
 
-  const handleReturnTaskToToday = async (taskId: string) => {
+  const handleReturnTaskToToday = useCallback(async (taskId: string) => {
     try {
       const result = await addTaskToTodayUseCase.execute({ taskId });
       if (result.success) {
@@ -416,10 +418,7 @@ export const MVPApp: React.FC = () => {
         const { loadDailyModalData } = useOnboardingViewModel.getState();
         await loadDailyModalData();
 
-        // If we're on the Today view, refresh the today tasks to show the returned task
-        if (activeView === "today") {
-          await handleTodayRefresh();
-        }
+        // Note: TodayView will auto-refresh via event bus when task is returned
       } else {
         console.error(
           "Failed to return task to today:",
@@ -429,13 +428,30 @@ export const MVPApp: React.FC = () => {
     } catch (error) {
       console.error("Error returning task to today:", error);
     }
-  };
+  }, [addTaskToTodayUseCase]);
 
-  const handleViewChange = (view: "today" | TaskCategory) => {
+  const handleViewChange = useCallback((view: "today" | TaskCategory) => {
     setActiveView(view);
-  };
+  }, []);
 
-  const handleCreateTaskLog = async (
+  const loadTaskLogs = useCallback(async (taskId: string): Promise<LogEntry[]> => {
+    try {
+      const logs = await logService.loadTaskLogs(taskId);
+      setTaskLogs((prev) => ({ ...prev, [taskId]: logs }));
+
+      // Update last log for this task
+      if (logs.length > 0) {
+        setLastLogs((prev) => ({ ...prev, [taskId]: logs[0] }));
+      }
+
+      return logs;
+    } catch (error) {
+      console.error("Error loading logs:", error);
+      return [];
+    }
+  }, [logService]);
+
+  const handleCreateTaskLog = useCallback(async (
     taskId: string,
     message: string
   ): Promise<boolean> => {
@@ -452,26 +468,9 @@ export const MVPApp: React.FC = () => {
       console.error("Error creating log:", error);
       return false;
     }
-  };
+  }, [logService, loadTaskLogs]);
 
-  const loadTaskLogs = async (taskId: string): Promise<LogEntry[]> => {
-    try {
-      const logs = await logService.loadTaskLogs(taskId);
-      setTaskLogs((prev) => ({ ...prev, [taskId]: logs }));
-
-      // Update last log for this task
-      if (logs.length > 0) {
-        setLastLogs((prev) => ({ ...prev, [taskId]: logs[0] }));
-      }
-
-      return logs;
-    } catch (error) {
-      console.error("Error loading logs:", error);
-      return [];
-    }
-  };
-
-  const loadAllTaskLogs = async () => {
+  const loadAllTaskLogs = useCallback(async () => {
     try {
       const tasks = getFilteredTasks();
       if (tasks.length > 0) {
@@ -482,17 +481,17 @@ export const MVPApp: React.FC = () => {
     } catch (error) {
       console.error("Error loading all task logs:", error);
     }
-  };
+  }, [getFilteredTasks, logService]);
 
-  const handleMobileMenuClose = () => {
+  const handleMobileMenuClose = useCallback(() => {
     setIsMobileMenuOpen(false);
-  };
+  }, []);
 
-  const handleMobileMenuToggle = () => {
+  const handleMobileMenuToggle = useCallback(() => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
+  }, [isMobileMenuOpen]);
 
-  const handleReorderTasks = async (reorderedTasks: Task[]) => {
+  const handleReorderTasks = useCallback(async (reorderedTasks: Task[]) => {
     try {
       // Create task orders array with new order values
       const taskOrders = reorderedTasks.map((task, index) => ({
@@ -508,16 +507,11 @@ export const MVPApp: React.FC = () => {
     } catch (error) {
       console.error("Error reordering tasks:", error);
     }
-  };
+  }, [reorderTasksUseCase, loadTasks]);
 
-  const handleTodayRefresh = async () => {
-    // Call the TodayView refresh function if available
-    if ((window as any).__todayViewRefresh) {
-      await (window as any).__todayViewRefresh();
-    }
-  };
+  // Note: Removed handleTodayRefresh as it's replaced by event bus auto-refresh
 
-  const handleMobileCreateTask = async (title: string): Promise<void> => {
+  const handleMobileCreateTask = useCallback(async (title: string): Promise<void> => {
     try {
       const success = await createTask({ title, category: TaskCategory.INBOX });
       if (success) {
@@ -532,21 +526,21 @@ export const MVPApp: React.FC = () => {
             taskId: newestTask.id.value,
           });
           if (result.success) {
-            await loadTodayTaskIds();
+            // Note: Event bus will handle UI updates automatically
           }
         }
       }
     } catch (error) {
       console.error("Error creating task from mobile view:", error);
     }
-  };
+  }, [createTask, taskRepository, addTaskToTodayUseCase]);
 
   const tasksByCategory = getTasksByCategory();
-  const taskCounts: Record<TaskCategory, number> = {
+  const taskCounts: Record<TaskCategory, number> = useMemo(() => ({
     [TaskCategory.INBOX]: tasksByCategory[TaskCategory.INBOX]?.length || 0,
     [TaskCategory.SIMPLE]: tasksByCategory[TaskCategory.SIMPLE]?.length || 0,
     [TaskCategory.FOCUS]: tasksByCategory[TaskCategory.FOCUS]?.length || 0,
-  };
+  }), [tasksByCategory]);
 
   // Show loading state while database is initializing
   if (!isDbReady) {
@@ -576,7 +570,6 @@ export const MVPApp: React.FC = () => {
         onLoadTaskLogs={loadTaskLogs}
         onCreateLog={handleCreateTaskLog}
         lastLogs={lastLogs}
-        onRefresh={handleTodayRefresh}
         onCreateTask={handleMobileCreateTask}
       />
     );
@@ -669,7 +662,6 @@ export const MVPApp: React.FC = () => {
                   onCreateTask={handleCreateTask}
                   onCreateLog={handleCreateTaskLog}
                   lastLogs={lastLogs}
-                  onRefresh={handleTodayRefresh}
                 />
               ) : (
                 <TaskList
