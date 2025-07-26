@@ -243,13 +243,15 @@ export const TaskList: React.FC<TaskListProps> = ({
     return (
       <div className="space-y-6">
         {/* Inline Task Creator - не показываем для отложенных задач */}
-        {onCreateTask && currentCategory && currentCategory !== TaskCategory.DEFERRED && (
-          <InlineTaskCreator
-            onCreateTask={onCreateTask}
-            category={currentCategory}
-            placeholder={`Добавить задачу в ${currentCategory.toLowerCase()}...`}
-          />
-        )}
+        {onCreateTask &&
+          currentCategory &&
+          currentCategory !== TaskCategory.DEFERRED && (
+            <InlineTaskCreator
+              onCreateTask={onCreateTask}
+              category={currentCategory}
+              placeholder={`Добавить задачу...`}
+            />
+          )}
 
         <div className="text-center py-8 text-gray-500">
           <p>{emptyMessage}</p>
@@ -261,13 +263,15 @@ export const TaskList: React.FC<TaskListProps> = ({
   return (
     <div className="space-y-6">
       {/* Inline Task Creator - не показываем для отложенных задач */}
-      {onCreateTask && currentCategory && currentCategory !== TaskCategory.DEFERRED && (
-        <InlineTaskCreator
-          onCreateTask={onCreateTask}
-          category={currentCategory}
-          placeholder={`Добавить задачу в ${currentCategory.toLowerCase()}...`}
-        />
-      )}
+      {onCreateTask &&
+        currentCategory &&
+        currentCategory !== TaskCategory.DEFERRED && (
+          <InlineTaskCreator
+            onCreateTask={onCreateTask}
+            category={currentCategory}
+            placeholder={`Добавить задачу...`}
+          />
+        )}
 
       <DndContext
         sensors={sensors}

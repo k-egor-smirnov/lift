@@ -46,7 +46,9 @@ import { toast, Toaster } from "sonner";
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const [activeView, setActiveView] = useState<"today" | "logs" | TaskCategory>("today");
+  const [activeView, setActiveView] = useState<"today" | "logs" | TaskCategory>(
+    "today"
+  );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
@@ -70,7 +72,9 @@ export const MVPApp: React.FC = () => {
 
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
-  const taskEventAdapter = getService<TaskEventAdapter>(tokens.TASK_EVENT_ADAPTER_TOKEN);
+  const taskEventAdapter = getService<TaskEventAdapter>(
+    tokens.TASK_EVENT_ADAPTER_TOKEN
+  );
   const taskRepository = getService<TaskRepository>(
     tokens.TASK_REPOSITORY_TOKEN
   );
@@ -96,10 +100,18 @@ export const MVPApp: React.FC = () => {
     tokens.REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN
   );
   const logService = getService<LogService>(tokens.LOG_SERVICE_TOKEN);
-  const deferTaskUseCase = getService<DeferTaskUseCase>(tokens.DEFER_TASK_USE_CASE_TOKEN);
-  const undeferTaskUseCase = getService<UndeferTaskUseCase>(tokens.UNDEFER_TASK_USE_CASE_TOKEN);
-  const getTaskLogsUseCase = getService<GetTaskLogsUseCase>(tokens.GET_TASK_LOGS_USE_CASE_TOKEN);
-  const createUserLogUseCase = getService<CreateUserLogUseCase>(tokens.CREATE_USER_LOG_USE_CASE_TOKEN);
+  const deferTaskUseCase = getService<DeferTaskUseCase>(
+    tokens.DEFER_TASK_USE_CASE_TOKEN
+  );
+  const undeferTaskUseCase = getService<UndeferTaskUseCase>(
+    tokens.UNDEFER_TASK_USE_CASE_TOKEN
+  );
+  const getTaskLogsUseCase = getService<GetTaskLogsUseCase>(
+    tokens.GET_TASK_LOGS_USE_CASE_TOKEN
+  );
+  const createUserLogUseCase = getService<CreateUserLogUseCase>(
+    tokens.CREATE_USER_LOG_USE_CASE_TOKEN
+  );
 
   // Create dependencies for view models
   const taskDependencies: TaskViewModelDependencies = useMemo(
@@ -169,10 +181,10 @@ export const MVPApp: React.FC = () => {
       try {
         // Ensure database is open
         await database.open();
-        
+
         // Initialize task event adapter to bridge domain events with task events
         await taskEventAdapter.initialize();
-        
+
         setIsDbReady(true);
         // Load tasks after database is ready
         await loadTasks();
@@ -304,248 +316,280 @@ export const MVPApp: React.FC = () => {
     }
   }, [activeView]); // Remove setViewModelFilter from dependencies
 
-  const handleCreateTask = useCallback(async (
-    title: string,
-    category: TaskCategory
-  ): Promise<boolean> => {
-    const success = await createTask({ title, category });
-    if (success) {
-      setIsCreateModalOpen(false);
+  const handleCreateTask = useCallback(
+    async (title: string, category: TaskCategory): Promise<boolean> => {
+      const success = await createTask({ title, category });
+      if (success) {
+        setIsCreateModalOpen(false);
 
-      // If we're on the Today view, automatically add the newly created task to today
-      if (activeView === "today") {
-        try {
-          // Get the newly created task ID from the task repository
-          // Since we just created the task, it should be the most recent one
-          const tasks = await taskRepository.findAll();
-          const newestTask = tasks.sort(
-            (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-          )[0];
+        // If we're on the Today view, automatically add the newly created task to today
+        if (activeView === "today") {
+          try {
+            // Get the newly created task ID from the task repository
+            // Since we just created the task, it should be the most recent one
+            const tasks = await taskRepository.findAll();
+            const newestTask = tasks.sort(
+              (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+            )[0];
 
-          if (newestTask) {
-            const result = await addTaskToTodayUseCase.execute({
-              taskId: newestTask.id.value,
-            });
-            if (result.success) {
-              console.log("Task automatically added to today");
-              // Note: Don't reload todayTaskIds here - let the event bus handle updates
-              // This prevents unnecessary state updates that cause UI flickering
-            } else {
-              console.error(
-                "Failed to automatically add task to today:",
-                (result as any).error.message
-              );
-            }
-          }
-        } catch (error) {
-          console.error("Error automatically adding task to today:", error);
-        }
-      }
-    }
-    return success;
-  }, [createTask, activeView, taskRepository, addTaskToTodayUseCase]);
-
-  const handleCompleteTask = useCallback(async (taskId: string) => {
-    try {
-      await completeTask(taskId);
-
-      // Show success toast with undo option
-      toast.success("Задача выполнена", {
-        action: {
-          label: "Отменить",
-          onClick: async () => {
-            try {
-              const revertUseCase = getService<any>(
-                tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN
-              );
-              const result = await revertUseCase.execute({ taskId });
-
-              if (result.isSuccess()) {
-                toast.success("Выполнение задачи отменено");
-                // Reload tasks to reflect changes
-                await loadTasks();
-                // Note: Event bus will handle today updates automatically
+            if (newestTask) {
+              const result = await addTaskToTodayUseCase.execute({
+                taskId: newestTask.id.value,
+              });
+              if (result.success) {
+                console.log("Task automatically added to today");
+                // Note: Don't reload todayTaskIds here - let the event bus handle updates
+                // This prevents unnecessary state updates that cause UI flickering
               } else {
-                toast.error("Не удалось отменить выполнение задачи");
+                console.error(
+                  "Failed to automatically add task to today:",
+                  (result as any).error.message
+                );
               }
-            } catch (error) {
-              console.error("Error reverting task completion:", error);
-              toast.error("Произошла ошибка при отмене");
             }
+          } catch (error) {
+            console.error("Error automatically adding task to today:", error);
+          }
+        }
+      }
+      return success;
+    },
+    [createTask, activeView, taskRepository, addTaskToTodayUseCase]
+  );
+
+  const handleCompleteTask = useCallback(
+    async (taskId: string) => {
+      try {
+        await completeTask(taskId);
+
+        // Show success toast with undo option
+        toast.success("Задача выполнена", {
+          action: {
+            label: "Отменить",
+            onClick: async () => {
+              try {
+                const revertUseCase = getService<any>(
+                  tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN
+                );
+                const result = await revertUseCase.execute({ taskId });
+
+                if (result.isSuccess()) {
+                  toast.success("Выполнение задачи отменено");
+                  // Reload tasks to reflect changes
+                  await loadTasks();
+                  // Note: Event bus will handle today updates automatically
+                } else {
+                  toast.error("Не удалось отменить выполнение задачи");
+                }
+              } catch (error) {
+                console.error("Error reverting task completion:", error);
+                toast.error("Произошла ошибка при отмене");
+              }
+            },
           },
-        },
-        duration: 5000, // 5 seconds to allow undo
-      });
-    } catch (error) {
-      console.error("Error completing task:", error);
-      toast.error("Не удалось выполнить задачу");
-    }
-  }, [completeTask, loadTasks]);
-
-  const handleEditTask = useCallback(async (taskId: string, newTitle: string) => {
-    try {
-      const success = await updateTaskUseCase.execute({
-        taskId,
-        title: newTitle,
-      });
-
-      if (success.success) {
-        // Reload tasks to reflect changes
-        await loadTasks();
-      } else {
-        console.error(
-          "Failed to update task:",
-          (success as any).error?.message
-        );
+          duration: 5000, // 5 seconds to allow undo
+        });
+      } catch (error) {
+        console.error("Error completing task:", error);
+        toast.error("Не удалось выполнить задачу");
       }
-    } catch (error) {
-      console.error("Error updating task:", error);
-    }
-  }, [updateTaskUseCase, loadTasks]);
+    },
+    [completeTask, loadTasks]
+  );
 
-  const handleDeleteTask = useCallback(async (taskId: string) => {
-    if (confirm("Are you sure you want to delete this task?")) {
-      await deleteTask(taskId);
-    }
-  }, [deleteTask]);
+  const handleEditTask = useCallback(
+    async (taskId: string, newTitle: string) => {
+      try {
+        const success = await updateTaskUseCase.execute({
+          taskId,
+          title: newTitle,
+        });
 
-  const handleAddToToday = useCallback(async (taskId: string) => {
-    try {
-      // Check if task is already in today's selection
-      const isInToday = todayTaskIds.includes(taskId);
-
-      if (isInToday) {
-        // Remove from today
-        const result = await removeTaskFromTodayUseCase.execute({ taskId });
-        if (result.success) {
-          console.log("Task removed from today successfully");
-          // Note: Event bus will handle UI updates automatically
+        if (success.success) {
+          // Reload tasks to reflect changes
+          await loadTasks();
         } else {
           console.error(
-            "Failed to remove task from today:",
-            (result as any).error.message
+            "Failed to update task:",
+            (success as any).error?.message
           );
         }
-      } else {
-        // Add to today
-        const result = await addTaskToTodayUseCase.execute({ taskId });
-        if (result.success) {
-          console.log("Task added to today successfully");
-          // Note: Event bus will handle UI updates automatically
-        } else {
-          console.error(
-            "Failed to add task to today:",
-            (result as any).error.message
-          );
-        }
+      } catch (error) {
+        console.error("Error updating task:", error);
       }
-    } catch (error) {
-      console.error("Error toggling task in today:", error);
-    }
-  }, [todayTaskIds, removeTaskFromTodayUseCase, addTaskToTodayUseCase]);
+    },
+    [updateTaskUseCase, loadTasks]
+  );
 
-  const handleDeferTask = useCallback(async (taskId: string, deferDate: Date) => {
-    try {
-      // Remove task from today's list before deferring
-      await removeTaskFromTodayUseCase.execute({ taskId });
-      
-      // Defer the task using the use case
-      const result = await deferTaskUseCase.execute({ taskId, deferredUntil: deferDate });
-      
-      if (result.success) {
-        // Reload tasks to reflect the changes
-        await loadTasks();
-        toast.success(`Задача отложена до ${deferDate.toLocaleDateString()}`);
-      } else {
-        console.error("Failed to defer task:", result.error);
+  const handleDeleteTask = useCallback(
+    async (taskId: string) => {
+      if (confirm("Are you sure you want to delete this task?")) {
+        await deleteTask(taskId);
+      }
+    },
+    [deleteTask]
+  );
+
+  const handleAddToToday = useCallback(
+    async (taskId: string) => {
+      try {
+        // Check if task is already in today's selection
+        const isInToday = todayTaskIds.includes(taskId);
+
+        if (isInToday) {
+          // Remove from today
+          const result = await removeTaskFromTodayUseCase.execute({ taskId });
+          if (result.success) {
+            console.log("Task removed from today successfully");
+            // Note: Event bus will handle UI updates automatically
+          } else {
+            console.error(
+              "Failed to remove task from today:",
+              (result as any).error.message
+            );
+          }
+        } else {
+          // Add to today
+          const result = await addTaskToTodayUseCase.execute({ taskId });
+          if (result.success) {
+            console.log("Task added to today successfully");
+            // Note: Event bus will handle UI updates automatically
+          } else {
+            console.error(
+              "Failed to add task to today:",
+              (result as any).error.message
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error toggling task in today:", error);
+      }
+    },
+    [todayTaskIds, removeTaskFromTodayUseCase, addTaskToTodayUseCase]
+  );
+
+  const handleDeferTask = useCallback(
+    async (taskId: string, deferDate: Date) => {
+      try {
+        // Remove task from today's list before deferring
+        await removeTaskFromTodayUseCase.execute({ taskId });
+
+        // Defer the task using the use case
+        const result = await deferTaskUseCase.execute({
+          taskId,
+          deferredUntil: deferDate,
+        });
+
+        if (result.success) {
+          // Reload tasks to reflect the changes
+          await loadTasks();
+          toast.success(`Задача отложена до ${deferDate.toLocaleDateString()}`);
+        } else {
+          console.error("Failed to defer task:", result.error);
+          toast.error("Не удалось отложить задачу");
+        }
+      } catch (error) {
+        console.error("Error deferring task:", error);
         toast.error("Не удалось отложить задачу");
       }
-    } catch (error) {
-      console.error("Error deferring task:", error);
-      toast.error("Не удалось отложить задачу");
-    }
-  }, [deferTaskUseCase, loadTasks, removeTaskFromTodayUseCase]);
+    },
+    [deferTaskUseCase, loadTasks, removeTaskFromTodayUseCase]
+  );
 
-  const handleUndeferTask = useCallback(async (taskId: TaskId) => {
-    try {
-      // Undefer the task using the use case
-      const result = await undeferTaskUseCase.execute({ taskId: taskId.value });
-      
-      if (result.success) {
-        // Reload tasks to reflect the changes
-        await loadTasks();
-        toast.success("Задача возвращена из отложенных");
-      } else {
-        console.error("Failed to undefer task:", result.error);
+  const handleUndeferTask = useCallback(
+    async (taskId: TaskId) => {
+      try {
+        // Undefer the task using the use case
+        const result = await undeferTaskUseCase.execute({
+          taskId: taskId.value,
+        });
+
+        if (result.success) {
+          // Reload tasks to reflect the changes
+          await loadTasks();
+          toast.success("Задача возвращена из отложенных");
+        } else {
+          console.error("Failed to undefer task:", result.error);
+          toast.error("Не удалось вернуть задачу из отложенных");
+        }
+      } catch (error) {
+        console.error("Error undeferring task:", error);
         toast.error("Не удалось вернуть задачу из отложенных");
       }
-    } catch (error) {
-      console.error("Error undeferring task:", error);
-      toast.error("Не удалось вернуть задачу из отложенных");
-    }
-  }, [undeferTaskUseCase, loadTasks]);
+    },
+    [undeferTaskUseCase, loadTasks]
+  );
 
-  const handleReturnTaskToToday = useCallback(async (taskId: string) => {
-    try {
-      const result = await addTaskToTodayUseCase.execute({ taskId });
-      if (result.success) {
-        console.log("Task returned to today successfully");
+  const handleReturnTaskToToday = useCallback(
+    async (taskId: string) => {
+      try {
+        const result = await addTaskToTodayUseCase.execute({ taskId });
+        if (result.success) {
+          console.log("Task returned to today successfully");
 
-        // Refresh the daily modal data to remove the task from modal lists
-        const { loadDailyModalData } = useOnboardingViewModel.getState();
-        await loadDailyModalData();
+          // Refresh the daily modal data to remove the task from modal lists
+          const { loadDailyModalData } = useOnboardingViewModel.getState();
+          await loadDailyModalData();
 
-        // Note: TodayView will auto-refresh via event bus when task is returned
-      } else {
-        console.error(
-          "Failed to return task to today:",
-          (result as any).error.message
-        );
+          // Note: TodayView will auto-refresh via event bus when task is returned
+        } else {
+          console.error(
+            "Failed to return task to today:",
+            (result as any).error.message
+          );
+        }
+      } catch (error) {
+        console.error("Error returning task to today:", error);
       }
-    } catch (error) {
-      console.error("Error returning task to today:", error);
-    }
-  }, [addTaskToTodayUseCase]);
+    },
+    [addTaskToTodayUseCase]
+  );
 
-  const handleViewChange = useCallback((view: "today" | "logs" | TaskCategory) => {
-    setActiveView(view);
-  }, []);
+  const handleViewChange = useCallback(
+    (view: "today" | "logs" | TaskCategory) => {
+      setActiveView(view);
+    },
+    []
+  );
 
-  const loadTaskLogs = useCallback(async (taskId: string): Promise<LogEntry[]> => {
-    try {
-      const logs = await logService.loadTaskLogs(taskId);
-      setTaskLogs((prev) => ({ ...prev, [taskId]: logs }));
+  const loadTaskLogs = useCallback(
+    async (taskId: string): Promise<LogEntry[]> => {
+      try {
+        const logs = await logService.loadTaskLogs(taskId);
+        setTaskLogs((prev) => ({ ...prev, [taskId]: logs }));
 
-      // Update last log for this task
-      if (logs.length > 0) {
-        setLastLogs((prev) => ({ ...prev, [taskId]: logs[0] }));
+        // Update last log for this task
+        if (logs.length > 0) {
+          setLastLogs((prev) => ({ ...prev, [taskId]: logs[0] }));
+        }
+
+        return logs;
+      } catch (error) {
+        console.error("Error loading logs:", error);
+        return [];
       }
+    },
+    [logService]
+  );
 
-      return logs;
-    } catch (error) {
-      console.error("Error loading logs:", error);
-      return [];
-    }
-  }, [logService]);
-
-  const handleCreateTaskLog = useCallback(async (
-    taskId: string,
-    message: string
-  ): Promise<boolean> => {
-    try {
-      const success = await logService.createLog(taskId, message);
-      if (success) {
-        // Reload logs for this task
-        await loadTaskLogs(taskId);
-        return true;
-      } else {
+  const handleCreateTaskLog = useCallback(
+    async (taskId: string, message: string): Promise<boolean> => {
+      try {
+        const success = await logService.createLog(taskId, message);
+        if (success) {
+          // Reload logs for this task
+          await loadTaskLogs(taskId);
+          return true;
+        } else {
+          return false;
+        }
+      } catch (error) {
+        console.error("Error creating log:", error);
         return false;
       }
-    } catch (error) {
-      console.error("Error creating log:", error);
-      return false;
-    }
-  }, [logService, loadTaskLogs]);
+    },
+    [logService, loadTaskLogs]
+  );
 
   const loadAllTaskLogs = useCallback(async () => {
     try {
@@ -568,61 +612,74 @@ export const MVPApp: React.FC = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   }, [isMobileMenuOpen]);
 
-  const handleReorderTasks = useCallback(async (reorderedTasks: Task[]) => {
-    try {
-      // Create task orders array with new order values
-      const taskOrders = reorderedTasks.map((task, index) => ({
-        taskId: task.id.value,
-        order: Date.now() + index, // Use timestamp + index to ensure unique ordering
-      }));
+  const handleReorderTasks = useCallback(
+    async (reorderedTasks: Task[]) => {
+      try {
+        // Create task orders array with new order values
+        const taskOrders = reorderedTasks.map((task, index) => ({
+          taskId: task.id.value,
+          order: Date.now() + index, // Use timestamp + index to ensure unique ordering
+        }));
 
-      // Execute reorder use case
-      await reorderTasksUseCase.execute({ taskOrders });
+        // Execute reorder use case
+        await reorderTasksUseCase.execute({ taskOrders });
 
-      // Reload tasks to reflect the new order
-      await loadTasks();
-    } catch (error) {
-      console.error("Error reordering tasks:", error);
-    }
-  }, [reorderTasksUseCase, loadTasks]);
+        // Reload tasks to reflect the new order
+        await loadTasks();
+      } catch (error) {
+        console.error("Error reordering tasks:", error);
+      }
+    },
+    [reorderTasksUseCase, loadTasks]
+  );
 
   // Note: Removed handleTodayRefresh as it's replaced by event bus auto-refresh
 
-  const handleMobileCreateTask = useCallback(async (title: string): Promise<void> => {
-    try {
-      const success = await createTask({ title, category: TaskCategory.INBOX });
-      if (success) {
-        // Get the newly created task and add it to today
-        const tasks = await taskRepository.findAll();
-        const newestTask = tasks.sort(
-          (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-        )[0];
+  const handleMobileCreateTask = useCallback(
+    async (title: string): Promise<void> => {
+      try {
+        const success = await createTask({
+          title,
+          category: TaskCategory.INBOX,
+        });
+        if (success) {
+          // Get the newly created task and add it to today
+          const tasks = await taskRepository.findAll();
+          const newestTask = tasks.sort(
+            (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+          )[0];
 
-        if (newestTask) {
-          const result = await addTaskToTodayUseCase.execute({
-            taskId: newestTask.id.value,
-          });
-          if (result.success) {
-            // Note: Event bus will handle UI updates automatically
+          if (newestTask) {
+            const result = await addTaskToTodayUseCase.execute({
+              taskId: newestTask.id.value,
+            });
+            if (result.success) {
+              // Note: Event bus will handle UI updates automatically
+            }
           }
         }
+      } catch (error) {
+        console.error("Error creating task from mobile view:", error);
       }
-    } catch (error) {
-      console.error("Error creating task from mobile view:", error);
-    }
-  }, [createTask, taskRepository, addTaskToTodayUseCase]);
+    },
+    [createTask, taskRepository, addTaskToTodayUseCase]
+  );
 
   const tasksByCategory = getTasksByCategory();
   const { getOverdueCount } = taskViewModel();
   const overdueCount = getOverdueCount();
-  
-  const taskCounts: Record<TaskCategory, number> = useMemo(() => ({
-    [TaskCategory.INBOX]: tasksByCategory[TaskCategory.INBOX]?.length || 0,
-    [TaskCategory.SIMPLE]: tasksByCategory[TaskCategory.SIMPLE]?.length || 0,
-    [TaskCategory.FOCUS]: tasksByCategory[TaskCategory.FOCUS]?.length || 0,
-    [TaskCategory.DEFERRED]: tasksByCategory[TaskCategory.DEFERRED]?.length || 0,
-  }), [tasksByCategory]);
-  
+
+  const taskCounts: Record<TaskCategory, number> = useMemo(
+    () => ({
+      [TaskCategory.INBOX]: tasksByCategory[TaskCategory.INBOX]?.length || 0,
+      [TaskCategory.SIMPLE]: tasksByCategory[TaskCategory.SIMPLE]?.length || 0,
+      [TaskCategory.FOCUS]: tasksByCategory[TaskCategory.FOCUS]?.length || 0,
+      [TaskCategory.DEFERRED]:
+        tasksByCategory[TaskCategory.DEFERRED]?.length || 0,
+    }),
+    [tasksByCategory]
+  );
+
   const hasOverdueTasks = overdueCount > 0;
 
   // Show loading state while database is initializing
@@ -639,7 +696,9 @@ export const MVPApp: React.FC = () => {
 
   // Get the current category for modal
   const currentCategory =
-    activeView === "today" || activeView === "logs" ? TaskCategory.INBOX : activeView;
+    activeView === "today" || activeView === "logs"
+      ? TaskCategory.INBOX
+      : activeView;
   const hideCategorySelection = activeView !== "today";
 
   // If mobile view should be used, render it directly without sidebar/header
@@ -768,7 +827,7 @@ export const MVPApp: React.FC = () => {
                   onLoadTaskLogs={loadTaskLogs}
                   onCreateLog={handleCreateTaskLog}
                   lastLogs={lastLogs}
-                  emptyMessage={`No ${activeView.toLowerCase()} tasks found`}
+                  emptyMessage={`No tasks found`}
                   todayTaskIds={todayTaskIds}
                   showDeferButton={true}
                   onDefer={handleDeferTask}

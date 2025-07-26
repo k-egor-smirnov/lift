@@ -33,7 +33,7 @@ interface OnboardingState {
   markModalShownToday: () => void;
   checkShouldShowModal: (overdueDays?: number) => Promise<boolean>;
   checkDayTransition: () => boolean;
-  resetForNewDay: () => void;
+  resetForNewDay: (preserveModalData?: boolean) => void;
   reset: () => void;
   returnTaskToToday: (taskId: string) => Promise<void>;
   toggleTaskToday: (taskId: string) => Promise<void>;
@@ -73,7 +73,7 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
 
   // Check if modal was already shown today (using localStorage)
   const getModalShownKey = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = DateOnly.today().value;
     return `dailyModal_shown_${today}`;
   };
   
@@ -93,7 +93,7 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     error: null,
     todayTaskIds: [],
     modalShownToday: wasModalShownToday(),
-    currentDay: new Date().toISOString().split('T')[0], // Initialize with current day
+    currentDay: DateOnly.today().value, // Initialize with current day
 
     // Load daily modal data
     loadDailyModalData: async (overdueDays?: number) => {
@@ -151,11 +151,11 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     // Check if day has transitioned
     checkDayTransition: () => {
       const state = get();
-      const today = new Date().toISOString().split('T')[0];
+      const today = DateOnly.today().value;
       
       if (state.currentDay !== today) {
-        // Day has changed, reset for new day
-        get().resetForNewDay();
+        // Day has changed, reset for new day but preserve modal data if modal is visible
+        get().resetForNewDay(state.isModalVisible);
         return true;
       }
       
@@ -163,12 +163,15 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     },
 
     // Reset state for new day
-    resetForNewDay: () => {
+    resetForNewDay: (preserveModalData = false) => {
+      const state = get();
       set({
         modalShownToday: false,
         currentDay: DateOnly.today().value,
-        dailyModalData: null,
-        isModalVisible: false,
+        // Preserve modal data and visibility if modal is currently shown
+        // This ensures that if user left app open over weekend, they can still see Friday's tasks on Monday
+        dailyModalData: preserveModalData ? state.dailyModalData : null,
+        isModalVisible: preserveModalData ? state.isModalVisible : false,
         error: null,
         todayTaskIds: []
       });

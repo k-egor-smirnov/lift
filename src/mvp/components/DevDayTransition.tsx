@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Calendar, X } from 'lucide-react';
-import { DateOnly } from '../../shared/domain/value-objects/DateOnly';
-import { useOnboardingViewModel } from '../../features/onboarding/presentation/view-models/OnboardingViewModel';
-import { getService, tokens } from '../../shared/infrastructure/di';
-import { DailySelectionRepository } from '../../shared/domain/repositories/DailySelectionRepository';
+import React, { useState } from "react";
+import { Calendar, X } from "lucide-react";
+import { DateOnly } from "../../shared/domain/value-objects/DateOnly";
+import { useOnboardingViewModel } from "../../features/onboarding/presentation/view-models/OnboardingViewModel";
+import { getService, tokens } from "../../shared/infrastructure/di";
+import { DailySelectionRepository } from "../../shared/domain/repositories/DailySelectionRepository";
 
 /**
  * Dev component for simulating day transition
@@ -12,13 +12,13 @@ import { DailySelectionRepository } from '../../shared/domain/repositories/Daily
 export const DevDayTransition: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [overdueDays, setOverdueDays] = useState(3);
-  
+
   const {
     isModalVisible,
     modalShownToday,
     loadDailyModalData,
     showDailyModal,
-    reset: resetOnboardingState
+    reset: resetOnboardingState,
   } = useOnboardingViewModel();
 
   const handleNextDay = async () => {
@@ -26,67 +26,68 @@ export const DevDayTransition: React.FC = () => {
       // Get tomorrow's date
       const today = DateOnly.today();
       const tomorrow = today.addDays(1);
-      const tomorrowDate = new Date(tomorrow.value + 'T09:00:00');
-      
+      const tomorrowDate = new Date(tomorrow.value + "T09:00:00");
+
       // Mock the system time to tomorrow
-      localStorage.setItem('__dev_mocked_date__', tomorrowDate.toISOString());
-      
+      localStorage.setItem("__dev_mocked_date__", tomorrowDate.toISOString());
+
       // Clear daily modal state for the new day
-      const dateKey = tomorrowDate.toISOString().split('T')[0];
+      const dateKey = tomorrowDate.toISOString().split("T")[0];
       const modalKey = `dailyModal_shown_${dateKey}`;
       localStorage.removeItem(modalKey);
-      
+
       // Clear today's task selection to simulate fresh day
       try {
-        const dailySelectionRepository = getService<DailySelectionRepository>(tokens.DAILY_SELECTION_REPOSITORY_TOKEN);
+        const dailySelectionRepository = getService<DailySelectionRepository>(
+          tokens.DAILY_SELECTION_REPOSITORY_TOKEN
+        );
         const newToday = DateOnly.today(); // This will use the mocked date
         await dailySelectionRepository.clearDay(newToday);
-        console.log('🧪 Cleared daily task selection for:', newToday.value);
+        console.log("🧪 Cleared daily task selection for:", newToday.value);
       } catch (error) {
-        console.error('Failed to clear daily selection:', error);
+        console.error("Failed to clear daily selection:", error);
       }
-      
+
       // Reset onboarding state
       resetOnboardingState();
-      
+
       // Load and show daily modal for the new day
       await loadDailyModalData(overdueDays);
       showDailyModal();
-      
+
       // Force refresh of TodayView to update with new date
       if ((window as any).__todayViewRefresh) {
         await (window as any).__todayViewRefresh();
       }
-      
-      console.log('🧪 Day transition simulated to:', tomorrow.value);
-      console.log('🧪 Daily modal triggered for new day');
-      
+
+      console.log("🧪 Day transition simulated to:", tomorrow.value);
+      console.log("🧪 Daily modal triggered for new day");
+
       // Close the dev panel
       setIsOpen(false);
-      
     } catch (error) {
-      console.error('Failed to simulate day transition:', error);
+      console.error("Failed to simulate day transition:", error);
     }
   };
 
   const handleResetToToday = () => {
     try {
       // Remove mocked date
-      localStorage.removeItem('__dev_mocked_date__');
-      
+      localStorage.removeItem("__dev_mocked_date__");
+
       // Reset onboarding state
       resetOnboardingState();
-      
+
       // Force page reload to apply the reset
       window.location.reload();
-      
-      console.log('🧪 Time reset to current date');
+
+      console.log("🧪 Time reset to current date");
     } catch (error) {
-      console.error('Failed to reset time:', error);
+      console.error("Failed to reset time:", error);
     }
   };
 
-  const isTimeSimulated = localStorage.getItem('__dev_mocked_date__') !== null;
+  const isTimeSimulated = localStorage.getItem("__dev_mocked_date__") !== null;
   const currentDate = DateOnly.today().value;
 
   if (!isOpen) {
@@ -104,7 +105,9 @@ export const DevDayTransition: React.FC = () => {
   return (
     <div className="fixed bottom-4 right-4 bg-white border border-gray-200 rounded-lg shadow-xl p-4 z-50 w-80">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">🧪 Day Transition</h3>
+        <h3 className="text-lg font-semibold text-gray-900">
+          🧪 Day Transition
+        </h3>
         <button
           onClick={() => setIsOpen(false)}
           className="text-gray-400 hover:text-gray-600"
@@ -122,14 +125,22 @@ export const DevDayTransition: React.FC = () => {
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Time Simulated:</span>
-            <span className={isTimeSimulated ? 'text-green-600 font-medium' : 'text-gray-400'}>
-              {isTimeSimulated ? 'Yes' : 'No'}
+            <span
+              className={
+                isTimeSimulated ? "text-green-600 font-medium" : "text-gray-400"
+              }
+            >
+              {isTimeSimulated ? "Yes" : "No"}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Modal Visible:</span>
-            <span className={isModalVisible ? 'text-blue-600 font-medium' : 'text-gray-400'}>
-              {isModalVisible ? 'Yes' : 'No'}
+            <span
+              className={
+                isModalVisible ? "text-blue-600 font-medium" : "text-gray-400"
+              }
+            >
+              {isModalVisible ? "Yes" : "No"}
             </span>
           </div>
         </div>
@@ -160,7 +171,7 @@ export const DevDayTransition: React.FC = () => {
           >
             🌅 Simulate Next Day
           </button>
-          
+
           {isTimeSimulated && (
             <button
               onClick={handleResetToToday}
@@ -172,7 +183,8 @@ export const DevDayTransition: React.FC = () => {
         </div>
 
         <div className="text-xs text-gray-500 bg-green-50 p-2 rounded">
-          <strong>Dev Mode:</strong> Simulates moving to the next day and automatically triggers the daily modal for task selection.
+          <strong>Dev Mode:</strong> Simulates moving to the next day and
+          automatically triggers the daily modal for task selection.
         </div>
       </div>
     </div>
