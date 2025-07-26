@@ -1,17 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { FileText, Filter, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskLogList } from "./TaskLogList";
-import {
-  LogEntry,
-  GetTaskLogsRequest,
-} from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import { GetTaskLogsRequest } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import {
   createLogViewModel,
   LogViewModelDependencies,
 } from "../view-models/LogViewModel";
 import { Button } from "../../../../shared/ui/button";
-import { cn } from "../../../../shared/lib/utils";
 
 interface AllLogsViewProps {
   dependencies: LogViewModelDependencies;

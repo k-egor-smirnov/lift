@@ -201,15 +201,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setShowDropdown(false);
       }
     };
 
     if (showDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
       return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener("mousedown", handleClickOutside);
       };
     }
   }, [showDropdown]);
@@ -454,7 +457,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     <Sun className="w-4 h-4" />
                   </button>
                 )}
-                
+
                 {/* Task title */}
                 <h3
                   id={`task-title-${task.id.value}`}
@@ -471,14 +474,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   }}
                   tabIndex={0}
                   role="button"
-                  aria-label={t("taskCard.editTask", { title: task.title.value })}
+                  aria-label={t("taskCard.editTask", {
+                    title: task.title.value,
+                  })}
                 >
                   {task.title.value}
                 </h3>
               </div>
-              
+
               {/* Actions */}
-              <div className="flex items-center gap-1" role="toolbar" aria-label={t("taskCard.taskActions")}>
+              <div
+                className="flex items-center gap-1"
+                role="toolbar"
+                aria-label={t("taskCard.taskActions")}
+              >
                 {/* Complete/Revert button - always visible */}
                 {!isCompleted && (
                   <button
@@ -505,7 +514,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     <Undo2 className="w-4 h-4" />
                   </button>
                 )}
-                
+
                 {/* Dropdown menu for other actions */}
                 <div className="relative" ref={dropdownRef}>
                   <button
@@ -518,7 +527,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
-                  
+
                   {/* Dropdown menu */}
                   {showDropdown && (
                     <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-10">
@@ -534,7 +543,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                           {t("taskCard.deferTask")}
                         </button>
                       )}
-                      
+
                       <button
                         onClick={() => {
                           onDelete(task.id.value);
@@ -563,7 +572,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   className="cursor-pointer hover:text-gray-700 transition-colors"
                   onClick={handleToggleLogHistory}
                 >
-                  {t("taskCard.lastLog")}: {lastLog.message} (
+                  {t("taskCard.lastLog")} {lastLog.message} (
                   {formatLogDate(lastLog.createdAt)})
                 </div>
               ) : (
@@ -711,7 +720,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               >
                 <div className="font-medium">Завтра</div>
                 <div className="text-sm text-gray-500">
-                  {new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  {new Date(
+                    Date.now() + 24 * 60 * 60 * 1000
+                  ).toLocaleDateString()}
                 </div>
               </button>
               <button
@@ -724,7 +735,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               >
                 <div className="font-medium">Через неделю</div>
                 <div className="text-sm text-gray-500">
-                  {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  {new Date(
+                    Date.now() + 7 * 24 * 60 * 60 * 1000
+                  ).toLocaleDateString()}
                 </div>
               </button>
               <button
@@ -737,7 +750,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               >
                 <div className="font-medium">Через месяц</div>
                 <div className="text-sm text-gray-500">
-                  {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  {new Date(
+                    Date.now() + 30 * 24 * 60 * 60 * 1000
+                  ).toLocaleDateString()}
                 </div>
               </button>
             </div>

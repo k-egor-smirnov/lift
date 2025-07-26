@@ -242,8 +242,8 @@ export const TaskList: React.FC<TaskListProps> = ({
   if (sortedTasks.length === 0) {
     return (
       <div className="space-y-6">
-        {/* Inline Task Creator */}
-        {onCreateTask && currentCategory && (
+        {/* Inline Task Creator - не показываем для отложенных задач */}
+        {onCreateTask && currentCategory && currentCategory !== TaskCategory.DEFERRED && (
           <InlineTaskCreator
             onCreateTask={onCreateTask}
             category={currentCategory}
@@ -260,8 +260,8 @@ export const TaskList: React.FC<TaskListProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Inline Task Creator */}
-      {onCreateTask && currentCategory && (
+      {/* Inline Task Creator - не показываем для отложенных задач */}
+      {onCreateTask && currentCategory && currentCategory !== TaskCategory.DEFERRED && (
         <InlineTaskCreator
           onCreateTask={onCreateTask}
           category={currentCategory}
