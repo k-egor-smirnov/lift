@@ -63,6 +63,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
     getCompletedTasks,
     getTodayTaskIds,
     isToday,
+    enableAutoRefresh,
   } = useTodayViewModelStore();
   const id = useId();
 
@@ -70,6 +71,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
   useEffect(() => {
     initialize(dependencies);
   }, [dependencies, initialize]);
+
+  // Enable auto-refresh to listen for task events
+  useEffect(() => {
+    enableAutoRefresh();
+  }, [enableAutoRefresh]);
 
   // Load today's tasks on component mount
   useEffect(() => {
@@ -154,8 +160,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
   };
 
   const handleToggleToday = async (taskId: string) => {
-    // Since we're in TodayView, all tasks are already in today's selection
-    // So the sun icon should remove them from today
+    // In TodayView, all displayed tasks are already in today's selection
+    // So the sun icon should always remove them from today
     await removeTaskFromToday(taskId);
   };
 
