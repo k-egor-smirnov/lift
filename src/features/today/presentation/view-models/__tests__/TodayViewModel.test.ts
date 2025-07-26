@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ulid } from 'ulid';
+
+// Mock Date to return consistent date for tests - must be before other imports
+const MOCK_DATE = '2023-12-01T00:00:00.000Z';
+vi.useFakeTimers();
+vi.setSystemTime(new Date(MOCK_DATE));
+
 import { Task } from '../../../../../shared/domain/entities/Task';
 import { TaskId } from '../../../../../shared/domain/value-objects/TaskId';
 import { NonEmptyTitle } from '../../../../../shared/domain/value-objects/NonEmptyTitle';
@@ -10,6 +16,10 @@ import { RemoveTaskFromTodayUseCase } from '../../../../../shared/application/us
 import { CompleteTaskUseCase } from '../../../../../shared/application/use-cases/CompleteTaskUseCase';
 import { ResultUtils } from '../../../../../shared/domain/Result';
 import { createTodayViewModel, TodayViewModelDependencies } from '../TodayViewModel';
+import { DateOnly } from '../../../../../shared/domain/value-objects/DateOnly';
+
+// Mock DateOnly.today() to return consistent date
+vi.spyOn(DateOnly, 'today').mockReturnValue(new DateOnly('2023-12-01'));
 
 // Mock dependencies
 const mockGetTodayTasksUseCase: GetTodayTasksUseCase = {
@@ -41,13 +51,15 @@ const createTestTask = (
   category: TaskCategory,
   status: TaskStatus = TaskStatus.ACTIVE
 ): Task => {
+  const now = new Date();
   return new Task(
     TaskId.fromString(ulid()),
     NonEmptyTitle.fromString(title),
     category,
     status,
-    new Date(),
-    new Date()
+    now.getTime(), // order parameter should be number
+    now,
+    now
   );
 };
 
@@ -64,6 +76,10 @@ describe('TodayViewModel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     viewModel = createTodayViewModel(dependencies);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('Initial State', () => {
@@ -316,9 +332,8 @@ describe('TodayViewModel', () => {
 
     describe('isToday', () => {
       it('should return true when current date is today', () => {
-        const today = new Date().toISOString().split('T')[0];
         const store = viewModel as any;
-        store.setState({ currentDate: today });
+        store.setState({ currentDate: '2023-12-01' });
         
         const state = viewModel.getState();
         expect(state.isToday()).toBe(true);

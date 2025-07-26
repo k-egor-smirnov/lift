@@ -41,7 +41,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onCreateTask,
 }) => {
   const { t } = useTranslation();
-  
+
   // Use global store
   const {
     tasks,
@@ -183,13 +183,14 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString + "T00:00:00");
-    const today = new Date();
+    const today = DateOnly.getCurrentDate();
+    const todayString = today.toISOString().split("T")[0];
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    if (dateString === today.toISOString().split("T")[0]) {
+    if (dateString === todayString) {
       return "Today";
     } else if (dateString === yesterday.toISOString().split("T")[0]) {
       return "Yesterday";

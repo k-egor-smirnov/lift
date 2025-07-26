@@ -10,7 +10,7 @@ import { DateOnly } from '../../../../../shared/domain/value-objects/DateOnly';
 import { TaskCategory, TaskStatus } from '../../../../../shared/domain/types';
 
 // Mock repositories
-const mockTaskRepository: jest.Mocked<TaskRepository> = {
+const mockTaskRepository: Mock<TaskRepository> = {
   findById: vi.fn(),
   findAll: vi.fn(),
   findByCategory: vi.fn(),
@@ -25,7 +25,7 @@ const mockTaskRepository: jest.Mocked<TaskRepository> = {
   exists: vi.fn()
 };
 
-const mockDailySelectionRepository: jest.Mocked<DailySelectionRepository> = {
+const mockDailySelectionRepository: Mock<DailySelectionRepository> = {
   addTaskToDay: vi.fn(),
   removeTaskFromDay: vi.fn(),
   getTasksForDay: vi.fn(),
@@ -39,7 +39,7 @@ const mockDailySelectionRepository: jest.Mocked<DailySelectionRepository> = {
   getLastSelectionDateForTask: vi.fn()
 };
 
-const mockLogService: jest.Mocked<LogService> = {
+const mockLogService: Mock<LogService> = {
   createLog: vi.fn(),
   getLogs: vi.fn(),
   getLogsByType: vi.fn(),
@@ -130,13 +130,17 @@ describe('OnboardingService', () => {
       
       const yesterday = DateOnly.yesterday();
       const taskId = TaskId.generate();
+      const fixedDate = new Date('2023-12-01T12:00:00Z');
       const task = new Task(
         taskId,
         new NonEmptyTitle('Test Task'),
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
-        new Date(),
-        new Date()
+        fixedDate.getTime(),
+        fixedDate,
+        fixedDate,
+        undefined,
+        fixedDate
       );
 
       // Mock daily selection entry (not completed)
@@ -194,14 +198,17 @@ describe('OnboardingService', () => {
       
       const yesterday = DateOnly.yesterday();
       const taskId = TaskId.generate();
+      const fixedDate = new Date('2023-12-01T12:00:00Z');
       const deletedTask = new Task(
         taskId,
         new NonEmptyTitle('Deleted Task'),
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
-        new Date().getTime(),
-        new Date(),
-        new Date(),
+        fixedDate.getTime(),
+        fixedDate,
+        fixedDate,
+        undefined,
+        fixedDate,
         new Date() // deletedAt
       );
 
@@ -226,15 +233,17 @@ describe('OnboardingService', () => {
 
   describe('getOverdueInboxTasks', () => {
     it('should return overdue inbox tasks', async () => {
+      const overdueDate = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
       const overdueTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle('Overdue Task'),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
-        new Date(),
-        new Date(),
+        overdueDate.getTime(),
+        overdueDate,
+        overdueDate,
         undefined,
-        new Date(Date.now() - 4 * 24 * 60 * 60 * 1000) // 4 days ago
+        overdueDate // 4 days ago
       );
 
       mockTaskRepository.findOverdueTasks.mockResolvedValue([overdueTask]);
@@ -249,16 +258,17 @@ describe('OnboardingService', () => {
 
   describe('getRegularInboxTasks', () => {
     it('should return regular inbox tasks', async () => {
+      const fixedDate = new Date('2023-12-01T12:00:00Z');
       const regularTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle('Regular Inbox Task'),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
-        new Date().getTime(),
-        new Date(),
-        new Date(),
+        fixedDate.getTime(),
+        fixedDate,
+        fixedDate,
         undefined,
-        new Date() // inboxEnteredAt - recent date
+        fixedDate // inboxEnteredAt - recent date
       );
 
       mockTaskRepository.findByCategoryAndStatus.mockResolvedValue([regularTask]);
@@ -271,25 +281,30 @@ describe('OnboardingService', () => {
     });
 
     it('should filter out overdue tasks', async () => {
+      const fixedDate = new Date('2023-12-01T12:00:00Z');
       const regularTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle('Regular Inbox Task'),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
-        new Date(),
-        new Date()
+        fixedDate.getTime(),
+        fixedDate,
+        fixedDate,
+        undefined,
+        fixedDate // inboxEnteredAt - recent date
       );
 
+      const overdueDate = new Date('2023-11-27T12:00:00Z'); // 4 days before 2023-12-01
       const overdueTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle('Overdue Inbox Task'),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
-        new Date().getTime(),
-        new Date(),
-        new Date(),
+        overdueDate.getTime(),
+        overdueDate,
+        overdueDate,
         undefined,
-        new Date(Date.now() - 4 * 24 * 60 * 60 * 1000) // 4 days ago
+        overdueDate // inboxEnteredAt - 4 days ago
       );
 
       mockTaskRepository.findByCategoryAndStatus.mockResolvedValue([regularTask, overdueTask]);
@@ -306,38 +321,43 @@ describe('OnboardingService', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2023-01-02T09:00:00'));
       
+      const fixedDate = new Date('2023-12-01T12:00:00Z');
       const unfinishedTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle('Unfinished Task'),
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
-        new Date().getTime(),
-        new Date(),
-        new Date()
+        fixedDate.getTime(),
+        fixedDate,
+        fixedDate,
+        undefined,
+        fixedDate
       );
 
+      const overdueDate = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
       const overdueTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle('Overdue Task'),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
-        new Date().getTime(),
-        new Date(),
-        new Date(),
+        overdueDate.getTime(),
+        overdueDate,
+        overdueDate,
         undefined,
-        new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)
+        overdueDate
       );
 
+      const fixedDate = new Date('2023-12-01T12:00:00Z');
       const regularInboxTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle('Regular Inbox Task'),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
-        new Date().getTime(),
-        new Date(),
-        new Date(),
+        fixedDate.getTime(),
+        fixedDate,
+        fixedDate,
         undefined,
-        new Date()
+        fixedDate
       );
 
       // Mock yesterday's unfinished tasks
@@ -389,14 +409,17 @@ describe('OnboardingService', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2023-01-02T09:00:00'));
 
+      const fixedDate = new Date('2023-12-01T12:00:00Z');
       const task = new Task(
         TaskId.generate(),
         new NonEmptyTitle('Task'),
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
-        new Date().getTime(),
-        new Date(),
-        new Date()
+        fixedDate.getTime(),
+        fixedDate,
+        fixedDate,
+        undefined,
+        fixedDate
       );
 
       mockDailySelectionRepository.getTasksForDay.mockResolvedValue([

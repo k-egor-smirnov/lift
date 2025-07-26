@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ulid } from 'ulid';
 import { Task } from '../../../../../shared/domain/entities/Task';
 import { TaskId } from '../../../../../shared/domain/value-objects/TaskId';
@@ -11,6 +11,10 @@ import { CompleteTaskUseCase } from '../../../../../shared/application/use-cases
 import { GetTodayTasksUseCase } from '../../../../../shared/application/use-cases/GetTodayTasksUseCase';
 import { ResultUtils } from '../../../../../shared/domain/Result';
 import { createTaskViewModel, TaskViewModelDependencies } from '../TaskViewModel';
+
+// Mock Date to ensure consistent test results
+vi.useFakeTimers();
+vi.setSystemTime(new Date('2023-12-01T00:00:00.000Z'));
 
 // Mock dependencies
 const mockTaskRepository: TaskRepository = {
@@ -59,7 +63,8 @@ const createTestTask = (
   status: TaskStatus = TaskStatus.ACTIVE,
   createdDaysAgo: number = 0
 ): Task => {
-  const createdAt = new Date();
+  // Use fixed date from mock (2023-12-01) instead of current date
+  const createdAt = new Date('2023-12-01T12:00:00Z');
   createdAt.setDate(createdAt.getDate() - createdDaysAgo);
   
   return new Task(
@@ -67,6 +72,7 @@ const createTestTask = (
     NonEmptyTitle.fromString(title),
     category,
     status,
+    createdAt.getTime(), // order parameter should be number
     createdAt,
     createdAt,
     undefined,
@@ -80,6 +86,10 @@ describe('TaskViewModel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     viewModel = createTaskViewModel(dependencies);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('Initial State', () => {
@@ -379,9 +389,17 @@ describe('TaskViewModel', () => {
   describe('getTodayTaskIds', () => {
     it('should return today task ids successfully', async () => {
       const expectedTaskIds = ['task-1', 'task-2', 'task-3'];
+      const mockTasks = expectedTaskIds.map(id => 
+        createTestTask(`Task ${id}`, TaskCategory.SIMPLE)
+      );
+      // Override the task IDs to match expected values
+      mockTasks.forEach((task, index) => {
+        (task as any).id = { value: expectedTaskIds[index] };
+      });
+      
       const mockResponse = {
-        tasks: expectedTaskIds.map(id => ({
-          task: { id },
+        tasks: mockTasks.map(task => ({
+          task,
           completedInSelection: false,
           selectedAt: new Date()
         })),

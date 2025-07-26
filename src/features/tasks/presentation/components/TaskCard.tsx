@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
 import {
   useTouchGestures,
   isTouchDevice,
@@ -297,7 +298,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   // Format log date for display
   const formatLogDate = (date: Date): string => {
-    const now = new Date();
+    const now = DateOnly.getCurrentDate();
     const diffInMs = now.getTime() - date.getTime();
     const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
     const diffInHours = Math.floor(diffInMinutes / 60);
