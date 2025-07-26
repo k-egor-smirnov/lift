@@ -55,7 +55,9 @@ const resources = {
           simple: "Быстрые задачи, которые займут менее 15 минут",
           focus: "Важные задачи, требующие глубокой концентрации",
           inbox: "Новые задачи, ожидающие распределения",
+          deferred: "Отложенные задачи до определенной даты",
         },
+        logs: "История",
       },
       todayView: {
         progress: "Прогресс",
@@ -75,6 +77,8 @@ const resources = {
         lastLog: "",
         addNewLogPlaceholder: "Введите текст записи",
         logHistory: "Записи",
+        overdue: "Просрочена",
+        daysAgo: "Несколько дней назад",
       },
       tasks: {
         newTask: "Новая задача",
@@ -92,6 +96,14 @@ const resources = {
         allCaughtUp: "Все дела в порядке!",
         readyToStart: "Готовы начать продуктивный день",
         letsGetStarted: "Давайте начнем!",
+      },
+      logs: {
+        filters: {
+          all: "Все",
+          system: "Системные",
+          user: "Ручные",
+          task: "Задача",
+        },
       },
     },
   },

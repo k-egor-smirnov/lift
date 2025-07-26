@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Zap, Target, Inbox, FileText, Plus, Menu } from "lucide-react";
+import {
+  Sun,
+  Zap,
+  Target,
+  Inbox,
+  FileText,
+  Plus,
+  Menu,
+  Clock,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
@@ -20,6 +29,8 @@ const getViewTitle = (view: "today" | "logs" | TaskCategory, t: any) => {
       return t("categories.focus");
     case TaskCategory.INBOX:
       return t("categories.inbox");
+    case TaskCategory.DEFERRED:
+      return t("categories.deferred");
     default:
       return t("common.tasks");
   }
@@ -27,7 +38,8 @@ const getViewTitle = (view: "today" | "logs" | TaskCategory, t: any) => {
 
 const getViewDescription = (view: "today" | "logs" | TaskCategory, t: any) => {
   if (view === "today") return t("navigation.descriptions.today");
-  if (view === "logs") return t("logs.subtitle", "View all system and user activity");
+  if (view === "logs")
+    return t("logs.subtitle", "View all system and user activity");
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -36,6 +48,8 @@ const getViewDescription = (view: "today" | "logs" | TaskCategory, t: any) => {
       return t("navigation.descriptions.focus");
     case TaskCategory.INBOX:
       return t("navigation.descriptions.inbox");
+    case TaskCategory.DEFERRED:
+      return t("navigation.descriptions.deferred");
     default:
       return t("navigation.descriptions.today");
   }
@@ -52,6 +66,8 @@ const getViewIcon = (view: "today" | "logs" | TaskCategory) => {
       return Target;
     case TaskCategory.INBOX:
       return Inbox;
+    case TaskCategory.DEFERRED:
+      return Clock;
     default:
       return FileText;
   }

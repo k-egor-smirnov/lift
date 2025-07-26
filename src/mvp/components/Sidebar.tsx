@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
 import { cn } from "../../shared/lib/utils";
-// import Logo from "../../../assets/icon.png";
+import LiftLogo from "../../../assets/icon.png";
 
 interface SidebarProps {
   activeView: "today" | "logs" | TaskCategory;
@@ -74,10 +74,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       <div className="flex items-center justify-between p-6 h-16 box-border">
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg" aria-hidden="true">
-              L
-            </span>
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center overflow-hidden">
+            <img src={LiftLogo} alt="" />
           </div>
           <h2 className="text-xl font-bold text-foreground">Lift</h2>
         </div>
