@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { DailyModal } from './DailyModal';
 import { useDailyModal } from '../hooks/useDailyModal';
 import { useOnboardingViewModel } from '../view-models/OnboardingViewModel';
@@ -22,7 +22,12 @@ export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
     hideDailyModal
   } = useDailyModal(overdueDays);
   
-  const { returnTaskToToday } = useOnboardingViewModel();
+  const { toggleTaskToday, todayTaskIds, loadTodayTaskIds } = useOnboardingViewModel();
+
+  // Load today's task IDs when component mounts
+  useEffect(() => {
+    loadTodayTaskIds();
+  }, [loadTodayTaskIds]);
 
   // Don't render anything if there's an error or no data
   if (error || !dailyModalData) {
@@ -43,7 +48,8 @@ export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
       motivationalMessage={dailyModalData.motivationalMessage}
       date={dailyModalData.date}
       onClose={hideDailyModal}
-      onReturnTaskToToday={returnTaskToToday}
+      onReturnTaskToToday={toggleTaskToday}
+      todayTaskIds={todayTaskIds}
     />
   );
 };

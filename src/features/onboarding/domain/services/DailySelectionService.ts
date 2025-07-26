@@ -4,6 +4,8 @@ import { DailySelectionRepository } from '../../../../shared/domain/repositories
 import { TaskId } from '../../../../shared/domain/value-objects/TaskId';
 import { DateOnly } from '../../../../shared/domain/value-objects/DateOnly';
 import { LogService } from '../../../../shared/application/services/LogService';
+import { AddTaskToTodayUseCase } from '../../../../shared/application/use-cases/AddTaskToTodayUseCase';
+import { RemoveTaskFromTodayUseCase } from '../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase';
 
 /**
  * Service for managing daily task selection integration
@@ -12,7 +14,9 @@ export class DailySelectionService {
   constructor(
     private taskRepository: TaskRepository,
     private dailySelectionRepository: DailySelectionRepository,
-    private logService: LogService
+    private logService: LogService,
+    private addTaskToTodayUseCase: AddTaskToTodayUseCase,
+    private removeTaskFromTodayUseCase: RemoveTaskFromTodayUseCase
   ) {}
 
   /**
@@ -20,25 +24,24 @@ export class DailySelectionService {
    */
   async addTaskToToday(taskId: string): Promise<void> {
     try {
-      const taskIdObj = new TaskId(taskId);
-      const today = DateOnly.today();
+      const result = await this.addTaskToTodayUseCase.execute({ taskId });
       
-      // Get the task to validate it exists
-      const task = await this.taskRepository.findById(taskIdObj);
-      if (!task) {
-        throw new Error(`Task with id ${taskId} not found`);
+      if (!result.success) {
+        throw new Error(result.error.message);
       }
 
-      // Add to daily selection
-      await this.dailySelectionRepository.addTaskToDay(today, taskIdObj);
-
-      // Log the action
-      await this.logService.createLog(
-        taskId,
-        `Task "${task.title.value}" added to today from daily modal`
-      );
-
-      console.log(`Task "${task.title.value}" added to today from daily modal`);
+      // Get the task for logging
+      const taskIdObj = new TaskId(taskId);
+      const task = await this.taskRepository.findById(taskIdObj);
+      
+      if (task) {
+        // Log the action
+        await this.logService.createLog(
+          taskId,
+          `Task "${task.title.value}" added to today from daily modal`
+        );
+        console.log(`Task "${task.title.value}" added to today from daily modal`);
+      }
     } catch (error) {
       console.error('Error adding task to today:', error);
       throw error;
@@ -50,22 +53,24 @@ export class DailySelectionService {
    */
   async removeTaskFromToday(taskId: string): Promise<void> {
     try {
-      const taskIdObj = new TaskId(taskId);
-      const today = DateOnly.today();
+      const result = await this.removeTaskFromTodayUseCase.execute({ taskId });
       
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+
       // Get the task for logging
+      const taskIdObj = new TaskId(taskId);
       const task = await this.taskRepository.findById(taskIdObj);
       
-      // Remove from daily selection
-      await this.dailySelectionRepository.removeTaskFromDay(today, taskIdObj);
-
-      // Log the action
-      await this.logService.createLog(
-        taskId,
-        `Task "${task?.title.value || 'Unknown'}" removed from today via daily modal`
-      );
-
-      console.log(`Task removed from today via daily modal`);
+      if (task) {
+        // Log the action
+        await this.logService.createLog(
+          taskId,
+          `Task "${task.title.value}" removed from today via daily modal`
+        );
+        console.log(`Task "${task.title.value}" removed from today via daily modal`);
+      }
     } catch (error) {
       console.error('Error removing task from today:', error);
       throw error;

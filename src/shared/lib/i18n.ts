@@ -79,6 +79,7 @@ const resources = {
         logHistory: "Записи",
         overdue: "Просрочена",
         daysAgo: "Несколько дней назад",
+        deleteTask: "Удалить",
       },
       tasks: {
         newTask: "Новая задача",

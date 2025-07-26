@@ -352,7 +352,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         {...(isDraggable ? attributes : {})}
         {...(isDraggable ? listeners : {})}
         className={`
-          bg-white rounded-lg border shadow-sm p-4 transition-all duration-200 hover:shadow-md
+          bg-white rounded-lg border shadow-sm px-4 py-2 transition-all duration-200 hover:shadow-md
           ${isOverdue ? "border-red-300 bg-red-50" : "border-gray-200"}
           ${isCompleted ? "opacity-60" : ""}
           ${isTouch ? "touch-manipulation" : ""}
@@ -381,7 +381,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         )}
         {/* Header with category */}
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-1">
           {/* Only show category badge if not on the same category page */}
           {currentCategory !== task.category && (
             <span
@@ -403,7 +403,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
 
         {/* Task title with sun icon and actions */}
-        <div className="mb-3">
+        <div className="mb-1">
           {isEditing ? (
             <div className="flex items-center gap-2">
               <input
@@ -564,7 +564,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
         {/* Logs section - compact */}
         {(lastLog || onCreateLog) && (
-          <div className="mb-3">
+          <div className="mb-1">
             {/* Compact log display */}
             <div className="text-xs text-gray-500 mb-1">
               {lastLog ? (

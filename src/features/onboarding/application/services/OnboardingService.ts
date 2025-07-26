@@ -6,6 +6,10 @@ import { Task } from '../../../../shared/domain/entities/Task';
 import { UserSettingsService } from './UserSettingsService';
 import { DailySelectionService } from '../../domain/services/DailySelectionService';
 import { LogService } from '../../../../shared/application/services/LogService';
+import { AddTaskToTodayUseCase } from '../../../../shared/application/use-cases/AddTaskToTodayUseCase';
+import { RemoveTaskFromTodayUseCase } from '../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase';
+import { EventBus } from '../../../../shared/domain/events/EventBus';
+import { container, tokens } from '../../../../shared/infrastructure/di';
 
 /**
  * Data aggregated for the daily modal
@@ -46,11 +50,28 @@ export class OnboardingService {
     private readonly logService: LogService,
     private readonly userSettingsService?: UserSettingsService
   ) {
+    // Get EventBus from DI container
+    const eventBus = container.resolve<EventBus>(tokens.EVENT_BUS_TOKEN);
+    
+    // Create use cases
+    const addTaskToTodayUseCase = new AddTaskToTodayUseCase(
+      dailySelectionRepository,
+      taskRepository,
+      eventBus
+    );
+    
+    const removeTaskFromTodayUseCase = new RemoveTaskFromTodayUseCase(
+      dailySelectionRepository,
+      eventBus
+    );
+    
     // Initialize DailySelectionService for task management
     this.dailySelectionService = new DailySelectionService(
       taskRepository,
       dailySelectionRepository,
-      logService
+      logService,
+      addTaskToTodayUseCase,
+      removeTaskFromTodayUseCase
     );
   }
 

@@ -1,8 +1,19 @@
-import React from 'react';
-import { RotateCcw, Zap, Target, Inbox, FileText, Sunrise, Clock, AlertTriangle, PartyPopper, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { Task } from '../../../../shared/domain/entities/Task';
-import { TaskCategory } from '../../../../shared/domain/types';
+import React from "react";
+import {
+  Zap,
+  Target,
+  Inbox,
+  FileText,
+  Sunrise,
+  Clock,
+  AlertTriangle,
+  PartyPopper,
+  X,
+  Sun,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Task } from "../../../../shared/domain/entities/Task";
+import { TaskCategory } from "../../../../shared/domain/types";
 
 interface DailyModalProps {
   isVisible: boolean;
@@ -13,6 +24,7 @@ interface DailyModalProps {
   date: string;
   onClose: () => void;
   onReturnTaskToToday?: (taskId: string) => void;
+  todayTaskIds?: string[]; // IDs of tasks currently selected for today
 }
 
 /**
@@ -26,18 +38,19 @@ export const DailyModal: React.FC<DailyModalProps> = ({
   motivationalMessage,
   date,
   onClose,
-  onReturnTaskToToday
+  onReturnTaskToToday,
+  todayTaskIds = [],
 }) => {
   const { t } = useTranslation();
   if (!isVisible) return null;
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'T00:00:00');
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    const date = new Date(dateString + "T00:00:00");
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -57,17 +70,20 @@ export const DailyModal: React.FC<DailyModalProps> = ({
   const getCategoryColor = (category: TaskCategory) => {
     switch (category) {
       case TaskCategory.SIMPLE:
-        return 'text-green-600';
+        return "text-green-600";
       case TaskCategory.FOCUS:
-        return 'text-blue-600';
+        return "text-blue-600";
       case TaskCategory.INBOX:
-        return 'text-orange-600';
+        return "text-orange-600";
       default:
-        return 'text-gray-600';
+        return "text-gray-600";
     }
   };
 
-  const hasContent = unfinishedTasks.length > 0 || overdueInboxTasks.length > 0 || regularInboxTasks.length > 0;
+  const hasContent =
+    unfinishedTasks.length > 0 ||
+    overdueInboxTasks.length > 0 ||
+    regularInboxTasks.length > 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -78,16 +94,14 @@ export const DailyModal: React.FC<DailyModalProps> = ({
             <div>
               <h2 className="text-xl font-semibold text-gray-900 flex items-center">
                 <Sunrise className="w-6 h-6 mr-2 text-orange-500" />
-                {t('dailyModal.goodMorning')}
+                {t("dailyModal.goodMorning")}
               </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {formatDate(date)}
-              </p>
+              <p className="text-sm text-gray-600 mt-1">{formatDate(date)}</p>
             </div>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label={t('dailyModal.closeModal')}
+              aria-label={t("dailyModal.closeModal")}
             >
               <X className="w-6 h-6" />
             </button>
@@ -98,9 +112,7 @@ export const DailyModal: React.FC<DailyModalProps> = ({
         <div className="p-6">
           {/* Motivational Message */}
           <div className="mb-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-            <p className="text-blue-800 font-medium">
-              {motivationalMessage}
-            </p>
+            <p className="text-blue-800 font-medium">{motivationalMessage}</p>
           </div>
 
           {/* Unfinished Tasks from Yesterday */}
@@ -108,7 +120,7 @@ export const DailyModal: React.FC<DailyModalProps> = ({
             <div className="mb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
                 <Clock className="w-5 h-5 mr-2 text-yellow-600" />
-                {t('dailyModal.unfinishedFromYesterday')} ({unfinishedTasks.length})
+                {t("dailyModal.unfinishedFromYesterday")}
               </h3>
               <div className="space-y-2">
                 {unfinishedTasks.map((task) => (
@@ -116,9 +128,19 @@ export const DailyModal: React.FC<DailyModalProps> = ({
                     key={task.id.value}
                     className="flex items-center p-3 bg-yellow-50 rounded-lg border border-yellow-200"
                   >
-                    <div className={`mr-3 ${getCategoryColor(task.category)}`}>
-                      {React.createElement(getCategoryIcon(task.category), { className: 'w-5 h-5' })}
-                    </div>
+                    {onReturnTaskToToday && (
+                      <button
+                        onClick={() => onReturnTaskToToday(task.id.value)}
+                        className={`mr-3 p-1 rounded transition-colors ${
+                          todayTaskIds.includes(task.id.value)
+                            ? "text-yellow-500"
+                            : "text-gray-400 hover:text-yellow-500 hover:bg-yellow-100"
+                        }`}
+                        title={t("dailyModal.returnToToday")}
+                      >
+                        <Sun className="w-5 h-5" />
+                      </button>
+                    )}
                     <div className="flex-1">
                       <p className="text-gray-900 font-medium">
                         {task.title.value}
@@ -127,15 +149,6 @@ export const DailyModal: React.FC<DailyModalProps> = ({
                         {t(`categories.${task.category.toLowerCase()}`)}
                       </p>
                     </div>
-                    {onReturnTaskToToday && (
-                      <button
-                        onClick={() => onReturnTaskToToday(task.id.value)}
-                        className="ml-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
-                        title={t('dailyModal.returnToToday')}
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>
@@ -147,7 +160,7 @@ export const DailyModal: React.FC<DailyModalProps> = ({
             <div className="mb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
                 <AlertTriangle className="w-5 h-5 mr-2 text-red-600" />
-                {t('dailyModal.overdueInboxTasks')} ({overdueInboxTasks.length})
+                {t("dailyModal.overdueInboxTasks")}
               </h3>
               <div className="space-y-2">
                 {overdueInboxTasks.map((task) => (
@@ -155,28 +168,35 @@ export const DailyModal: React.FC<DailyModalProps> = ({
                     key={task.id.value}
                     className="flex items-center p-3 bg-red-50 rounded-lg border border-red-200"
                   >
-                    <div className="mr-3 text-red-600">
-                      <Inbox className="w-5 h-5" />
-                    </div>
+                    {onReturnTaskToToday && (
+                      <button
+                        onClick={() => onReturnTaskToToday(task.id.value)}
+                        className={`mr-3 p-1 rounded transition-colors ${
+                          todayTaskIds.includes(task.id.value)
+                            ? "text-yellow-500"
+                            : "text-gray-400 hover:text-yellow-500 hover:bg-yellow-100"
+                        }`}
+                        title={t("dailyModal.returnToToday")}
+                      >
+                        <Sun className="w-5 h-5" />
+                      </button>
+                    )}
                     <div className="flex-1">
                       <p className="text-gray-900 font-medium">
                         {task.title.value}
                       </p>
                       <p className="text-xs text-red-600">
-                        {t('dailyModal.needsReview')} - {t('dailyModal.inInboxFor')} {task.inboxEnteredAt ? 
-                          Math.ceil((Date.now() - task.inboxEnteredAt.getTime()) / (1000 * 60 * 60 * 24)) 
-                          : '?'} {t('dailyModal.days')}
+                        {t("dailyModal.needsReview")} -{" "}
+                        {t("dailyModal.inInboxFor")}{" "}
+                        {task.inboxEnteredAt
+                          ? Math.ceil(
+                              (Date.now() - task.inboxEnteredAt.getTime()) /
+                                (1000 * 60 * 60 * 24)
+                            )
+                          : "?"}{" "}
+                        {t("dailyModal.days")}
                       </p>
                     </div>
-                    {onReturnTaskToToday && (
-                      <button
-                        onClick={() => onReturnTaskToToday(task.id.value)}
-                        className="ml-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
-                        title="Вернуть в Сегодня"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>
@@ -188,7 +208,7 @@ export const DailyModal: React.FC<DailyModalProps> = ({
             <div className="mb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
                 <Inbox className="w-5 h-5 mr-2 text-orange-600" />
-                {t('dailyModal.inboxTasks')} ({regularInboxTasks.length})
+                {t("dailyModal.inboxTasks")}
               </h3>
               <div className="space-y-2">
                 {regularInboxTasks.map((task) => (
@@ -196,28 +216,34 @@ export const DailyModal: React.FC<DailyModalProps> = ({
                     key={task.id.value}
                     className="flex items-center p-3 bg-orange-50 rounded-lg border border-orange-200"
                   >
-                    <div className="mr-3 text-orange-600">
-                      <Inbox className="w-5 h-5" />
-                    </div>
+                    {onReturnTaskToToday && (
+                      <button
+                        onClick={() => onReturnTaskToToday(task.id.value)}
+                        className={`mr-3 p-1 rounded transition-colors ${
+                          todayTaskIds.includes(task.id.value)
+                            ? "text-yellow-500"
+                            : "text-gray-400 hover:text-yellow-500 hover:bg-yellow-100"
+                        }`}
+                        title={t("dailyModal.returnToToday")}
+                      >
+                        <Sun className="w-5 h-5" />
+                      </button>
+                    )}
                     <div className="flex-1">
                       <p className="text-gray-900 font-medium">
                         {task.title.value}
                       </p>
                       <p className="text-xs text-orange-600">
-                        {t('dailyModal.inInboxFor')} {task.inboxEnteredAt ? 
-                          Math.ceil((Date.now() - task.inboxEnteredAt.getTime()) / (1000 * 60 * 60 * 24)) 
-                          : '?'} {t('dailyModal.days')}
+                        {t("dailyModal.inInboxFor")}{" "}
+                        {task.inboxEnteredAt
+                          ? Math.ceil(
+                              (Date.now() - task.inboxEnteredAt.getTime()) /
+                                (1000 * 60 * 60 * 24)
+                            )
+                          : "?"}{" "}
+                        {t("dailyModal.days")}
                       </p>
                     </div>
-                    {onReturnTaskToToday && (
-                      <button
-                        onClick={() => onReturnTaskToToday(task.id.value)}
-                        className="ml-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
-                        title={t('dailyModal.returnToToday')}
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>
@@ -231,11 +257,9 @@ export const DailyModal: React.FC<DailyModalProps> = ({
                 <PartyPopper className="w-16 h-16 text-green-500" />
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {t('dailyModal.allCaughtUp')}
+                {t("dailyModal.allCaughtUp")}
               </h3>
-              <p className="text-gray-600">
-                {t('dailyModal.readyToStart')}
-              </p>
+              <p className="text-gray-600">{t("dailyModal.readyToStart")}</p>
             </div>
           )}
         </div>
@@ -246,7 +270,7 @@ export const DailyModal: React.FC<DailyModalProps> = ({
             onClick={onClose}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            {t('dailyModal.letsGetStarted')}
+            {t("dailyModal.letsGetStarted")}
           </button>
         </div>
       </div>
