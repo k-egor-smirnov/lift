@@ -26,6 +26,7 @@ import { DevDayTransition } from "./components/DevDayTransition";
 // Import DI container and tokens
 import { getService, tokens } from "../shared/infrastructure/di";
 import { TodoDatabase } from "../shared/infrastructure/database/TodoDatabase";
+import { TaskEventAdapter } from "../shared/infrastructure/events/TaskEventAdapter";
 import { TaskRepository } from "../shared/domain/repositories/TaskRepository";
 import { CreateTaskUseCase } from "../shared/application/use-cases/CreateTaskUseCase";
 import { UpdateTaskUseCase } from "../shared/application/use-cases/UpdateTaskUseCase";
@@ -69,6 +70,7 @@ export const MVPApp: React.FC = () => {
 
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
+  const taskEventAdapter = getService<TaskEventAdapter>(tokens.TASK_EVENT_ADAPTER_TOKEN);
   const taskRepository = getService<TaskRepository>(
     tokens.TASK_REPOSITORY_TOKEN
   );
@@ -167,6 +169,10 @@ export const MVPApp: React.FC = () => {
       try {
         // Ensure database is open
         await database.open();
+        
+        // Initialize task event adapter to bridge domain events with task events
+        await taskEventAdapter.initialize();
+        
         setIsDbReady(true);
         // Load tasks after database is ready
         await loadTasks();

@@ -6,6 +6,7 @@ import { TodoDatabase } from '../database/TodoDatabase';
 import { PersistentEventBusImpl } from '../../domain/events/EventBus';
 import { TaskRepositoryImpl } from '../repositories/TaskRepositoryImpl';
 import { DailySelectionRepositoryImpl } from '../repositories/DailySelectionRepositoryImpl';
+import { TaskEventAdapter } from '../events/TaskEventAdapter';
 
 // Import use cases
 import { CreateTaskUseCase } from '../../application/use-cases/CreateTaskUseCase';
@@ -37,6 +38,9 @@ export function configureContainer(): void {
   
   // Register event bus as singleton
   container.registerSingleton(tokens.EVENT_BUS_TOKEN, PersistentEventBusImpl);
+  
+  // Register task event adapter as singleton
+  container.registerSingleton(tokens.TASK_EVENT_ADAPTER_TOKEN, TaskEventAdapter);
   
   // Register repositories as singletons
   container.registerSingleton(tokens.TASK_REPOSITORY_TOKEN, TaskRepositoryImpl);

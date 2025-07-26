@@ -5,6 +5,7 @@
 // Database
 export const DATABASE_TOKEN = Symbol('Database');
 export const EVENT_BUS_TOKEN = Symbol('EventBus');
+export const TASK_EVENT_ADAPTER_TOKEN = Symbol('TaskEventAdapter');
 
 // Repositories
 export const TASK_REPOSITORY_TOKEN = Symbol('TaskRepository');
