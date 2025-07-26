@@ -607,12 +607,17 @@ export const MVPApp: React.FC = () => {
   }, [createTask, taskRepository, addTaskToTodayUseCase]);
 
   const tasksByCategory = getTasksByCategory();
+  const { getOverdueCount } = taskViewModel();
+  const overdueCount = getOverdueCount();
+  
   const taskCounts: Record<TaskCategory, number> = useMemo(() => ({
     [TaskCategory.INBOX]: tasksByCategory[TaskCategory.INBOX]?.length || 0,
     [TaskCategory.SIMPLE]: tasksByCategory[TaskCategory.SIMPLE]?.length || 0,
     [TaskCategory.FOCUS]: tasksByCategory[TaskCategory.FOCUS]?.length || 0,
     [TaskCategory.DEFERRED]: tasksByCategory[TaskCategory.DEFERRED]?.length || 0,
   }), [tasksByCategory]);
+  
+  const hasOverdueTasks = overdueCount > 0;
 
   // Show loading state while database is initializing
   if (!isDbReady) {
@@ -656,6 +661,7 @@ export const MVPApp: React.FC = () => {
         activeView={activeView}
         onViewChange={handleViewChange}
         taskCounts={taskCounts}
+        hasOverdueTasks={hasOverdueTasks}
         isMobileMenuOpen={isMobileMenuOpen}
         onMobileMenuClose={handleMobileMenuClose}
       />

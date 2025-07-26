@@ -10,6 +10,7 @@ interface SidebarProps {
   activeView: "today" | "logs" | TaskCategory;
   onViewChange: (view: "today" | "logs" | TaskCategory) => void;
   taskCounts: Record<TaskCategory, number>;
+  hasOverdueTasks: boolean;
   isMobileMenuOpen: boolean;
   onMobileMenuClose: () => void;
 }
@@ -33,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeView,
   onViewChange,
   taskCounts,
+  hasOverdueTasks,
   isMobileMenuOpen,
   onMobileMenuClose,
 }) => {
@@ -131,6 +133,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   "px-2 py-1 text-xs rounded-full font-medium",
                   activeView === item.id
                     ? "bg-primary/20 text-primary"
+                    : item.id === TaskCategory.INBOX && hasOverdueTasks
+                    ? "text-muted-foreground bg-red-300/20"
                     : "bg-muted text-muted-foreground"
                 )}
                 aria-label={`${item.count} tasks`}
