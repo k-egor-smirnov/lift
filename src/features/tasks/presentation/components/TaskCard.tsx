@@ -48,6 +48,7 @@ interface TaskCardProps {
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>; // Function to load all logs for this task
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>; // Function to create a new log for this task
   isDraggable?: boolean; // Whether this task card is draggable
+  currentCategory?: TaskCategory; // Current page category to hide badge if same as task category
 }
 
 const getCategoryColor = (category: TaskCategory): string => {
@@ -105,6 +106,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onLoadTaskLogs,
   onCreateLog,
   isDraggable = false,
+  currentCategory,
 }) => {
   const { t } = useTranslation();
   const [showLogHistory, setShowLogHistory] = useState(false);
@@ -377,15 +379,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         )}
         {/* Header with category */}
         <div className="flex items-center gap-2 mb-3">
-          <span
-            className={`
-            inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border
-            ${categoryColor}
-          `}
-          >
-            <CategoryIcon className="w-3 h-3 mr-1" />
-            {t(`categories.${task.category.toLowerCase()}`)}
-          </span>
+          {/* Only show category badge if not on the same category page */}
+          {currentCategory !== task.category && (
+            <span
+              className={`
+              inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border
+              ${categoryColor}
+            `}
+            >
+              <CategoryIcon className="w-3 h-3 mr-1" />
+              {t(`categories.${task.category.toLowerCase()}`)}
+            </span>
+          )}
           {isOverdue && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
               <AlertTriangle className="w-3 h-3 mr-1" />

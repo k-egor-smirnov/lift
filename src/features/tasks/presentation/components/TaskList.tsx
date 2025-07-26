@@ -206,6 +206,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         onLoadTaskLogs={onLoadTaskLogs}
         onCreateLog={onCreateLog}
         isDraggable={!!onReorder}
+        currentCategory={currentCategory}
       />
     );
   };
