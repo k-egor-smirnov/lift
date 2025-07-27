@@ -238,10 +238,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
+      e.preventDefault();
       handleSaveEdit();
     } else if (e.key === "Escape") {
+      e.preventDefault();
       handleCancelEdit();
     }
+  };
+
+  const handleInputBlur = (e: React.FocusEvent) => {
+    // // Проверяем, не кликнул ли пользователь на кнопку отмены
+    // const relatedTarget = e.relatedTarget as HTMLElement;
+    // if (relatedTarget && relatedTarget.closest("[data-cancel-button]")) {
+    //   return; // Не сохраняем, если кликнули на кнопку отмены
+    // }
+    // handleCancelEdit();
   };
 
   // Load task logs when expanding log history
@@ -405,14 +416,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         {/* Task title with sun icon and actions */}
         <div className="mb-1">
           {isEditing ? (
-            <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-2"
+              data-testid="task-card-log-input"
+            >
               <input
                 ref={editInputRef}
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 onKeyDown={handleKeyDown}
-                onBlur={handleSaveEdit}
+                onBlur={handleInputBlur}
                 className="flex-1 text-lg font-medium text-gray-900 bg-white border border-blue-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 maxLength={200}
               />
@@ -425,6 +439,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </button>
               <button
                 onClick={handleCancelEdit}
+                data-cancel-button
                 className="p-1 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
                 title={t("taskCard.cancel")}
               >
