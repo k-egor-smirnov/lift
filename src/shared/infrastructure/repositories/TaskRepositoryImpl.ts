@@ -1,19 +1,21 @@
-import { injectable, inject } from 'tsyringe';
-import { TaskRepository } from '../../domain/repositories/TaskRepository';
-import { Task } from '../../domain/entities/Task';
-import { TaskId } from '../../domain/value-objects/TaskId';
-import { NonEmptyTitle } from '../../domain/value-objects/NonEmptyTitle';
-import { DateOnly } from '../../domain/value-objects/DateOnly';
-import { TaskCategory, TaskStatus } from '../../domain/types';
-import { TodoDatabase, TaskRecord } from '../database/TodoDatabase';
-import * as tokens from '../di/tokens';
+import { injectable, inject } from "tsyringe";
+import { TaskRepository } from "../../domain/repositories/TaskRepository";
+import { Task } from "../../domain/entities/Task";
+import { TaskId } from "../../domain/value-objects/TaskId";
+import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
+import { DateOnly } from "../../domain/value-objects/DateOnly";
+import { TaskCategory, TaskStatus } from "../../domain/types";
+import { TodoDatabase, TaskRecord } from "../database/TodoDatabase";
+import * as tokens from "../di/tokens";
 
 /**
  * Repository implementation for Task entity using IndexedDB
  */
 @injectable()
 export class TaskRepositoryImpl implements TaskRepository {
-  constructor(@inject(tokens.DATABASE_TOKEN) private db: TodoDatabase) {}
+  constructor(@inject(tokens.DATABASE_TOKEN) private db: TodoDatabase) {
+    console.log(db);
+  }
 
   async findById(id: TaskId): Promise<Task | null> {
     const record = await this.db.tasks.get(id.value);
@@ -25,40 +27,43 @@ export class TaskRepositoryImpl implements TaskRepository {
 
   async findAll(): Promise<Task[]> {
     const records = await this.db.tasks
-      .filter(record => !record.deletedAt)
-      .sortBy('order');
-    
-    return records.map(record => this.mapRecordToEntity(record));
+      .filter((record) => !record.deletedAt)
+      .sortBy("order");
+
+    return records.map((record) => this.mapRecordToEntity(record));
   }
 
   async findByCategory(category: TaskCategory): Promise<Task[]> {
     const records = await this.db.tasks
-      .where('category')
+      .where("category")
       .equals(category)
-      .and(record => !record.deletedAt)
-      .sortBy('order');
-    
-    return records.map(record => this.mapRecordToEntity(record));
+      .and((record) => !record.deletedAt)
+      .sortBy("order");
+
+    return records.map((record) => this.mapRecordToEntity(record));
   }
 
   async findByStatus(status: TaskStatus): Promise<Task[]> {
     const records = await this.db.tasks
-      .where('status')
+      .where("status")
       .equals(status)
-      .and(record => !record.deletedAt)
-      .sortBy('order');
-    
-    return records.map(record => this.mapRecordToEntity(record));
+      .and((record) => !record.deletedAt)
+      .sortBy("order");
+
+    return records.map((record) => this.mapRecordToEntity(record));
   }
 
-  async findByCategoryAndStatus(category: TaskCategory, status: TaskStatus): Promise<Task[]> {
+  async findByCategoryAndStatus(
+    category: TaskCategory,
+    status: TaskStatus
+  ): Promise<Task[]> {
     const records = await this.db.tasks
-      .where('category')
+      .where("category")
       .equals(category)
-      .and(record => record.status === status && !record.deletedAt)
-      .sortBy('order');
-    
-    return records.map(record => this.mapRecordToEntity(record));
+      .and((record) => record.status === status && !record.deletedAt)
+      .sortBy("order");
+
+    return records.map((record) => this.mapRecordToEntity(record));
   }
 
   async findOverdueTasks(overdueDays: number): Promise<Task[]> {
@@ -67,17 +72,18 @@ export class TaskRepositoryImpl implements TaskRepository {
     cutoffDate.setDate(cutoffDate.getDate() - overdueDays);
 
     const records = await this.db.tasks
-      .where('category')
+      .where("category")
       .equals(TaskCategory.INBOX)
-      .and(record => 
-        !record.deletedAt && 
-        record.status === TaskStatus.ACTIVE &&
-        record.inboxEnteredAt !== undefined && 
-        record.inboxEnteredAt <= cutoffDate
+      .and(
+        (record) =>
+          !record.deletedAt &&
+          record.status === TaskStatus.ACTIVE &&
+          record.inboxEnteredAt !== undefined &&
+          record.inboxEnteredAt <= cutoffDate
       )
-      .sortBy('order');
-    
-    return records.map(record => this.mapRecordToEntity(record));
+      .sortBy("order");
+
+    return records.map((record) => this.mapRecordToEntity(record));
   }
 
   async save(task: Task): Promise<void> {
@@ -86,7 +92,7 @@ export class TaskRepositoryImpl implements TaskRepository {
   }
 
   async saveMany(tasks: Task[]): Promise<void> {
-    const records = tasks.map(task => this.mapEntityToRecord(task));
+    const records = tasks.map((task) => this.mapEntityToRecord(task));
     await this.db.tasks.bulkPut(records);
   }
 
@@ -95,36 +101,39 @@ export class TaskRepositoryImpl implements TaskRepository {
   }
 
   async count(): Promise<number> {
-    return await this.db.tasks
-      .filter(record => !record.deletedAt)
-      .count();
+    return await this.db.tasks.filter((record) => !record.deletedAt).count();
   }
 
   async countByCategory(category: TaskCategory): Promise<number> {
     return await this.db.tasks
-      .where('category')
+      .where("category")
       .equals(category)
-      .and(record => !record.deletedAt)
+      .and((record) => !record.deletedAt)
       .count();
   }
 
   async findDeferredTasks(): Promise<Task[]> {
     const records = await this.db.tasks
-      .where('category')
+      .where("category")
       .equals(TaskCategory.DEFERRED)
-      .and(record => !record.deletedAt)
+      .and((record) => !record.deletedAt)
       .toArray();
-    return records.map(record => this.mapRecordToEntity(record));
+    return records.map((record) => this.mapRecordToEntity(record));
   }
 
   async findDueDeferred(): Promise<Task[]> {
     const now = new Date();
     const records = await this.db.tasks
-      .where('category')
+      .where("category")
       .equals(TaskCategory.DEFERRED)
-      .and(record => !record.deletedAt && record.deferredUntil != null && new Date(record.deferredUntil) <= now)
+      .and(
+        (record) =>
+          !record.deletedAt &&
+          record.deferredUntil != null &&
+          new Date(record.deferredUntil) <= now
+      )
       .toArray();
-    return records.map(record => this.mapRecordToEntity(record));
+    return records.map((record) => this.mapRecordToEntity(record));
   }
 
   async exists(id: TaskId): Promise<boolean> {

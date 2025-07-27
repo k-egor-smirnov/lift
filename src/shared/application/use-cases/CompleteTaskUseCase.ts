@@ -1,6 +1,10 @@
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import { Result, ResultUtils } from '../../domain/Result';
 import { BaseTaskUseCase, TaskOperationError } from './BaseTaskUseCase';
+import { TaskRepository } from '../../domain/repositories/TaskRepository';
+import { EventBus } from '../../domain/events/EventBus';
+import { TodoDatabase } from '../../infrastructure/database/TodoDatabase';
+import * as tokens from '../../infrastructure/di/tokens';
 
 /**
  * Request for completing a task
@@ -24,6 +28,13 @@ export class TaskCompletionError extends TaskOperationError {
  */
 @injectable()
 export class CompleteTaskUseCase extends BaseTaskUseCase {
+  constructor(
+    @inject(tokens.TASK_REPOSITORY_TOKEN) taskRepository: TaskRepository,
+    @inject(tokens.EVENT_BUS_TOKEN) eventBus: EventBus,
+    @inject(tokens.DATABASE_TOKEN) database: TodoDatabase
+  ) {
+    super(taskRepository, eventBus, database);
+  }
 
   async execute(request: CompleteTaskRequest): Promise<Result<void, TaskCompletionError>> {
     return this.safeExecute(

@@ -1,8 +1,12 @@
-import { injectable } from 'tsyringe';
-import { NonEmptyTitle } from '../../domain/value-objects/NonEmptyTitle';
-import { TaskCategory } from '../../domain/types';
-import { Result, ResultUtils } from '../../domain/Result';
-import { BaseTaskUseCase, TaskOperationError } from './BaseTaskUseCase';
+import { injectable, inject } from "tsyringe";
+import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
+import { TaskCategory } from "../../domain/types";
+import { Result, ResultUtils } from "../../domain/Result";
+import { BaseTaskUseCase, TaskOperationError } from "./BaseTaskUseCase";
+import { TaskRepository } from "../../domain/repositories/TaskRepository";
+import { EventBus } from "../../domain/events/EventBus";
+import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
+import * as tokens from "../../infrastructure/di/tokens";
 
 /**
  * Request for updating a task
@@ -20,7 +24,7 @@ export interface UpdateTaskRequest {
 export class TaskUpdateError extends TaskOperationError {
   constructor(message: string, code: string) {
     super(message, code);
-    this.name = 'TaskUpdateError';
+    this.name = "TaskUpdateError";
   }
 }
 
@@ -29,8 +33,16 @@ export class TaskUpdateError extends TaskOperationError {
  */
 @injectable()
 export class UpdateTaskUseCase extends BaseTaskUseCase {
-
-  async execute(request: UpdateTaskRequest): Promise<Result<void, TaskUpdateError>> {
+  constructor(
+    @inject(tokens.TASK_REPOSITORY_TOKEN) taskRepository: TaskRepository,
+    @inject(tokens.EVENT_BUS_TOKEN) eventBus: EventBus,
+    @inject(tokens.DATABASE_TOKEN) database: TodoDatabase
+  ) {
+    super(taskRepository, eventBus, database);
+  }
+  async execute(
+    request: UpdateTaskRequest
+  ): Promise<Result<void, TaskUpdateError>> {
     return this.safeExecute(
       async () => {
         // Find and validate task
@@ -51,7 +63,10 @@ export class UpdateTaskUseCase extends BaseTaskUseCase {
             title = NonEmptyTitle.fromString(request.title);
           } catch (error) {
             return ResultUtils.error(
-              new TaskUpdateError('Invalid task title: title cannot be empty', 'INVALID_TITLE')
+              new TaskUpdateError(
+                "Invalid task title: title cannot be empty",
+                "INVALID_TITLE"
+              )
             );
           }
 
@@ -74,20 +89,23 @@ export class UpdateTaskUseCase extends BaseTaskUseCase {
         // Execute in transaction
         const transactionResult = await this.executeInTransaction<void>(
           task,
-          'update',
+          "update",
           allEvents
         );
 
         if (ResultUtils.isFailure(transactionResult)) {
           return ResultUtils.error(
-            new TaskUpdateError(transactionResult.error.message, transactionResult.error.code)
+            new TaskUpdateError(
+              transactionResult.error.message,
+              transactionResult.error.code
+            )
           );
         }
 
         return ResultUtils.ok(undefined);
       },
-      'Failed to update task',
-      'UPDATE_FAILED'
+      "Failed to update task",
+      "UPDATE_FAILED"
     );
   }
 }
