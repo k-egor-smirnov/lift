@@ -1,5 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar } from "../../../../../shared/ui/calendar";
+import { Button } from "../../../../../shared/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../../../../shared/ui/popover";
+import { cn } from "../../../../../shared/lib/utils";
 
 interface TaskDeferModalProps {
   isOpen: boolean;
@@ -13,6 +23,7 @@ export const TaskDeferModal: React.FC<TaskDeferModalProps> = ({
   onDeferConfirm,
 }) => {
   const { t } = useTranslation();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
 
   if (!isOpen) {
     return null;
@@ -27,60 +38,90 @@ export const TaskDeferModal: React.FC<TaskDeferModalProps> = ({
         <p className="text-sm text-gray-600 mb-4">
           Выберите дату, на которую отложить задачу:
         </p>
-        <div className="space-y-3">
-          <button
-            onClick={() => {
-              const tomorrow = new Date();
-              tomorrow.setDate(tomorrow.getDate() + 1);
-              onDeferConfirm(tomorrow);
-            }}
-            className="w-full p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="font-medium">Завтра</div>
-            <div className="text-sm text-gray-500">
-              {new Date(
-                Date.now() + 24 * 60 * 60 * 1000
-              ).toLocaleDateString()}
-            </div>
-          </button>
-          <button
-            onClick={() => {
-              const nextWeek = new Date();
-              nextWeek.setDate(nextWeek.getDate() + 7);
-              onDeferConfirm(nextWeek);
-            }}
-            className="w-full p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="font-medium">Через неделю</div>
-            <div className="text-sm text-gray-500">
-              {new Date(
-                Date.now() + 7 * 24 * 60 * 60 * 1000
-              ).toLocaleDateString()}
-            </div>
-          </button>
-          <button
-            onClick={() => {
-              const nextMonth = new Date();
-              nextMonth.setMonth(nextMonth.getMonth() + 1);
-              onDeferConfirm(nextMonth);
-            }}
-            className="w-full p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="font-medium">Через месяц</div>
-            <div className="text-sm text-gray-500">
-              {new Date(
-                Date.now() + 30 * 24 * 60 * 60 * 1000
-              ).toLocaleDateString()}
-            </div>
-          </button>
+        
+        {/* Календарь */}
+        <div className="mb-4">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !selectedDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "PPP") : <span>Выберите дату</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                disabled={(date) => date < new Date()}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Пресеты */}
+        <div className="mb-4">
+          <p className="text-xs text-gray-500 mb-2">Быстрый выбор:</p>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                setSelectedDate(tomorrow);
+              }}
+              className="text-xs"
+            >
+              Завтра
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const nextWeek = new Date();
+                nextWeek.setDate(nextWeek.getDate() + 7);
+                setSelectedDate(nextWeek);
+              }}
+              className="text-xs"
+            >
+              Через неделю
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const nextMonth = new Date();
+                nextMonth.setMonth(nextMonth.getMonth() + 1);
+                setSelectedDate(nextMonth);
+              }}
+              className="text-xs"
+            >
+              Через месяц
+            </Button>
+          </div>
         </div>
         <div className="flex justify-end gap-2 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-          >
+          <Button variant="ghost" onClick={onClose}>
             Отмена
-          </button>
+          </Button>
+          <Button
+            onClick={() => {
+              if (selectedDate) {
+                onDeferConfirm(selectedDate);
+              }
+            }}
+            disabled={!selectedDate}
+          >
+            Отложить
+          </Button>
         </div>
       </div>
     </div>
