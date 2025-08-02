@@ -1,6 +1,7 @@
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { TodoDatabase, TaskLogRecord } from '../../infrastructure/database/TodoDatabase';
 import { Result, ResultUtils } from '../../domain/Result';
+import i18n from '../../lib/i18n';
 
 /**
  * System log types for automatic generation
@@ -12,7 +13,13 @@ export type SystemLogAction =
   | 'reverted'
   | 'title_changed'
   | 'overdue'
-  | 'conflict_resolved';
+  | 'conflict_resolved'
+  | 'added_to_today'
+  | 'removed_from_today'
+  | 'daily_selection_cleared'
+  | 'daily_modal_check'
+  | 'new_day_transition'
+  | 'new_day_transition_error';
 
 /**
  * Request for creating a system log
@@ -105,6 +112,24 @@ export class CreateSystemLogUseCase {
       
       case 'conflict_resolved':
         return `Sync conflict resolved using ${metadata?.strategy || 'unknown'} strategy`;
+      
+      case 'added_to_today':
+        return i18n.t('logs.actions.added_to_today');
+      
+      case 'removed_from_today':
+        return i18n.t('logs.actions.removed_from_today');
+      
+      case 'daily_selection_cleared':
+        return i18n.t('logs.actions.daily_selection_cleared');
+      
+      case 'daily_modal_check':
+        return i18n.t('logs.actions.daily_modal_check');
+      
+      case 'new_day_transition':
+        return i18n.t('logs.actions.new_day_transition');
+      
+      case 'new_day_transition_error':
+        return i18n.t('logs.actions.new_day_transition_error');
       
       default:
         return `System action: ${action}`;

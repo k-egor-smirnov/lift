@@ -6,6 +6,7 @@ import { DateOnly } from '../../../../shared/domain/value-objects/DateOnly';
 import { LogService } from '../../../../shared/application/services/LogService';
 import { AddTaskToTodayUseCase } from '../../../../shared/application/use-cases/AddTaskToTodayUseCase';
 import { RemoveTaskFromTodayUseCase } from '../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase';
+import { CreateSystemLogUseCase } from '../../../../shared/application/use-cases/CreateSystemLogUseCase';
 
 /**
  * Service for managing daily task selection integration
@@ -16,7 +17,8 @@ export class DailySelectionService {
     private dailySelectionRepository: DailySelectionRepository,
     private logService: LogService,
     private addTaskToTodayUseCase: AddTaskToTodayUseCase,
-    private removeTaskFromTodayUseCase: RemoveTaskFromTodayUseCase
+    private removeTaskFromTodayUseCase: RemoveTaskFromTodayUseCase,
+    private createSystemLogUseCase: CreateSystemLogUseCase
   ) {}
 
   /**
@@ -30,18 +32,13 @@ export class DailySelectionService {
         throw new Error(result.error.message);
       }
 
-      // Get the task for logging
-      const taskIdObj = new TaskId(taskId);
-      const task = await this.taskRepository.findById(taskIdObj);
+      // Log the action using system log
+      await this.createSystemLogUseCase.execute({
+        taskId,
+        action: 'added_to_today'
+      });
       
-      if (task) {
-        // Log the action
-        await this.logService.createLog(
-          taskId,
-          `Task "${task.title.value}" added to today from daily modal`
-        );
-        console.log(`Task "${task.title.value}" added to today from daily modal`);
-      }
+      console.log('Task added to today from daily modal');
     } catch (error) {
       console.error('Error adding task to today:', error);
       throw error;
@@ -59,18 +56,13 @@ export class DailySelectionService {
         throw new Error(result.error.message);
       }
 
-      // Get the task for logging
-      const taskIdObj = new TaskId(taskId);
-      const task = await this.taskRepository.findById(taskIdObj);
+      // Log the action using system log
+      await this.createSystemLogUseCase.execute({
+        taskId,
+        action: 'removed_from_today'
+      });
       
-      if (task) {
-        // Log the action
-        await this.logService.createLog(
-          taskId,
-          `Task "${task.title.value}" removed from today via daily modal`
-        );
-        console.log(`Task "${task.title.value}" removed from today via daily modal`);
-      }
+      console.log('Task removed from today from daily modal');
     } catch (error) {
       console.error('Error removing task from today:', error);
       throw error;
@@ -124,10 +116,11 @@ export class DailySelectionService {
       const today = DateOnly.today();
       await this.dailySelectionRepository.clearDay(today);
       
-      await this.logService.createLog(
-        'system',
-        `Daily selection cleared for ${today.value}`
-      );
+      await this.createSystemLogUseCase.execute({
+        taskId: 'system',
+        action: 'daily_selection_cleared',
+        metadata: { date: today.value }
+      });
 
       console.log('Daily selection cleared for today');
     } catch (error) {

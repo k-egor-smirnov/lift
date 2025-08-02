@@ -8,6 +8,7 @@ import { DailySelectionService } from '../../domain/services/DailySelectionServi
 import { LogService } from '../../../../shared/application/services/LogService';
 import { AddTaskToTodayUseCase } from '../../../../shared/application/use-cases/AddTaskToTodayUseCase';
 import { RemoveTaskFromTodayUseCase } from '../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase';
+import { CreateSystemLogUseCase } from '../../../../shared/application/use-cases/CreateSystemLogUseCase';
 import { EventBus } from '../../../../shared/domain/events/EventBus';
 import { container, tokens } from '../../../../shared/infrastructure/di';
 
@@ -44,6 +45,8 @@ export class OnboardingService {
     "Success is built one task at a time. Let's begin!"
   ];
 
+  private readonly createSystemLogUseCase: CreateSystemLogUseCase;
+
   constructor(
     private readonly taskRepository: TaskRepository,
     private readonly dailySelectionRepository: DailySelectionRepository,
@@ -65,13 +68,16 @@ export class OnboardingService {
       eventBus
     );
     
+    this.createSystemLogUseCase = new CreateSystemLogUseCase();
+    
     // Initialize DailySelectionService for task management
     this.dailySelectionService = new DailySelectionService(
       taskRepository,
       dailySelectionRepository,
       logService,
       addTaskToTodayUseCase,
-      removeTaskFromTodayUseCase
+      removeTaskFromTodayUseCase,
+      this.createSystemLogUseCase
     );
   }
 
@@ -214,10 +220,16 @@ export class OnboardingService {
     const shouldShow = unfinishedTasks.length > 0 || overdueInboxTasks.length > 0 || regularInboxTasks.length > 0;
     
     // Log modal check
-    await this.logService.createLog(
-      'system',
-      `Daily modal check: shouldShow=${shouldShow}, unfinished=${unfinishedTasks.length}, overdue=${overdueInboxTasks.length}, regular=${regularInboxTasks.length}`
-    );
+    await this.createSystemLogUseCase.execute({
+      taskId: 'system',
+      action: 'daily_modal_check',
+      metadata: {
+        shouldShow,
+        unfinishedCount: unfinishedTasks.length,
+        overdueCount: overdueInboxTasks.length,
+        regularCount: regularInboxTasks.length
+      }
+    });
 
     return shouldShow;
   }
@@ -236,16 +248,20 @@ export class OnboardingService {
     try {
       await this.dailySelectionService.clearTodaySelection();
       
-      await this.logService.createLog(
-        'system',
-        `New day transition handled: ${DateOnly.today().value}`
-      );
+      await this.createSystemLogUseCase.execute({
+        taskId: 'system',
+        action: 'new_day_transition',
+        metadata: { date: DateOnly.today().value }
+      });
     } catch (error) {
       console.error('Error handling new day transition:', error);
-      await this.logService.createLog(
-        'system',
-        `Error in new day transition: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      await this.createSystemLogUseCase.execute({
+        taskId: 'system',
+        action: 'new_day_transition_error',
+        metadata: {
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
     }
   }
 }
