@@ -239,10 +239,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      e.stopPropagation();
       handleSaveEdit();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       handleCancelEdit();
+    } else if (e.key === " ") {
+      // Prevent space from triggering drag and drop
+      e.stopPropagation();
     }
   };
 
@@ -303,12 +308,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleNewLogKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
       handleCreateNewLog();
     } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
       setNewLogText("");
       if (newLogInputRef.current) {
         newLogInputRef.current.blur();
       }
+    } else if (e.key === " ") {
+      // Prevent space from triggering drag and drop
+      e.stopPropagation();
     }
   };
 

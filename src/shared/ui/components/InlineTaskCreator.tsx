@@ -40,12 +40,18 @@ export const InlineTaskCreator: React.FC<InlineTaskCreatorProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       handleSubmit();
     } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
       setTitle('');
       if (inputRef.current) {
         inputRef.current.blur();
       }
+    } else if (e.key === ' ') {
+      // Prevent space from triggering drag and drop
+      e.stopPropagation();
     }
   };
 
