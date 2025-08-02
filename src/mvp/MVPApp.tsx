@@ -22,6 +22,8 @@ import { DailyModalContainer } from "../features/onboarding";
 import { useOnboardingViewModel } from "../features/onboarding/presentation/view-models/OnboardingViewModel";
 import { LogEntry } from "../shared/application/use-cases/GetTaskLogsUseCase";
 import { DevDayTransition } from "./components/DevDayTransition";
+import { taskEventBus } from "../shared/infrastructure/events/TaskEventBus";
+import { TaskEventType } from "../shared/domain/events/TaskEvent";
 
 // Import DI container and tokens
 import { getService, tokens } from "../shared/infrastructure/di";
@@ -196,14 +198,6 @@ export const MVPApp: React.FC = () => {
     initializeApp();
   }, [database, loadTasks]);
 
-  // Load logs after tasks are loaded
-  useEffect(() => {
-    if (isDbReady && !loading) {
-      loadAllTaskLogs();
-      loadTodayTaskIds();
-    }
-  }, [isDbReady, loading]);
-
   // Load today task IDs
   const loadTodayTaskIds = async () => {
     try {
@@ -214,6 +208,31 @@ export const MVPApp: React.FC = () => {
       setTodayTaskIds([]);
     }
   };
+
+  // Load logs after tasks are loaded
+  useEffect(() => {
+    if (isDbReady && !loading) {
+      loadAllTaskLogs();
+      loadTodayTaskIds();
+    }
+  }, [isDbReady, loading]);
+
+  // Subscribe to task events for auto-updating todayTaskIds
+  useEffect(() => {
+    const unsubscribe = taskEventBus.subscribeToAll(async (event) => {
+      // Auto-refresh todayTaskIds on relevant events
+      if (
+        [
+          TaskEventType.TASK_ADDED_TO_TODAY,
+          TaskEventType.TASK_REMOVED_FROM_TODAY,
+        ].includes(event.type)
+      ) {
+        await loadTodayTaskIds();
+      }
+    });
+
+    return unsubscribe;
+  }, [loadTodayTaskIds]);
 
   // Register keyboard shortcuts
   useEffect(() => {
