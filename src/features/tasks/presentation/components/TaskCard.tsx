@@ -22,7 +22,7 @@ import {
   Undo2,
   Plus,
   ChevronDown,
-  ChevronUp,
+
   Settings,
   User,
   AlertTriangle,
@@ -31,6 +31,21 @@ import {
   Clock,
   MoreHorizontal,
 } from "lucide-react";
+import { Button } from "../../../../shared/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../../../shared/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../../../../shared/ui/dialog";
 
 interface TaskCardProps {
   task: Task;
@@ -109,19 +124,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   currentCategory,
 }) => {
   const { t } = useTranslation();
-  const [showLogHistory, setShowLogHistory] = useState(false);
+
   const [taskLogs, setTaskLogs] = useState<LogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title.value);
   const [newLogText, setNewLogText] = useState("");
   const [showDeferModal, setShowDeferModal] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [showLogModal, setShowLogModal] = useState(false);
   // Removed showNewLogInput state - input is always visible
   const cardRef = useRef<HTMLElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const newLogInputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Drag and drop functionality
   const {
@@ -191,31 +205,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [isEditing]);
 
-  // Focus new log input when log history is shown
+  // Focus new log input when log modal is opened
   useEffect(() => {
-    if (showLogHistory && newLogInputRef.current) {
-      newLogInputRef.current.focus();
+    if (showLogModal && newLogInputRef.current) {
+      // Small delay to ensure modal is fully rendered
+      setTimeout(() => {
+        if (newLogInputRef.current) {
+          newLogInputRef.current.focus();
+        }
+      }, 100);
     }
-  }, [showLogHistory]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowDropdown(false);
-      }
-    };
-
-    if (showDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-      };
-    }
-  }, [showDropdown]);
+  }, [showLogModal]);
 
   // Handle edit mode
   const handleStartEdit = () => {
@@ -260,9 +260,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     // handleCancelEdit();
   };
 
-  // Load task logs when expanding log history
+  // Load task logs when opening log modal
   const handleToggleLogHistory = async () => {
-    if (!showLogHistory && onLoadTaskLogs && taskLogs.length === 0) {
+    if (!showLogModal && onLoadTaskLogs && taskLogs.length === 0) {
       setLoadingLogs(true);
       try {
         const logs = await onLoadTaskLogs(task.id.value);
@@ -273,8 +273,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         setLoadingLogs(false);
       }
     }
-    setShowLogHistory(!showLogHistory);
-    if (showLogHistory) {
+    setShowLogModal(!showLogModal);
+    if (!showLogModal) {
       // Clear log text when closing
       setNewLogText("");
     }
@@ -543,47 +543,35 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 )}
 
                 {/* Dropdown menu for other actions */}
-                <div className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={() => setShowDropdown(!showDropdown)}
-                    className="p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                    title={t("taskCard.moreActions")}
-                    aria-label={t("taskCard.moreActions")}
-                    aria-expanded={showDropdown}
-                    aria-haspopup="true"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
-
-                  {/* Dropdown menu */}
-                  {showDropdown && (
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-10">
-                      {showDeferButton && onDefer && !isCompleted && (
-                        <button
-                          onClick={() => {
-                            setShowDeferModal(true);
-                            setShowDropdown(false);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                        >
-                          <Clock className="w-4 h-4 text-orange-600" />
-                          {t("taskCard.deferTask")}
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => {
-                          onDelete(task.id.value);
-                          setShowDropdown(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                      title={t("taskCard.moreActions")}
+                      aria-label={t("taskCard.moreActions")}
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    {showDeferButton && onDefer && !isCompleted && (
+                      <DropdownMenuItem
+                        onClick={() => setShowDeferModal(true)}
+                        className="flex items-center gap-2"
                       >
-                        <Trash2 className="w-4 h-4" />
-                        {t("taskCard.deleteTask")}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                        <Clock className="w-4 h-4 text-orange-600" />
+                        {t("taskCard.deferTask")}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      onClick={() => onDelete(task.id.value)}
+                      className="flex items-center gap-2 text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {t("taskCard.deleteTask")}
+                    </DropdownMenuItem>
+                   </DropdownMenuContent>
+                 </DropdownMenu>
               </div>
             </div>
           )}
@@ -614,33 +602,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         )}
 
-        {/* Expandable log history with inline editing */}
-        {showLogHistory && (
-          <div
-            id={`log-history-${task.id.value}`}
-            className="mb-3 bg-gray-50 rounded-md border p-3"
-            role="region"
-            aria-labelledby={`log-history-title-${task.id.value}`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h4
-                id={`log-history-title-${task.id.value}`}
-                className="text-sm font-medium text-gray-900"
-              >
-                {t("taskCard.logHistory")}
-              </h4>
-              <button
-                onClick={handleToggleLogHistory}
-                className="text-xs text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 rounded px-2 py-1"
-                aria-label={t("taskCard.hideLogHistory")}
-              >
-                <ChevronUp className="w-3 h-3" />
-              </button>
-            </div>
 
+      </motion.article>
+
+      {/* Log History Modal */}
+      <Dialog open={showLogModal} onOpenChange={setShowLogModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{t("taskCard.logHistory")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden flex flex-col">
             {/* New log input - always visible when onCreateLog is available */}
             {onCreateLog && (
-              <div className="mb-3 p-2 bg-white rounded border">
+              <div className="mb-3 p-2 bg-gray-50 rounded border">
                 <div className="flex items-center gap-2">
                   <input
                     ref={newLogInputRef}
@@ -649,7 +623,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     onChange={(e) => setNewLogText(e.target.value)}
                     onKeyDown={handleNewLogKeyDown}
                     placeholder={t("taskCard.addNewLogPlaceholder")}
-                    className="flex-1 text-sm border-0 focus:outline-none focus:ring-0 p-1"
+                    className="flex-1 text-sm border-0 focus:outline-none focus:ring-0 p-1 bg-transparent"
                   />
                   <button
                     onClick={handleCreateNewLog}
@@ -671,7 +645,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </div>
             ) : taskLogs.length > 0 ? (
               <div
-                className="space-y-2 max-h-60 overflow-y-auto"
+                className="space-y-2 overflow-y-auto flex-1"
                 role="log"
                 aria-label={t("taskCard.taskLogEntries")}
               >
@@ -680,7 +654,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   return (
                     <div
                       key={log.id}
-                      className="p-2 bg-white rounded border text-sm"
+                      className="p-3 bg-gray-50 rounded border text-sm"
                       role="listitem"
                     >
                       <div className="flex items-start space-x-2">
@@ -723,8 +697,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </div>
             )}
           </div>
-        )}
-      </motion.article>
+        </DialogContent>
+      </Dialog>
 
       {/* Defer Date Modal */}
       {showDeferModal && (
