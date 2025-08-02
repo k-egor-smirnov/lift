@@ -6,6 +6,7 @@ import { BaseTaskUseCase, TaskOperationError } from "./BaseTaskUseCase";
 import { TaskRepository } from "../../domain/repositories/TaskRepository";
 import { EventBus } from "../../domain/events/EventBus";
 import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
+import { DebouncedSyncService } from "../services/DebouncedSyncService";
 import * as tokens from "../../infrastructure/di/tokens";
 
 /**
@@ -36,9 +37,10 @@ export class UpdateTaskUseCase extends BaseTaskUseCase {
   constructor(
     @inject(tokens.TASK_REPOSITORY_TOKEN) taskRepository: TaskRepository,
     @inject(tokens.EVENT_BUS_TOKEN) eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) database: TodoDatabase
+    @inject(tokens.DATABASE_TOKEN) database: TodoDatabase,
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) debouncedSyncService: DebouncedSyncService
   ) {
-    super(taskRepository, eventBus, database);
+    super(taskRepository, eventBus, database, debouncedSyncService);
   }
   async execute(
     request: UpdateTaskRequest

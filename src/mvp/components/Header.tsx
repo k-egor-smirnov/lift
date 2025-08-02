@@ -8,19 +8,21 @@ import {
   Plus,
   Menu,
   Clock,
+  Settings,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
 
 interface HeaderProps {
-  activeView: "today" | "logs" | TaskCategory;
+  activeView: "today" | "logs" | "settings" | TaskCategory;
   onMobileMenuToggle: () => void;
 }
 
-const getViewTitle = (view: "today" | "logs" | TaskCategory, t: any) => {
+const getViewTitle = (view: "today" | "logs" | "settings" | TaskCategory, t: any) => {
   if (view === "today") return t("navigation.today");
   if (view === "logs") return t("logs.title", "Activity Logs");
+  if (view === "settings") return t("settings.title");
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -36,10 +38,11 @@ const getViewTitle = (view: "today" | "logs" | TaskCategory, t: any) => {
   }
 };
 
-const getViewDescription = (view: "today" | "logs" | TaskCategory, t: any) => {
+const getViewDescription = (view: "today" | "logs" | "settings" | TaskCategory, t: any) => {
   if (view === "today") return t("navigation.descriptions.today");
   if (view === "logs")
     return t("logs.subtitle", "View all system and user activity");
+  if (view === "settings") return t("settings.app.description");
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -55,9 +58,10 @@ const getViewDescription = (view: "today" | "logs" | TaskCategory, t: any) => {
   }
 };
 
-const getViewIcon = (view: "today" | "logs" | TaskCategory) => {
+const getViewIcon = (view: "today" | "logs" | "settings" | TaskCategory) => {
   if (view === "today") return Sun;
   if (view === "logs") return FileText;
+  if (view === "settings") return Settings;
 
   switch (view) {
     case TaskCategory.SIMPLE:

@@ -7,7 +7,8 @@ import { TaskRepository } from '../../domain/repositories/TaskRepository';
 import { EventBus } from '../../domain/events/EventBus';
 import { Result, ResultUtils } from '../../domain/Result';
 import { TodoDatabase } from '../../infrastructure/database/TodoDatabase';
-import { hashTask } from '../../infrastructure/utils/hashUtils';
+import { BaseTaskUseCase, TaskOperationError } from './BaseTaskUseCase';
+import { DebouncedSyncService } from '../services/DebouncedSyncService';
 import * as tokens from '../../infrastructure/di/tokens';
 
 /**
@@ -28,9 +29,9 @@ export interface CreateTaskResponse {
 /**
  * Domain errors for task creation
  */
-export class TaskCreationError extends Error {
-  constructor(message: string, public readonly code: string) {
-    super(message);
+export class TaskCreationError extends TaskOperationError {
+  constructor(message: string, code: string) {
+    super(message, code);
     this.name = 'TaskCreationError';
   }
 }
@@ -39,64 +40,59 @@ export class TaskCreationError extends Error {
  * Use case for creating a new task
  */
 @injectable()
-export class CreateTaskUseCase {
+export class CreateTaskUseCase extends BaseTaskUseCase {
   constructor(
-    @inject(tokens.TASK_REPOSITORY_TOKEN) private readonly taskRepository: TaskRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
-  ) {}
+    @inject(tokens.TASK_REPOSITORY_TOKEN) taskRepository: TaskRepository,
+    @inject(tokens.EVENT_BUS_TOKEN) eventBus: EventBus,
+    @inject(tokens.DATABASE_TOKEN) database: TodoDatabase,
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) debouncedSyncService: DebouncedSyncService
+  ) {
+    super(taskRepository, eventBus, database, debouncedSyncService);
+  }
 
   async execute(request: CreateTaskRequest): Promise<Result<CreateTaskResponse, TaskCreationError>> {
-    try {
-      // Validate title
-      let title: NonEmptyTitle;
-      try {
-        title = NonEmptyTitle.fromString(request.title);
-      } catch (error) {
-        return ResultUtils.error(
-          new TaskCreationError('Invalid task title: title cannot be empty', 'INVALID_TITLE')
-        );
-      }
-
-      // Generate new task ID
-      const taskId = TaskId.generate();
-
-      // Create task with domain events
-      const { task, events } = Task.create(taskId, title, request.category);
-
-      // Execute transactional operation including task, syncQueue, and eventStore
-      await this.database.transaction('rw', 
-        [this.database.tasks, this.database.syncQueue, this.database.eventStore], 
-        async () => {
-          // 1. Save task
-          await this.taskRepository.save(task);
-          
-          // 2. Add sync queue entry
-          await this.database.syncQueue.add({
-            entityType: 'task',
-            entityId: task.id.value,
-            operation: 'create',
-            payloadHash: hashTask(task),
-            attemptCount: 0,
-            createdAt: new Date(),
-            nextAttemptAt: Date.now()
-          });
-          
-          // 3. Publish domain events (will be stored in eventStore within transaction)
-          await this.eventBus.publishAll(events);
+    return this.safeExecute(
+      async () => {
+        // Create task ID
+        const taskId = TaskId.generate();
+        
+        // Create title value object
+        let title: NonEmptyTitle;
+        try {
+          title = NonEmptyTitle.fromString(request.title);
+        } catch (error) {
+          return ResultUtils.error(
+            new TaskCreationError(
+              error instanceof Error ? error.message : 'Invalid title',
+              'INVALID_TITLE'
+            )
+          );
         }
-      );
 
-      return ResultUtils.ok({
-        taskId: taskId.value
-      });
-    } catch (error) {
-      return ResultUtils.error(
-        new TaskCreationError(
-          `Failed to create task: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          'CREATION_FAILED'
-        )
-      );
-    }
+        // Create task entity
+        const { task, events } = Task.create(
+          taskId,
+          title,
+          request.category
+        );
+
+        // Execute in transaction (this will trigger sync)
+        const transactionResult = await this.executeInTransaction<void>(
+          task,
+          'create',
+          events
+        );
+
+        if (ResultUtils.isFailure(transactionResult)) {
+          return ResultUtils.error(
+            new TaskCreationError(transactionResult.error.message, transactionResult.error.code)
+          );
+        }
+
+        return ResultUtils.ok({ taskId: task.id.value });
+      },
+      'Failed to create task',
+      'CREATION_FAILED'
+    );
   }
 }

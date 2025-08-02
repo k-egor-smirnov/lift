@@ -10,6 +10,7 @@ import {
   UpdateTaskRequest,
 } from "../../../../shared/application/use-cases/UpdateTaskUseCase";
 import { CompleteTaskUseCase } from "../../../../shared/application/use-cases/CompleteTaskUseCase";
+import { DeleteTaskUseCase } from "../../../../shared/application/use-cases/DeleteTaskUseCase";
 import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepository";
 import { GetTodayTasksUseCase } from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
 
@@ -61,6 +62,7 @@ export interface TaskViewModelDependencies {
   createTaskUseCase: CreateTaskUseCase;
   updateTaskUseCase: UpdateTaskUseCase;
   completeTaskUseCase: CompleteTaskUseCase;
+  deleteTaskUseCase: DeleteTaskUseCase;
   getTodayTasksUseCase: GetTodayTasksUseCase;
 }
 
@@ -75,6 +77,7 @@ export const createTaskViewModel = (
     createTaskUseCase,
     updateTaskUseCase,
     completeTaskUseCase,
+    deleteTaskUseCase,
     getTodayTasksUseCase,
   } = dependencies;
 
@@ -284,21 +287,17 @@ export const createTaskViewModel = (
       set({ error: null });
 
       try {
-        // Find the task and soft delete it
-        const task = get().tasks.find((t) => t.id.value === taskId);
-        if (!task) {
-          set({ error: "Task not found" });
+        const result = await deleteTaskUseCase.execute({ taskId });
+
+        if (result.success) {
+          // Reload tasks to get the updated list
+          await get().loadTasks();
+          
+          return true;
+        } else {
+          set({ error: (result as any).error.message });
           return false;
         }
-
-        // Perform soft delete by calling the domain method
-        task.softDelete();
-        await taskRepository.save(task);
-
-        // Reload tasks to get the updated list
-        await get().loadTasks();
-        
-        return true;
       } catch (error) {
         set({
           error:

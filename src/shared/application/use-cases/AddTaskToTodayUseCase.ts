@@ -6,6 +6,7 @@ import { TaskRepository } from '../../domain/repositories/TaskRepository';
 import { EventBus } from '../../domain/events/EventBus';
 import { TaskAddedToTodayEvent } from '../../domain/events/TaskEvents';
 import { Result, ResultUtils } from '../../domain/Result';
+import { DebouncedSyncService } from '../services/DebouncedSyncService';
 import * as tokens from '../../infrastructure/di/tokens';
 
 /**
@@ -34,7 +35,8 @@ export class AddTaskToTodayUseCase {
   constructor(
     @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN) private readonly dailySelectionRepository: DailySelectionRepository,
     @inject(tokens.TASK_REPOSITORY_TOKEN) private readonly taskRepository: TaskRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus
+    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) private readonly debouncedSyncService: DebouncedSyncService
   ) {}
 
   async execute(request: AddTaskToTodayRequest): Promise<Result<void, AddTaskToTodayError>> {
@@ -77,6 +79,9 @@ export class AddTaskToTodayUseCase {
       // Publish event
       const event = new TaskAddedToTodayEvent(taskId, date);
       await this.eventBus.publish(event);
+
+      // Trigger debounced sync
+      this.debouncedSyncService.triggerSync();
 
       return ResultUtils.ok(undefined);
     } catch (error) {

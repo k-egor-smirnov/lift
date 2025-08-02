@@ -2,7 +2,9 @@ import { injectable, inject } from 'tsyringe';
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { TodoDatabase, TaskLogRecord } from '../../infrastructure/database/TodoDatabase';
 import { Result, ResultUtils } from '../../domain/Result';
+import { DebouncedSyncService } from '../services/DebouncedSyncService';
 import * as tokens from '../../infrastructure/di/tokens';
+import { ulid } from 'ulid';
 
 /**
  * Request for creating a user log
@@ -31,7 +33,8 @@ export class CreateUserLogUseCase {
   private static readonly MAX_MESSAGE_LENGTH = 500;
 
   constructor(
-    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
+    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase,
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) private readonly debouncedSyncService: DebouncedSyncService
   ) {}
 
   async execute(request: CreateUserLogRequest): Promise<Result<void, CreateUserLogError>> {
@@ -66,6 +69,7 @@ export class CreateUserLogUseCase {
 
       // Create log record
       const logRecord: TaskLogRecord = {
+        id: ulid(),
         taskId: taskId?.value,
         type: 'USER',
         message: request.message.trim(),
@@ -75,6 +79,9 @@ export class CreateUserLogUseCase {
 
       // Save to database
       await this.database.taskLogs.add(logRecord);
+
+      // Trigger debounced sync
+      this.debouncedSyncService.triggerSync();
 
       return ResultUtils.ok(undefined);
     } catch (error) {

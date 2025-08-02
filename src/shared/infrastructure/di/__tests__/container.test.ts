@@ -3,7 +3,7 @@ import { container, tokens } from "../index";
 import { TodoDatabase } from "../../database/TodoDatabase";
 import { TaskRepositoryImpl } from "../../repositories/TaskRepositoryImpl";
 import { CreateTaskUseCase } from "../../../application/use-cases/CreateTaskUseCase";
-import { LogService } from "../../../application/services/LogService";
+import { TaskLogService } from "../../../application/services/TaskLogService";
 
 describe("DI Container", () => {
   beforeEach(() => {
@@ -30,7 +30,7 @@ describe("DI Container", () => {
 
   it("should resolve log service instance", () => {
     const logService = container.resolve(tokens.LOG_SERVICE_TOKEN);
-    expect(logService).toBeInstanceOf(LogService);
+    expect(logService).toBeInstanceOf(TaskLogService);
   });
 
   it("should return same instance for singletons", () => {

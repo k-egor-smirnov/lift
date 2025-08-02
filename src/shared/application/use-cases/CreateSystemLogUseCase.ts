@@ -1,7 +1,11 @@
+import { injectable, inject } from 'tsyringe';
 import { TaskId } from '../../domain/value-objects/TaskId';
 import { TodoDatabase, TaskLogRecord } from '../../infrastructure/database/TodoDatabase';
 import { Result, ResultUtils } from '../../domain/Result';
+import { DebouncedSyncService } from '../services/DebouncedSyncService';
+import * as tokens from '../../infrastructure/di/tokens';
 import i18n from '../../lib/i18n';
+import { ulid } from 'ulid';
 
 /**
  * System log types for automatic generation
@@ -44,9 +48,11 @@ export class CreateSystemLogError extends Error {
 /**
  * Use case for creating system logs automatically
  */
+@injectable()
 export class CreateSystemLogUseCase {
   constructor(
-    private readonly database: TodoDatabase
+    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase,
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) private readonly debouncedSyncService: DebouncedSyncService
   ) {}
 
   async execute(request: CreateSystemLogRequest): Promise<Result<void, CreateSystemLogError>> {
@@ -66,6 +72,7 @@ export class CreateSystemLogUseCase {
 
       // Create log record
       const logRecord: TaskLogRecord = {
+        id: ulid(),
         taskId: taskId.value,
         type: 'SYSTEM',
         message,
@@ -75,6 +82,9 @@ export class CreateSystemLogUseCase {
 
       // Save to database
       await this.database.taskLogs.add(logRecord);
+
+      // Trigger debounced sync after successful creation
+      this.debouncedSyncService.triggerSync();
 
       return ResultUtils.ok(undefined);
     } catch (error) {

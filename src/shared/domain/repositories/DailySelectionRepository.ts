@@ -69,4 +69,9 @@ export interface DailySelectionRepository {
    * Get the most recent selection date for a task
    */
   getLastSelectionDateForTask(taskId: TaskId): Promise<DateOnly | null>;
+
+  /**
+   * Remove a task from all daily selections (used when deleting a task)
+   */
+  removeTaskFromAllDays(taskId: TaskId): Promise<void>;
 }

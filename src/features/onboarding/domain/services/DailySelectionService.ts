@@ -1,12 +1,12 @@
-import { Task } from '../../../../shared/domain/entities/Task';
-import { TaskRepository } from '../../../../shared/domain/repositories/TaskRepository';
-import { DailySelectionRepository } from '../../../../shared/domain/repositories/DailySelectionRepository';
-import { TaskId } from '../../../../shared/domain/value-objects/TaskId';
-import { DateOnly } from '../../../../shared/domain/value-objects/DateOnly';
-import { LogService } from '../../../../shared/application/services/LogService';
-import { AddTaskToTodayUseCase } from '../../../../shared/application/use-cases/AddTaskToTodayUseCase';
-import { RemoveTaskFromTodayUseCase } from '../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase';
-import { CreateSystemLogUseCase } from '../../../../shared/application/use-cases/CreateSystemLogUseCase';
+import { Task } from "../../../../shared/domain/entities/Task";
+import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepository";
+import { DailySelectionRepository } from "../../../../shared/domain/repositories/DailySelectionRepository";
+import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
+import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
+import { TaskLogService } from "../../../../shared/application/services/TaskLogService";
+import { AddTaskToTodayUseCase } from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
+import { RemoveTaskFromTodayUseCase } from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
+import { CreateSystemLogUseCase } from "../../../../shared/application/use-cases/CreateSystemLogUseCase";
 
 /**
  * Service for managing daily task selection integration
@@ -15,7 +15,7 @@ export class DailySelectionService {
   constructor(
     private taskRepository: TaskRepository,
     private dailySelectionRepository: DailySelectionRepository,
-    private logService: LogService,
+    private logService: TaskLogService,
     private addTaskToTodayUseCase: AddTaskToTodayUseCase,
     private removeTaskFromTodayUseCase: RemoveTaskFromTodayUseCase,
     private createSystemLogUseCase: CreateSystemLogUseCase
@@ -27,7 +27,7 @@ export class DailySelectionService {
   async addTaskToToday(taskId: string): Promise<void> {
     try {
       const result = await this.addTaskToTodayUseCase.execute({ taskId });
-      
+
       if (!result.success) {
         throw new Error(result.error.message);
       }
@@ -35,12 +35,12 @@ export class DailySelectionService {
       // Log the action using system log
       await this.createSystemLogUseCase.execute({
         taskId,
-        action: 'added_to_today'
+        action: "added_to_today",
       });
-      
-      console.log('Task added to today from daily modal');
+
+      console.log("Task added to today from daily modal");
     } catch (error) {
-      console.error('Error adding task to today:', error);
+      console.error("Error adding task to today:", error);
       throw error;
     }
   }
@@ -51,7 +51,7 @@ export class DailySelectionService {
   async removeTaskFromToday(taskId: string): Promise<void> {
     try {
       const result = await this.removeTaskFromTodayUseCase.execute({ taskId });
-      
+
       if (!result.success) {
         throw new Error(result.error.message);
       }
@@ -59,12 +59,12 @@ export class DailySelectionService {
       // Log the action using system log
       await this.createSystemLogUseCase.execute({
         taskId,
-        action: 'removed_from_today'
+        action: "removed_from_today",
       });
-      
-      console.log('Task removed from today from daily modal');
+
+      console.log("Task removed from today from daily modal");
     } catch (error) {
-      console.error('Error removing task from today:', error);
+      console.error("Error removing task from today:", error);
       throw error;
     }
   }
@@ -76,10 +76,12 @@ export class DailySelectionService {
     try {
       const taskIdObj = new TaskId(taskId);
       const today = DateOnly.today();
-      const todayTaskIds = await this.dailySelectionRepository.getTaskIdsForDay(today);
-      return todayTaskIds.some(id => id.equals(taskIdObj));
+      const todayTaskIds = await this.dailySelectionRepository.getTaskIdsForDay(
+        today
+      );
+      return todayTaskIds.some((id) => id.equals(taskIdObj));
     } catch (error) {
-      console.error('Error checking if task is in today:', error);
+      console.error("Error checking if task is in today:", error);
       return false;
     }
   }
@@ -90,19 +92,21 @@ export class DailySelectionService {
   async getTodayTasks(): Promise<Task[]> {
     try {
       const today = DateOnly.today();
-      const taskIds = await this.dailySelectionRepository.getTaskIdsForDay(today);
+      const taskIds = await this.dailySelectionRepository.getTaskIdsForDay(
+        today
+      );
       const tasks: Task[] = [];
-      
+
       for (const taskId of taskIds) {
         const task = await this.taskRepository.findById(taskId);
         if (task) {
           tasks.push(task);
         }
       }
-      
+
       return tasks;
     } catch (error) {
-      console.error('Error getting today tasks:', error);
+      console.error("Error getting today tasks:", error);
       return [];
     }
   }
@@ -115,16 +119,16 @@ export class DailySelectionService {
     try {
       const today = DateOnly.today();
       await this.dailySelectionRepository.clearDay(today);
-      
+
       await this.createSystemLogUseCase.execute({
-        taskId: 'system',
-        action: 'daily_selection_cleared',
-        metadata: { date: today.value }
+        taskId: "system",
+        action: "daily_selection_cleared",
+        metadata: { date: today.value },
       });
 
-      console.log('Daily selection cleared for today');
+      console.log("Daily selection cleared for today");
     } catch (error) {
-      console.error('Error clearing daily selection:', error);
+      console.error("Error clearing daily selection:", error);
       throw error;
     }
   }

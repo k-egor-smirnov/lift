@@ -26,7 +26,7 @@ export interface DailySelectionEntryRecord {
 }
 
 export interface TaskLogRecord {
-  id?: number;
+  id: string;
   taskId?: string; // Optional for custom logs
   type: "SYSTEM" | "USER" | "CONFLICT";
   message: string;
@@ -106,7 +106,7 @@ export class TodoDatabase extends Dexie {
         "id, category, status, createdAt, updatedAt, deletedAt, inboxEnteredAt",
       dailySelectionEntries:
         "++id, [date+taskId], date, taskId, completedFlag, createdAt",
-      taskLogs: "++id, taskId, type, createdAt",
+      taskLogs: "id, taskId, type, createdAt",
       userSettings: "key, updatedAt",
       syncQueue:
         "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt",
@@ -121,7 +121,7 @@ export class TodoDatabase extends Dexie {
           "id, category, status, createdAt, updatedAt, deletedAt, inboxEnteredAt",
         dailySelectionEntries:
           "++id, [date+taskId], date, taskId, completedFlag, createdAt",
-        taskLogs: "++id, taskId, type, createdAt",
+        taskLogs: "id, taskId, type, createdAt",
         userSettings: "key, updatedAt",
         syncQueue:
           "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
@@ -146,7 +146,7 @@ export class TodoDatabase extends Dexie {
           "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt",
         dailySelectionEntries:
           "++id, [date+taskId], date, taskId, completedFlag, createdAt",
-        taskLogs: "++id, taskId, type, createdAt",
+        taskLogs: "id, taskId, type, createdAt",
         userSettings: "key, updatedAt",
         syncQueue:
           "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
@@ -180,7 +180,7 @@ export class TodoDatabase extends Dexie {
           "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory",
         dailySelectionEntries:
           "++id, [date+taskId], date, taskId, completedFlag, createdAt",
-        taskLogs: "++id, taskId, type, createdAt",
+        taskLogs: "id, taskId, type, createdAt",
         userSettings: "key, updatedAt",
         syncQueue:
           "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",

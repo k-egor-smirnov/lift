@@ -1,15 +1,20 @@
-import { create } from 'zustand';
-import { OnboardingService, DailyModalData } from '../../application/services/OnboardingService';
-import { UserSettingsService } from '../../application/services/UserSettingsService';
-import { UserSettingsRepositoryImpl } from '../../../../shared/infrastructure/repositories/UserSettingsRepositoryImpl';
-import { todoDatabase } from '../../../../shared/infrastructure/database/TodoDatabase';
-import { container, tokens } from '../../../../shared/infrastructure/di';
-import { LogService } from '../../../../shared/application/services/LogService';
-import { TaskRepository } from '../../../../shared/domain/repositories/TaskRepository';
-import { DailySelectionRepository } from '../../../../shared/domain/repositories/DailySelectionRepository';
-import { taskEventBus } from '../../../../shared/infrastructure/events/TaskEventBus';
-import { TaskEventType } from '../../../../shared/domain/events/TaskEvent';
-import { DateOnly } from '../../../../shared/domain/value-objects/DateOnly';
+import { create } from "zustand";
+import {
+  OnboardingService,
+  DailyModalData,
+} from "../../application/services/OnboardingService";
+import { UserSettingsService } from "../../application/services/UserSettingsService";
+import { UserSettingsRepositoryImpl } from "../../../../shared/infrastructure/repositories/UserSettingsRepositoryImpl";
+import { todoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
+import { container, tokens } from "../../../../shared/infrastructure/di";
+import { TaskLogService } from "../../../../shared/application/services/TaskLogService";
+import { GetTaskLogsUseCase } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import { CreateUserLogUseCase } from "../../../../shared/application/use-cases/CreateUserLogUseCase";
+import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepository";
+import { DailySelectionRepository } from "../../../../shared/domain/repositories/DailySelectionRepository";
+import { taskEventBus } from "../../../../shared/infrastructure/events/TaskEventBus";
+import { TaskEventType } from "../../../../shared/domain/events/TaskEvent";
+import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
 
 /**
  * State for the onboarding view model
@@ -21,11 +26,11 @@ interface OnboardingState {
   isLoading: boolean;
   error: string | null;
   todayTaskIds: string[]; // IDs of tasks currently selected for today
-  
+
   // Modal shown tracking
   modalShownToday: boolean;
   currentDay: string; // Track current day to detect day transitions
-  
+
   // Actions
   loadDailyModalData: (overdueDays?: number) => Promise<void>;
   showDailyModal: () => void;
@@ -45,15 +50,31 @@ interface OnboardingState {
  */
 const createOnboardingService = () => {
   // Use the same repository instances from DI container
-  const taskRepository = container.resolve<TaskRepository>(tokens.TASK_REPOSITORY_TOKEN);
-  const dailySelectionRepository = container.resolve<DailySelectionRepository>(tokens.DAILY_SELECTION_REPOSITORY_TOKEN);
-  const logService = container.resolve<LogService>(tokens.LOG_SERVICE_TOKEN);
-  
+  const taskRepository = container.resolve<TaskRepository>(
+    tokens.TASK_REPOSITORY_TOKEN
+  );
+  const dailySelectionRepository = container.resolve<DailySelectionRepository>(
+    tokens.DAILY_SELECTION_REPOSITORY_TOKEN
+  );
+  // Create TaskLogService manually to avoid circular dependency
+  const getTaskLogsUseCase = container.resolve<GetTaskLogsUseCase>(
+    tokens.GET_TASK_LOGS_USE_CASE_TOKEN
+  );
+  const createUserLogUseCase = container.resolve<CreateUserLogUseCase>(
+    tokens.CREATE_USER_LOG_USE_CASE_TOKEN
+  );
+  const logService = new TaskLogService(getTaskLogsUseCase, createUserLogUseCase);
+
   // UserSettings repository is not in DI container, create manually
   const userSettingsRepository = new UserSettingsRepositoryImpl(todoDatabase);
   const userSettingsService = new UserSettingsService(userSettingsRepository);
-  
-  return new OnboardingService(taskRepository, dailySelectionRepository, logService, userSettingsService);
+
+  return new OnboardingService(
+    taskRepository,
+    dailySelectionRepository,
+    logService,
+    userSettingsService
+  );
 };
 
 /**
@@ -61,12 +82,12 @@ const createOnboardingService = () => {
  */
 export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
   const onboardingService = createOnboardingService();
-  
+
   // Subscribe to task events for automatic updates
   taskEventBus.subscribe(TaskEventType.TASK_ADDED_TO_TODAY, () => {
     get().loadTodayTaskIds();
   });
-  
+
   taskEventBus.subscribe(TaskEventType.TASK_REMOVED_FROM_TODAY, () => {
     get().loadTodayTaskIds();
   });
@@ -76,13 +97,13 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     const today = DateOnly.today().value;
     return `dailyModal_shown_${today}`;
   };
-  
+
   const wasModalShownToday = () => {
-    return localStorage.getItem(getModalShownKey()) === 'true';
+    return localStorage.getItem(getModalShownKey()) === "true";
   };
-  
+
   const markModalAsShown = () => {
-    localStorage.setItem(getModalShownKey(), 'true');
+    localStorage.setItem(getModalShownKey(), "true");
   };
 
   return {
@@ -98,17 +119,22 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     // Load daily modal data
     loadDailyModalData: async (overdueDays?: number) => {
       set({ isLoading: true, error: null });
-      
+
       try {
-        const data = await onboardingService.aggregateDailyModalData(overdueDays);
-        set({ 
-          dailyModalData: data, 
-          isLoading: false 
+        const data = await onboardingService.aggregateDailyModalData(
+          overdueDays
+        );
+        set({
+          dailyModalData: data,
+          isLoading: false,
         });
       } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to load daily modal data',
-          isLoading: false 
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load daily modal data",
+          isLoading: false,
         });
       }
     },
@@ -133,17 +159,19 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     // Check if modal should be shown
     checkShouldShowModal: async (overdueDays?: number) => {
       const state = get();
-      
+
       // Don't show if already shown today
       if (state.modalShownToday) {
         return false;
       }
-      
+
       try {
-        const shouldShow = await onboardingService.shouldShowDailyModal(overdueDays);
+        const shouldShow = await onboardingService.shouldShowDailyModal(
+          overdueDays
+        );
         return shouldShow;
       } catch (error) {
-        console.error('Error checking if modal should show:', error);
+        console.error("Error checking if modal should show:", error);
         return false;
       }
     },
@@ -152,13 +180,13 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     checkDayTransition: () => {
       const state = get();
       const today = DateOnly.today().value;
-      
+
       if (state.currentDay !== today) {
         // Day has changed, reset for new day but preserve modal data if modal is visible
         get().resetForNewDay(state.isModalVisible);
         return true;
       }
-      
+
       return false;
     },
 
@@ -173,7 +201,7 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
         dailyModalData: preserveModalData ? state.dailyModalData : null,
         isModalVisible: preserveModalData ? state.isModalVisible : false,
         error: null,
-        todayTaskIds: []
+        todayTaskIds: [],
       });
     },
 
@@ -186,23 +214,27 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
         error: null,
         modalShownToday: false,
         currentDay: DateOnly.today().value,
-        todayTaskIds: []
+        todayTaskIds: [],
       });
     },
 
     // Return task to today's selection
     returnTaskToToday: async (taskId: string) => {
       try {
-        const dailySelectionService = onboardingService.getDailySelectionService();
+        const dailySelectionService =
+          onboardingService.getDailySelectionService();
         await dailySelectionService.addTaskToToday(taskId);
-        
+
         // Only refresh today task IDs to reflect changes
         // Don't reload modal data to prevent motivational message from changing
         await get().loadTodayTaskIds();
       } catch (error) {
-        console.error('Error returning task to today:', error);
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to return task to today'
+        console.error("Error returning task to today:", error);
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to return task to today",
         });
       }
     },
@@ -210,9 +242,10 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     // Toggle task in today's selection
     toggleTaskToday: async (taskId: string) => {
       try {
-        const dailySelectionService = onboardingService.getDailySelectionService();
+        const dailySelectionService =
+          onboardingService.getDailySelectionService();
         const state = get();
-        
+
         if (state.todayTaskIds.includes(taskId)) {
           // Task is already in today's list, remove it
           await dailySelectionService.removeTaskFromToday(taskId);
@@ -220,13 +253,16 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
           // Task is not in today's list, add it
           await dailySelectionService.addTaskToToday(taskId);
         }
-        
+
         // Refresh today task IDs to reflect changes
         await get().loadTodayTaskIds();
       } catch (error) {
-        console.error('Error toggling task in today:', error);
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to toggle task in today'
+        console.error("Error toggling task in today:", error);
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to toggle task in today",
         });
       }
     },
@@ -234,13 +270,14 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     // Load today's task IDs
     loadTodayTaskIds: async () => {
       try {
-        const dailySelectionService = onboardingService.getDailySelectionService();
+        const dailySelectionService =
+          onboardingService.getDailySelectionService();
         const todayTasks = await dailySelectionService.getTodayTasks();
-        const taskIds = todayTasks.map(task => task.id.value);
+        const taskIds = todayTasks.map((task) => task.id.value);
         set({ todayTaskIds: taskIds });
       } catch (error) {
-        console.error('Error loading today task IDs:', error);
+        console.error("Error loading today task IDs:", error);
       }
-    }
+    },
   };
 });

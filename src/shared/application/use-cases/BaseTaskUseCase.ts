@@ -7,6 +7,7 @@ import { Result, ResultUtils } from "../../domain/Result";
 import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
 import { hashTask } from "../../infrastructure/utils/hashUtils";
 import { DomainEvent } from "../../domain/events/DomainEvent";
+import { DebouncedSyncService } from "../services/DebouncedSyncService";
 import * as tokens from "../../infrastructure/di/tokens";
 
 /**
@@ -28,7 +29,9 @@ export abstract class BaseTaskUseCase {
     @inject(tokens.TASK_REPOSITORY_TOKEN)
     protected readonly taskRepository: TaskRepository,
     @inject(tokens.EVENT_BUS_TOKEN) protected readonly eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) protected readonly database: TodoDatabase
+    @inject(tokens.DATABASE_TOKEN) protected readonly database: TodoDatabase,
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
+    protected readonly debouncedSyncService: DebouncedSyncService
   ) {}
 
   /**
@@ -87,6 +90,7 @@ export abstract class BaseTaskUseCase {
           this.database.tasks,
           this.database.syncQueue,
           this.database.eventStore,
+          this.database.dailySelectionEntries,
         ],
         async () => {
           // 1. Save task (if not delete operation)
@@ -121,6 +125,9 @@ export abstract class BaseTaskUseCase {
           }
         }
       );
+
+      // 5. Trigger debounced sync after successful transaction
+      this.debouncedSyncService.triggerSync();
 
       return ResultUtils.ok(result as T);
     } catch (error) {

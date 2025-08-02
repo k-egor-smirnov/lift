@@ -6,6 +6,7 @@ import { Result, ResultUtils } from '../../domain/Result';
 import { TodoDatabase } from '../../infrastructure/database/TodoDatabase';
 import { hashTask } from '../../infrastructure/utils/hashUtils';
 import { TaskCategory } from '../../domain/types';
+import { DebouncedSyncService } from '../services/DebouncedSyncService';
 import * as tokens from '../../infrastructure/di/tokens';
 
 /**
@@ -41,7 +42,8 @@ export class UndeferTaskUseCase {
   constructor(
     @inject(tokens.TASK_REPOSITORY_TOKEN) private readonly taskRepository: TaskRepository,
     @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
+    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase,
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) private readonly debouncedSyncService: DebouncedSyncService
   ) {}
 
   async execute(request: UndeferTaskRequest): Promise<Result<UndeferTaskResponse, TaskUndeferralError>> {
@@ -99,6 +101,9 @@ export class UndeferTaskUseCase {
           await this.eventBus.publishAll(events);
         }
       );
+
+      // 4. Trigger debounced sync after successful transaction
+      this.debouncedSyncService.triggerSync();
 
       return ResultUtils.ok({
         taskId: task.id.value,

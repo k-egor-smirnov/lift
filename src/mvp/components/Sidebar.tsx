@@ -1,5 +1,5 @@
 import React from "react";
-import { Sun, Zap, Target, Inbox, Clock, FileText } from "lucide-react";
+import { Sun, Zap, Target, Inbox, Clock, FileText, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
@@ -7,8 +7,8 @@ import { cn } from "../../shared/lib/utils";
 import LiftLogo from "../../../assets/icon.png";
 
 interface SidebarProps {
-  activeView: "today" | "logs" | TaskCategory;
-  onViewChange: (view: "today" | "logs" | TaskCategory) => void;
+  activeView: "today" | "logs" | "settings" | TaskCategory;
+  onViewChange: (view: "today" | "logs" | "settings" | TaskCategory) => void;
   taskCounts: Record<TaskCategory, number>;
   hasOverdueTasks: boolean;
   isMobileMenuOpen: boolean;
@@ -61,7 +61,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  const handleItemClick = (viewId: "today" | "logs" | TaskCategory) => {
+  const settingsItem = {
+    id: "settings" as const,
+    icon: Settings,
+    name: t("navigation.settings"),
+    count: null,
+  };
+
+  const handleItemClick = (viewId: "today" | "logs" | "settings" | TaskCategory) => {
     onViewChange(viewId);
     onMobileMenuClose();
   };
@@ -103,45 +110,69 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </Button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1" role="list">
-        {menuItems.map((item) => (
+      <nav className="flex-1 p-4 space-y-1 flex flex-col" role="list">
+        <div className="space-y-1">
+          {menuItems.map((item) => (
+            <Button
+              key={item.id}
+              variant={activeView === item.id ? "secondary" : "ghost"}
+              onClick={() => handleItemClick(item.id)}
+              className={cn(
+                "w-full justify-between h-auto p-3 text-left font-normal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
+                activeView === item.id &&
+                  "bg-primary/10 text-primary hover:bg-primary/15"
+              )}
+              data-testid={`sidebar-${item.id.toLowerCase()}`}
+              aria-current={activeView === item.id ? "page" : undefined}
+              aria-label={`${item.name}${
+                item.count !== null ? ` (${item.count} tasks)` : ""
+              }`}
+              role="listitem"
+            >
+              <div className="flex items-center space-x-3">
+                <item.icon className="w-5 h-5" aria-hidden="true" />
+                <span className="font-medium">{item.name}</span>
+              </div>
+              {item.count !== null && (
+                <span
+                  className={cn(
+                    "px-2 py-1 text-xs rounded-full font-medium",
+                    activeView === item.id
+                      ? "bg-primary/20 text-primary"
+                      : item.id === TaskCategory.INBOX && hasOverdueTasks
+                      ? "text-muted-foreground bg-red-300/20"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                  aria-label={`${item.count} tasks`}
+                >
+                  {item.count}
+                </span>
+              )}
+            </Button>
+          ))}
+        </div>
+        
+        {/* Settings at the bottom */}
+        <div className="mt-auto pt-4 border-t">
           <Button
-            key={item.id}
-            variant={activeView === item.id ? "secondary" : "ghost"}
-            onClick={() => handleItemClick(item.id)}
+            variant={activeView === settingsItem.id ? "secondary" : "ghost"}
+            onClick={() => handleItemClick(settingsItem.id)}
             className={cn(
-              "w-full justify-between h-auto p-3 text-left font-normal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
-              activeView === item.id &&
+              "w-full justify-start h-auto p-3 text-left font-normal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
+              activeView === settingsItem.id &&
                 "bg-primary/10 text-primary hover:bg-primary/15"
             )}
-            data-testid={`sidebar-${item.id.toLowerCase()}`}
-            aria-current={activeView === item.id ? "page" : undefined}
-            aria-label={`${item.name}${
-              item.count !== null ? ` (${item.count} tasks)` : ""
-            }`}
+            data-testid={`sidebar-${settingsItem.id.toLowerCase()}`}
+            aria-current={activeView === settingsItem.id ? "page" : undefined}
+            aria-label={settingsItem.name}
             role="listitem"
           >
             <div className="flex items-center space-x-3">
-              <item.icon className="w-5 h-5" aria-hidden="true" />
-              <span className="font-medium">{item.name}</span>
+              <settingsItem.icon className="w-5 h-5" aria-hidden="true" />
+              <span className="font-medium">{settingsItem.name}</span>
             </div>
-            {item.count !== null && (
-              <span
-                className={cn(
-                  "px-2 py-1 text-xs rounded-full font-medium",
-                  activeView === item.id
-                    ? "bg-primary/20 text-primary"
-                    : item.id === TaskCategory.INBOX && hasOverdueTasks
-                    ? "text-muted-foreground bg-red-300/20"
-                    : "bg-muted text-muted-foreground"
-                )}
-                aria-label={`${item.count} tasks`}
-              >
-                {item.count}
-              </span>
-            )}
           </Button>
-        ))}
+        </div>
       </nav>
     </div>
   );

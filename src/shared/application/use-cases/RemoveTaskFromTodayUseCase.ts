@@ -5,6 +5,7 @@ import { DailySelectionRepository } from '../../domain/repositories/DailySelecti
 import { EventBus } from '../../domain/events/EventBus';
 import { TaskRemovedFromTodayEvent } from '../../domain/events/TaskEvents';
 import { Result, ResultUtils } from '../../domain/Result';
+import { DebouncedSyncService } from '../services/DebouncedSyncService';
 import * as tokens from '../../infrastructure/di/tokens';
 
 /**
@@ -32,7 +33,8 @@ export class RemoveTaskFromTodayError extends Error {
 export class RemoveTaskFromTodayUseCase {
   constructor(
     @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN) private readonly dailySelectionRepository: DailySelectionRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus
+    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) private readonly debouncedSyncService: DebouncedSyncService
   ) {}
 
   async execute(request: RemoveTaskFromTodayRequest): Promise<Result<void, RemoveTaskFromTodayError>> {
@@ -67,6 +69,9 @@ export class RemoveTaskFromTodayUseCase {
       // Publish event
       const event = new TaskRemovedFromTodayEvent(taskId, date);
       await this.eventBus.publish(event);
+
+      // Trigger debounced sync after successful removal
+      this.debouncedSyncService.triggerSync();
 
       return ResultUtils.ok(undefined);
     } catch (error) {

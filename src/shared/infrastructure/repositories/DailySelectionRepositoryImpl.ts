@@ -116,6 +116,13 @@ export class DailySelectionRepositoryImpl implements DailySelectionRepository {
     return new DateOnly(entry[0].date);
   }
 
+  async removeTaskFromAllDays(taskId: TaskId): Promise<void> {
+    await this.db.dailySelectionEntries
+      .where('taskId')
+      .equals(taskId.value)
+      .delete();
+  }
+
   /**
    * Map database record to domain entity
    */

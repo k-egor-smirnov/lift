@@ -34,23 +34,26 @@ import { CreateTaskUseCase } from "../shared/application/use-cases/CreateTaskUse
 import { UpdateTaskUseCase } from "../shared/application/use-cases/UpdateTaskUseCase";
 import { ReorderTasksUseCase } from "../shared/application/use-cases/ReorderTasksUseCase";
 import { CompleteTaskUseCase } from "../shared/application/use-cases/CompleteTaskUseCase";
+import { DeleteTaskUseCase } from "../shared/application/use-cases/DeleteTaskUseCase";
 import { GetTodayTasksUseCase } from "../shared/application/use-cases/GetTodayTasksUseCase";
 import { AddTaskToTodayUseCase } from "../shared/application/use-cases/AddTaskToTodayUseCase";
 import { RemoveTaskFromTodayUseCase } from "../shared/application/use-cases/RemoveTaskFromTodayUseCase";
-import { LogService } from "../shared/application/services/LogService";
+import { TaskLogService } from "../shared/application/services/TaskLogService";
 import { DeferTaskUseCase } from "../shared/application/use-cases/DeferTaskUseCase";
 import { UndeferTaskUseCase } from "../shared/application/use-cases/UndeferTaskUseCase";
 import { GetTaskLogsUseCase } from "../shared/application/use-cases/GetTaskLogsUseCase";
 import { CreateUserLogUseCase } from "../shared/application/use-cases/CreateUserLogUseCase";
 import { LogViewModelDependencies } from "../features/logs/presentation/view-models/LogViewModel";
 import { toast, Toaster } from "sonner";
+import { Settings } from "../features/settings/presentation/components/Settings";
+import { ContentArea } from "./components/ContentArea";
 
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const [activeView, setActiveView] = useState<"today" | "logs" | TaskCategory>(
-    "today"
-  );
+  const [activeView, setActiveView] = useState<
+    "today" | "logs" | "settings" | TaskCategory
+  >("today");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
@@ -92,6 +95,9 @@ export const MVPApp: React.FC = () => {
   const completeTaskUseCase = getService<CompleteTaskUseCase>(
     tokens.COMPLETE_TASK_USE_CASE_TOKEN
   );
+  const deleteTaskUseCase = getService<DeleteTaskUseCase>(
+    tokens.DELETE_TASK_USE_CASE_TOKEN
+  );
   const getTodayTasksUseCase = getService<GetTodayTasksUseCase>(
     tokens.GET_TODAY_TASKS_USE_CASE_TOKEN
   );
@@ -101,7 +107,6 @@ export const MVPApp: React.FC = () => {
   const removeTaskFromTodayUseCase = getService<RemoveTaskFromTodayUseCase>(
     tokens.REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN
   );
-  const logService = getService<LogService>(tokens.LOG_SERVICE_TOKEN);
   const deferTaskUseCase = getService<DeferTaskUseCase>(
     tokens.DEFER_TASK_USE_CASE_TOKEN
   );
@@ -115,6 +120,12 @@ export const MVPApp: React.FC = () => {
     tokens.CREATE_USER_LOG_USE_CASE_TOKEN
   );
 
+  // Create TaskLogService manually to avoid circular dependency
+  const logService = useMemo(() => new TaskLogService(
+    getTaskLogsUseCase,
+    createUserLogUseCase
+  ), [getTaskLogsUseCase, createUserLogUseCase]);
+
   // Create dependencies for view models
   const taskDependencies: TaskViewModelDependencies = useMemo(
     () => ({
@@ -122,6 +133,7 @@ export const MVPApp: React.FC = () => {
       createTaskUseCase,
       updateTaskUseCase,
       completeTaskUseCase,
+      deleteTaskUseCase,
       getTodayTasksUseCase,
     }),
     []
@@ -225,6 +237,7 @@ export const MVPApp: React.FC = () => {
         [
           TaskEventType.TASK_ADDED_TO_TODAY,
           TaskEventType.TASK_REMOVED_FROM_TODAY,
+          TaskEventType.TASK_DELETED,
         ].includes(event.type)
       ) {
         await loadTodayTaskIds();
@@ -814,47 +827,27 @@ export const MVPApp: React.FC = () => {
             </div>
           )}
 
-          {/* Content based on active view */}
-          {!loading && (
-            <>
-              {activeView === "today" ? (
-                <TodayView
-                  dependencies={todayDependencies}
-                  onEditTask={handleEditTask}
-                  onDeleteTask={handleDeleteTask}
-                  onDefer={handleDeferTask}
-                  onUndefer={handleUndeferTask}
-                  onLoadTaskLogs={loadTaskLogs}
-                  onCreateTask={handleCreateTask}
-                  onCreateLog={handleCreateTaskLog}
-                  lastLogs={lastLogs}
-                />
-              ) : activeView === "logs" ? (
-                <AllLogsView dependencies={logDependencies} />
-              ) : (
-                <TaskList
-                  tasks={getFilteredTasks()}
-                  groupByCategory={false}
-                  showTodayButton={true}
-                  onCreateTask={handleCreateTask}
-                  currentCategory={currentCategory}
-                  onComplete={handleCompleteTask}
-                  onEdit={handleEditTask}
-                  onDelete={handleDeleteTask}
-                  onAddToToday={handleAddToToday}
-                  onReorder={handleReorderTasks}
-                  onLoadTaskLogs={loadTaskLogs}
-                  onCreateLog={handleCreateTaskLog}
-                  lastLogs={lastLogs}
-                  emptyMessage={`No tasks found`}
-                  todayTaskIds={todayTaskIds}
-                  showDeferButton={true}
-                  onDefer={handleDeferTask}
-                  onUndefer={handleUndeferTask}
-                />
-              )}
-            </>
-          )}
+          {/* Content Area */}
+          <ContentArea
+            activeView={activeView}
+            loading={loading}
+            todayDependencies={todayDependencies}
+            logDependencies={logDependencies}
+            tasks={getFilteredTasks()}
+            currentCategory={currentCategory}
+            todayTaskIds={todayTaskIds}
+            lastLogs={lastLogs}
+            onCreateTask={handleCreateTask}
+            onCompleteTask={handleCompleteTask}
+            onEditTask={handleEditTask}
+            onDeleteTask={handleDeleteTask}
+            onAddToToday={handleAddToToday}
+            onReorderTasks={handleReorderTasks}
+            onLoadTaskLogs={loadTaskLogs}
+            onCreateTaskLog={handleCreateTaskLog}
+            onDeferTask={handleDeferTask}
+            onUndeferTask={handleUndeferTask}
+          />
         </main>
       </div>
 
