@@ -7,7 +7,10 @@ export enum TaskEventType {
   TASK_COMPLETED = 'TASK_COMPLETED',
   TASK_DELETED = 'TASK_DELETED',
   TASK_ADDED_TO_TODAY = 'TASK_ADDED_TO_TODAY',
-  TASK_REMOVED_FROM_TODAY = 'TASK_REMOVED_FROM_TODAY'
+  TASK_REMOVED_FROM_TODAY = 'TASK_REMOVED_FROM_TODAY',
+  DAY_RESET_TRIGGERED = 'DAY_RESET_TRIGGERED',
+  DAY_RESET_COMPLETED = 'DAY_RESET_COMPLETED',
+  DAY_RESTORED = 'DAY_RESTORED'
 }
 
 /**
@@ -77,6 +80,43 @@ export interface TaskRemovedFromTodayEvent extends TaskEvent {
 }
 
 /**
+ * Day reset triggered event
+ */
+export interface DayResetTriggeredEvent extends TaskEvent {
+  type: TaskEventType.DAY_RESET_TRIGGERED;
+  data: {
+    date: string;
+    resetEventId: string;
+    snapshotId: string;
+  };
+}
+
+/**
+ * Day reset completed event
+ */
+export interface DayResetCompletedEvent extends TaskEvent {
+  type: TaskEventType.DAY_RESET_COMPLETED;
+  data: {
+    date: string;
+    resetEventId: string;
+    movedToMissedCount: number;
+  };
+}
+
+/**
+ * Day restored event
+ */
+export interface DayRestoredEvent extends TaskEvent {
+  type: TaskEventType.DAY_RESTORED;
+  data: {
+    date: string;
+    resetEventId: string;
+    snapshotId: string;
+    restoredTasksCount: number;
+  };
+}
+
+/**
  * Union type for all task events
  */
 export type AnyTaskEvent = 
@@ -85,4 +125,7 @@ export type AnyTaskEvent =
   | TaskCompletedEvent 
   | TaskDeletedEvent 
   | TaskAddedToTodayEvent 
-  | TaskRemovedFromTodayEvent;
+  | TaskRemovedFromTodayEvent
+  | DayResetTriggeredEvent
+  | DayResetCompletedEvent
+  | DayRestoredEvent;

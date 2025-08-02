@@ -17,6 +17,16 @@ export enum TaskStatus {
 }
 
 /**
+ * Task priority enumeration
+ */
+export enum TaskPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  URGENT = 'URGENT'
+}
+
+/**
  * Domain event types
  */
 export enum DomainEventType {

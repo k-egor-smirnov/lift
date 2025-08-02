@@ -100,7 +100,7 @@ export class TodoDatabase extends Dexie {
   locks!: Table<LockRecord>;
 
   constructor() {
-    super("TodoDatabase");
+    super("TodoDatabase_v2");
 
     // Version 1 - Initial schema
     this.version(1).stores({
@@ -247,23 +247,9 @@ export class TodoDatabase extends Dexie {
         console.log(
           "Upgrading database to version 6 - changing daily selection entries ID to ULID"
         );
-        // Migrate existing entries to use ULID
-        const { ulid } = await import('ulid');
-        const existingEntries = await trans.table('dailySelectionEntries').toArray();
-        
-        // Clear the table and re-add with ULID
-        await trans.table('dailySelectionEntries').clear();
-        
-        for (const entry of existingEntries) {
-          await trans.table('dailySelectionEntries').add({
-            id: ulid(),
-            date: entry.date,
-            taskId: entry.taskId,
-            completedFlag: entry.completedFlag,
-            createdAt: entry.createdAt,
-            deletedAt: entry.deletedAt
-          });
-        }
+        // Note: We keep the auto-increment ID for local storage compatibility
+        // ULID will be used only when syncing to Supabase
+        // No migration needed as we're not changing the primary key structure
       });
 
     // Version 7 - Add updatedAt field to daily selection entries
@@ -346,10 +332,22 @@ export class TodoDatabase extends Dexie {
   // Connection management
   async initialize(): Promise<void> {
     try {
+      // Check if database is already open
+      if (this.isOpen()) {
+        console.log("Database already initialized");
+        return;
+      }
+      
+      console.log("Opening database...");
       await this.open();
       console.log("Database initialized successfully");
     } catch (error) {
       console.error("Failed to initialize database:", error);
+      console.error("Error details:", {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw new DatabaseConnectionError(
         "Failed to initialize database",
         error as Error

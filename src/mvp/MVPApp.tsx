@@ -47,8 +47,12 @@ import { LogViewModelDependencies } from "../features/logs/presentation/view-mod
 import { toast, Toaster } from "sonner";
 import { Settings } from "../features/settings/presentation/components/Settings";
 import { ContentArea } from "./components/ContentArea";
+import { DayResetManager } from "../shared/ui/components/DayResetManager";
+import { useAuth } from "../shared/presentation/hooks/useAuth";
 
 export const MVPApp: React.FC = () => {
+  const { user } = useAuth();
+  const userId = user?.id || "default-user";
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [activeView, setActiveView] = useState<
@@ -852,6 +856,9 @@ export const MVPApp: React.FC = () => {
           />
         </main>
       </div>
+
+      {/* Day Reset Manager */}
+      <DayResetManager userId={userId} />
 
       {/* Daily Modal for onboarding */}
       <DailyModalContainer />

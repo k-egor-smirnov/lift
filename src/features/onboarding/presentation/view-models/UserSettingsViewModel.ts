@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import { UserSettingsService, UserSettings } from '../../application/services/UserSettingsService';
+import { UserSettingsService } from '../../application/services/UserSettingsService';
 import { UserSettingsRepositoryImpl } from '../../../../shared/infrastructure/repositories/UserSettingsRepositoryImpl';
-import { todoDatabase } from '../../../../shared/infrastructure/database/TodoDatabase';
+import { TodoDatabase } from '../../../../shared/infrastructure/database/TodoDatabase';
+import { container, tokens } from '../../../../shared/infrastructure/di';
 
 /**
  * State for the user settings view model
@@ -25,7 +26,8 @@ interface UserSettingsState {
  * Create user settings service instance
  */
 const createUserSettingsService = () => {
-  const userSettingsRepository = new UserSettingsRepositoryImpl(todoDatabase);
+  const database = container.resolve<TodoDatabase>(tokens.DATABASE_TOKEN);
+const userSettingsRepository = new UserSettingsRepositoryImpl(database);
   return new UserSettingsService(userSettingsRepository);
 };
 

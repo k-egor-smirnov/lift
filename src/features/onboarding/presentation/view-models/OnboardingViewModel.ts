@@ -5,7 +5,7 @@ import {
 } from "../../application/services/OnboardingService";
 import { UserSettingsService } from "../../application/services/UserSettingsService";
 import { UserSettingsRepositoryImpl } from "../../../../shared/infrastructure/repositories/UserSettingsRepositoryImpl";
-import { todoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
+import { TodoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 import { container, tokens } from "../../../../shared/infrastructure/di";
 import { TaskLogService } from "../../../../shared/application/services/TaskLogService";
 import { GetTaskLogsUseCase } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -66,7 +66,8 @@ const createOnboardingService = () => {
   const logService = new TaskLogService(getTaskLogsUseCase, createUserLogUseCase);
 
   // UserSettings repository is not in DI container, create manually
-  const userSettingsRepository = new UserSettingsRepositoryImpl(todoDatabase);
+  const database = container.resolve<TodoDatabase>(tokens.DATABASE_TOKEN);
+  const userSettingsRepository = new UserSettingsRepositoryImpl(database);
   const userSettingsService = new UserSettingsService(userSettingsRepository);
 
   return new OnboardingService(

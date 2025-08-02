@@ -6,6 +6,7 @@ import { TodoDatabase } from "../database/TodoDatabase";
 import { PersistentEventBusImpl } from "../../domain/events/EventBus";
 import { TaskRepositoryImpl } from "../repositories/TaskRepositoryImpl";
 import { DailySelectionRepositoryImpl } from "../repositories/DailySelectionRepositoryImpl";
+import { SupabaseDayResetRepository } from "../repositories/SupabaseDayResetRepository";
 import { TaskEventAdapter } from "../events/TaskEventAdapter";
 
 // Import use cases
@@ -23,6 +24,11 @@ import { CreateUserLogUseCase } from "../../application/use-cases/CreateUserLogU
 import { CreateSystemLogUseCase } from "../../application/use-cases/CreateSystemLogUseCase";
 import { DeferTaskUseCase } from "../../application/use-cases/DeferTaskUseCase";
 import { UndeferTaskUseCase } from "../../application/use-cases/UndeferTaskUseCase";
+import { DayResetUseCase } from "../../application/use-cases/DayResetUseCase";
+import { CheckDayStatusUseCase } from "../../application/use-cases/CheckDayStatusUseCase";
+import { RestoreDayUseCase } from "../../application/use-cases/RestoreDayUseCase";
+import { GetStartOfDayCandidatesUseCase } from "../../application/use-cases/GetStartOfDayCandidatesUseCase";
+import { ConfirmStartOfDayUseCase } from "../../application/use-cases/ConfirmStartOfDayUseCase";
 
 // Import services
 import { DeferredTaskService } from "../../application/services/DeferredTaskService";
@@ -51,6 +57,10 @@ export function configureContainer(): void {
   container.registerSingleton(
     tokens.DAILY_SELECTION_REPOSITORY_TOKEN,
     DailySelectionRepositoryImpl
+  );
+  container.registerSingleton(
+    tokens.DAY_RESET_REPOSITORY_TOKEN,
+    SupabaseDayResetRepository
   );
 
   // Register use cases as singletons
@@ -109,6 +119,26 @@ export function configureContainer(): void {
   container.registerSingleton(
     tokens.UNDEFER_TASK_USE_CASE_TOKEN,
     UndeferTaskUseCase
+  );
+  container.registerSingleton(
+    tokens.DAY_RESET_USE_CASE_TOKEN,
+    DayResetUseCase
+  );
+  container.registerSingleton(
+    tokens.CHECK_DAY_STATUS_USE_CASE_TOKEN,
+    CheckDayStatusUseCase
+  );
+  container.registerSingleton(
+    tokens.RESTORE_DAY_USE_CASE_TOKEN,
+    RestoreDayUseCase
+  );
+  container.registerSingleton(
+    tokens.GET_START_OF_DAY_CANDIDATES_USE_CASE_TOKEN,
+    GetStartOfDayCandidatesUseCase
+  );
+  container.registerSingleton(
+    tokens.CONFIRM_START_OF_DAY_USE_CASE_TOKEN,
+    ConfirmStartOfDayUseCase
   );
 
   // Register services as singletons

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { StatisticsService, DailyStatistics, WeeklyStatistics, MonthlyStatistics } from '../../application/services/StatisticsService';
-import { todoDatabase } from '../../../../shared/infrastructure/database/TodoDatabase';
+import { TodoDatabase } from '../../../../shared/infrastructure/database/TodoDatabase';
+import { container, tokens } from '../../../../shared/infrastructure/di';
 
 export type StatsPeriod = 'day' | 'week' | 'month';
 
@@ -29,7 +30,8 @@ export interface StatsState {
   navigatePeriod: (direction: 'prev' | 'next') => void;
 }
 
-const statisticsService = new StatisticsService(todoDatabase);
+const database = container.resolve<TodoDatabase>(tokens.DATABASE_TOKEN);
+const statisticsService = new StatisticsService(database);
 
 export const useStatsViewModel = create<StatsState>((set, get) => ({
   // Initial state

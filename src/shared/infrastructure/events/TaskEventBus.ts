@@ -95,6 +95,32 @@ export class TaskEventBus {
     }
     return total;
   }
+
+  /**
+   * Alias for subscribe - for compatibility
+   */
+  on<T extends TaskEventType>(
+    eventType: T,
+    listener: (event: Extract<AnyTaskEvent, { type: T }>) => void | Promise<void>
+  ): () => void {
+    return this.subscribe(eventType, listener);
+  }
+
+  /**
+   * Remove event listener - for compatibility
+   */
+  off<T extends TaskEventType>(
+    eventType: T,
+    listener: (event: Extract<AnyTaskEvent, { type: T }>) => void | Promise<void>
+  ): void {
+    const listeners = this.listeners.get(eventType);
+    if (listeners) {
+      const index = listeners.indexOf(listener as (event: AnyTaskEvent) => void | Promise<void>);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
 }
 
 /**

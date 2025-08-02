@@ -74,4 +74,39 @@ export interface DailySelectionRepository {
    * Remove a task from all daily selections (used when deleting a task)
    */
   removeTaskFromAllDays(taskId: TaskId): Promise<void>;
+
+  /**
+   * Create a snapshot of current day's selection
+   */
+  createDaySnapshot(date: DateOnly): Promise<string>;
+
+  /**
+   * Restore day's selection from snapshot
+   */
+  restoreFromSnapshot(date: DateOnly, snapshotId: string): Promise<void>;
+
+  /**
+   * Move incomplete tasks from today to missed
+   */
+  moveIncompleteTodayToMissed(date: DateOnly): Promise<number>;
+
+  /**
+   * Get tasks that should return today (defer_until <= today)
+   */
+  getReturningTasks(date: DateOnly): Promise<TaskId[]>;
+
+  /**
+   * Get stale inbox tasks (inbox >= 3 days)
+   */
+  getStaleInboxTasks(date: DateOnly): Promise<TaskId[]>;
+
+  /**
+   * Get missed tasks for a date
+   */
+  getMissedTasksForDay(date: DateOnly): Promise<DailySelectionEntry[]>;
+
+  /**
+   * Get overdue tasks for a date
+   */
+  getOverdueTasksForDay(date: DateOnly): Promise<DailySelectionEntry[]>;
 }
