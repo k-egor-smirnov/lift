@@ -3,6 +3,7 @@ import { container } from "tsyringe";
 import { SupabaseRealtimeService } from "../../services/SupabaseRealtimeService";
 import { SupabaseClientFactory } from "../../database/SupabaseClient";
 import { TaskLogService } from "../../../application/services/TaskLogService";
+import { DailySelectionRepository } from "../../../domain/repositories/DailySelectionRepository";
 import * as tokens from "../../di/tokens";
 
 // Мокаем Supabase клиент
@@ -15,6 +16,12 @@ const mockChannel = {
 const mockSupabaseClient = {
   channel: vi.fn().mockReturnValue(mockChannel),
   removeAllChannels: vi.fn().mockResolvedValue({ error: null }),
+  auth: {
+    getUser: vi.fn().mockResolvedValue({
+      data: { user: { id: 'test-user-id' } },
+      error: null
+    })
+  }
 };
 
 const mockSupabaseClientFactory = {
@@ -24,6 +31,30 @@ const mockSupabaseClientFactory = {
 const mockLogService = {
   logSystem: vi.fn(),
   logUserAction: vi.fn(),
+};
+
+const mockDailySelectionRepository = {
+  getEntriesForDate: vi.fn(),
+  addEntry: vi.fn(),
+  removeEntry: vi.fn(),
+};
+
+const mockTaskRepository = {
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+  findById: vi.fn(),
+  findByUserId: vi.fn(),
+  findByUserIdAndStatus: vi.fn(),
+  findByUserIdAndCategory: vi.fn(),
+  findByUserIdAndDate: vi.fn(),
+  findByUserIdAndDateRange: vi.fn(),
+  findByUserIdAndFilters: vi.fn(),
+  reorderTasks: vi.fn(),
+  markAsCompleted: vi.fn(),
+  markAsIncomplete: vi.fn(),
+  defer: vi.fn(),
+  undefer: vi.fn(),
 };
 
 describe("SupabaseRealtimeService", () => {
@@ -40,6 +71,14 @@ describe("SupabaseRealtimeService", () => {
       mockSupabaseClientFactory
     );
     container.registerInstance(tokens.LOG_SERVICE_TOKEN, mockLogService);
+    container.registerInstance(
+      tokens.DAILY_SELECTION_REPOSITORY_TOKEN,
+      mockDailySelectionRepository
+    );
+    container.registerInstance(
+      tokens.TASK_REPOSITORY_TOKEN,
+      mockTaskRepository
+    );
 
     // Создаем экземпляр сервиса
     realtimeService = container.resolve(SupabaseRealtimeService);
@@ -55,22 +94,23 @@ describe("SupabaseRealtimeService", () => {
     container.clearInstances();
   });
 
-  describe("subscribeToTasks", () => {
+  describe("subscribeToTaskChanges", () => {
     it("should subscribe to task changes successfully", async () => {
       // Arrange
       const userId = "user123";
-      mockChannel.subscribe.mockReturnValue({ error: null });
+      realtimeService.setUserId(userId);
+      
+      mockChannel.subscribe.mockImplementation((callback) => {
+        callback("SUBSCRIBED", null);
+        return mockChannel;
+      });
 
       // Act
-      const result = await realtimeService.subscribeToTasks(
-        userId,
-        mockCallback
-      );
+      await realtimeService.subscribeToTaskChanges();
 
       // Assert
-      expect(result.success).toBe(true);
       expect(mockSupabaseClient.channel).toHaveBeenCalledWith(
-        `tasks:user_id=eq.${userId}`
+        `tasks_${userId}`
       );
       expect(mockChannel.on).toHaveBeenCalledWith(
         "postgres_changes",
@@ -83,178 +123,422 @@ describe("SupabaseRealtimeService", () => {
         expect.any(Function)
       );
       expect(mockChannel.subscribe).toHaveBeenCalled();
-      // Логирование системных событий удалено
+      expect(realtimeService.isTasksConnected()).toBe(true);
     });
 
     it("should handle subscription errors", async () => {
       // Arrange
       const userId = "user123";
       const mockError = { message: "Subscription failed" };
-      mockChannel.subscribe.mockReturnValue({ error: mockError });
-
-      // Act
-      const result = await realtimeService.subscribeToTasks(
-        userId,
-        mockCallback
-      );
-
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("SUBSCRIPTION_ERROR");
-      expect(result.error?.details).toBe(mockError);
-    });
-
-    it("should handle callback execution", async () => {
-      // Arrange
-      const userId = "user123";
-      let capturedCallback: Function;
-
-      mockChannel.on.mockImplementation((event, config, callback) => {
-        capturedCallback = callback;
+      realtimeService.setUserId(userId);
+      
+      mockChannel.subscribe.mockImplementation((callback) => {
+        callback("CHANNEL_ERROR", mockError);
         return mockChannel;
       });
-      mockChannel.subscribe.mockReturnValue({ error: null });
 
-      // Act
-      await realtimeService.subscribeToTasks(userId, mockCallback);
+      // Act & Assert
+      await expect(realtimeService.subscribeToTaskChanges()).rejects.toThrow();
+    });
 
-      // Simulate a change event
-      const mockPayload = {
-        eventType: "INSERT",
-        new: { id: "1", title: "New Task", user_id: userId },
-        old: null,
-      };
-      capturedCallback(mockPayload);
-
-      // Assert
-      expect(mockCallback).toHaveBeenCalledWith({
-        type: "INSERT",
-        record: mockPayload.new,
-        oldRecord: null,
+    it("should not subscribe if already subscribed", async () => {
+      // Arrange
+      const userId = "user123";
+      realtimeService.setUserId(userId);
+      
+      mockChannel.subscribe.mockImplementation((callback) => {
+        callback("SUBSCRIBED", null);
+        return mockChannel;
       });
+
+      // Act - первая подписка
+      await realtimeService.subscribeToTaskChanges();
+      
+      // Сбрасываем моки
+      vi.clearAllMocks();
+      
+      // Act - вторая подписка
+      await realtimeService.subscribeToTaskChanges();
+
+      // Assert - второй раз не должен вызываться
+      expect(mockSupabaseClient.channel).not.toHaveBeenCalled();
     });
   });
 
-  describe("unsubscribeFromTasks", () => {
+  describe("subscribeToDailySelectionChanges", () => {
+    it("should subscribe to daily selection changes successfully", async () => {
+      // Arrange
+      const userId = "user123";
+      realtimeService.setUserId(userId);
+      
+      mockChannel.subscribe.mockImplementation((callback) => {
+        callback("SUBSCRIBED", null);
+        return mockChannel;
+      });
+
+      // Act
+      await realtimeService.subscribeToDailySelectionChanges();
+
+      // Assert
+      expect(mockSupabaseClient.channel).toHaveBeenCalledWith(
+        `daily_selection_${userId}`
+      );
+      expect(mockChannel.on).toHaveBeenCalledWith(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "daily_selection_entries",
+          filter: `user_id=eq.${userId}`,
+        },
+        expect.any(Function)
+      );
+      expect(mockChannel.subscribe).toHaveBeenCalled();
+      expect(realtimeService.isDailySelectionConnected()).toBe(true);
+    });
+
+    it("should not subscribe if already subscribed", async () => {
+      // Arrange
+      const userId = "user123";
+      realtimeService.setUserId(userId);
+      
+      mockChannel.subscribe.mockImplementation((callback) => {
+        callback("SUBSCRIBED", null);
+        return mockChannel;
+      });
+
+      // Act - первая подписка
+      await realtimeService.subscribeToDailySelectionChanges();
+      
+      // Сбрасываем моки
+      vi.clearAllMocks();
+      
+      // Act - вторая подписка
+      await realtimeService.subscribeToDailySelectionChanges();
+
+      // Assert - второй раз не должен вызываться
+      expect(mockSupabaseClient.channel).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("subscribeToAllChanges", () => {
+    it("should subscribe to both tasks and daily selection changes", async () => {
+      // Arrange
+      const userId = "user123";
+      realtimeService.setUserId(userId);
+      
+      mockChannel.subscribe.mockImplementation((callback) => {
+        callback("SUBSCRIBED", null);
+        return mockChannel;
+      });
+
+      // Act
+      await realtimeService.subscribeToAllChanges();
+
+      // Assert
+      expect(mockSupabaseClient.channel).toHaveBeenCalledTimes(2);
+      expect(mockSupabaseClient.channel).toHaveBeenCalledWith(`tasks_${userId}`);
+      expect(mockSupabaseClient.channel).toHaveBeenCalledWith(`daily_selection_${userId}`);
+      expect(realtimeService.isTasksConnected()).toBe(true);
+      expect(realtimeService.isDailySelectionConnected()).toBe(true);
+      expect(realtimeService.isConnected()).toBe(true);
+    });
+  });
+
+  describe("unsubscribeFromTaskChanges", () => {
     it("should unsubscribe successfully", async () => {
       // Arrange
       const userId = "user123";
+      realtimeService.setUserId(userId);
 
       // Сначала подписываемся
-      mockChannel.subscribe.mockReturnValue({ error: null });
-      await realtimeService.subscribeToTasks(userId, mockCallback);
-
-      // Мокаем успешную отписку
-      mockChannel.unsubscribe.mockResolvedValue({ error: null });
+      mockChannel.subscribe.mockImplementation((callback) => {
+        callback("SUBSCRIBED", null);
+        return mockChannel;
+      });
+      await realtimeService.subscribeToTaskChanges();
 
       // Act
-      const result = await realtimeService.unsubscribeFromTasks(userId);
+      await realtimeService.unsubscribeFromTaskChanges();
 
       // Assert
-      expect(result.success).toBe(true);
       expect(mockChannel.unsubscribe).toHaveBeenCalled();
-      // Логирование системных событий удалено
-    });
-
-    it("should handle unsubscribe errors", async () => {
-      // Arrange
-      const userId = "user123";
-      const mockError = { message: "Unsubscribe failed" };
-
-      // Сначала подписываемся
-      mockChannel.subscribe.mockReturnValue({ error: null });
-      await realtimeService.subscribeToTasks(userId, mockCallback);
-
-      // Мокаем ошибку отписки
-      mockChannel.unsubscribe.mockResolvedValue({ error: mockError });
-
-      // Act
-      const result = await realtimeService.unsubscribeFromTasks(userId);
-
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("UNSUBSCRIBE_ERROR");
-      expect(result.error?.details).toBe(mockError);
+      expect(realtimeService.isTasksConnected()).toBe(false);
     });
 
     it("should handle unsubscribe when not subscribed", async () => {
       // Arrange
       const userId = "user123";
+      realtimeService.setUserId(userId);
 
       // Act
-      const result = await realtimeService.unsubscribeFromTasks(userId);
+      await realtimeService.unsubscribeFromTaskChanges();
 
       // Assert
-      expect(result.success).toBe(true);
       expect(mockChannel.unsubscribe).not.toHaveBeenCalled();
     });
   });
 
-  describe("disconnect", () => {
-    it("should disconnect all channels successfully", async () => {
+  describe("unsubscribeFromAllChanges", () => {
+    it("should unsubscribe from all channels", async () => {
       // Arrange
-      const userId1 = "user123";
-      const userId2 = "user456";
+      const userId = "user123";
+      realtimeService.setUserId(userId);
 
-      // Подписываемся на несколько каналов
-      mockChannel.subscribe.mockReturnValue({ error: null });
-      await realtimeService.subscribeToTasks(userId1, mockCallback);
-      await realtimeService.subscribeToTasks(userId2, mockCallback);
-
-      // Мокаем успешное отключение
-      mockSupabaseClient.removeAllChannels.mockResolvedValue({ error: null });
-
-      // Act
-      const result = await realtimeService.disconnect();
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(mockSupabaseClient.removeAllChannels).toHaveBeenCalled();
-      // Логирование системных событий удалено
-    });
-
-    it("should handle disconnect errors", async () => {
-      // Arrange
-      const mockError = { message: "Disconnect failed" };
-      mockSupabaseClient.removeAllChannels.mockResolvedValue({
-        error: mockError,
+      // Сначала подписываемся
+      mockChannel.subscribe.mockImplementation((callback) => {
+        callback("SUBSCRIBED", null);
+        return mockChannel;
       });
+      await realtimeService.subscribeToAllChanges();
 
       // Act
-      const result = await realtimeService.disconnect();
+      await realtimeService.unsubscribeFromAllChanges();
 
       // Assert
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("DISCONNECT_ERROR");
-      expect(result.error?.details).toBe(mockError);
+      expect(mockChannel.unsubscribe).toHaveBeenCalledTimes(2);
+      expect(realtimeService.isTasksConnected()).toBe(false);
+      expect(realtimeService.isDailySelectionConnected()).toBe(false);
+      expect(realtimeService.isConnected()).toBe(false);
     });
   });
 
-  describe("getConnectionStatus", () => {
-    it("should return connection status", () => {
+  describe("handleDailySelectionChange", () => {
+    beforeEach(() => {
+      // Подписываемся на события
+      realtimeService.on('daily_selection_changed', mockCallback);
+    });
+
+    it("should handle INSERT event for current date", () => {
       // Arrange
-      const userId1 = "user123";
-      const userId2 = "user456";
+      const today = new Date().toISOString().split('T')[0];
+      const payload = {
+        eventType: 'INSERT' as const,
+        new: {
+          id: '1',
+          date: today,
+          task_id: 'task-1',
+          completed_flag: false,
+          user_id: 'user-1',
+          created_at: new Date().toISOString(),
+          deleted_at: null
+        },
+        old: {},
+        errors: null
+      };
 
-      // Act - изначально нет подключений
-      let status = realtimeService.getConnectionStatus();
-      expect(status.isConnected).toBe(false);
-      expect(status.activeSubscriptions).toBe(0);
-      expect(status.subscribedUsers).toEqual([]);
-
-      // Подписываемся
-      mockChannel.subscribe.mockReturnValue({ error: null });
-      realtimeService.subscribeToTasks(userId1, mockCallback);
-      realtimeService.subscribeToTasks(userId2, mockCallback);
-
-      // Act - после подписки
-      status = realtimeService.getConnectionStatus();
+      // Act
+      (realtimeService as any).handleDailySelectionChange(payload);
 
       // Assert
-      expect(status.isConnected).toBe(true);
-      expect(status.activeSubscriptions).toBe(2);
-      expect(status.subscribedUsers).toContain(userId1);
-      expect(status.subscribedUsers).toContain(userId2);
+      expect(mockCallback).toHaveBeenCalledWith({
+        eventType: 'INSERT',
+        data: payload.new,
+        date: today
+      });
+    });
+
+    it("should handle UPDATE event for current date", () => {
+      // Arrange
+      const today = new Date().toISOString().split('T')[0];
+      const payload = {
+        eventType: 'UPDATE' as const,
+        new: {
+          id: '1',
+          date: today,
+          task_id: 'task-1',
+          completed_flag: true,
+          user_id: 'user-1',
+          created_at: new Date().toISOString(),
+          deleted_at: null
+        },
+        old: {
+          id: '1',
+          date: today,
+          task_id: 'task-1',
+          completed_flag: false,
+          user_id: 'user-1',
+          created_at: new Date().toISOString(),
+          deleted_at: null
+        },
+        errors: null
+      };
+
+      // Act
+      (realtimeService as any).handleDailySelectionChange(payload);
+
+      // Assert
+      expect(mockCallback).toHaveBeenCalledWith({
+        eventType: 'UPDATE',
+        data: payload.new,
+        date: today
+      });
+    });
+
+    it("should handle soft delete (UPDATE with deleted_at) as DELETE event", () => {
+      // Arrange
+      const today = new Date().toISOString().split('T')[0];
+      const payload = {
+        eventType: 'UPDATE' as const,
+        new: {
+          id: '1',
+          date: today,
+          task_id: 'task-1',
+          completed_flag: false,
+          user_id: 'user-1',
+          created_at: new Date().toISOString(),
+          deleted_at: new Date().toISOString()
+        },
+        old: {
+          id: '1',
+          date: today,
+          task_id: 'task-1',
+          completed_flag: false,
+          user_id: 'user-1',
+          created_at: new Date().toISOString(),
+          deleted_at: null
+        },
+        errors: null
+      };
+
+      // Act
+      (realtimeService as any).handleDailySelectionChange(payload);
+
+      // Assert
+      expect(mockCallback).toHaveBeenCalledWith({
+        eventType: 'DELETE',
+        data: payload.new,
+        date: today
+      });
+    });
+
+    it("should ignore soft-deleted records for INSERT events", () => {
+      // Arrange
+      const today = new Date().toISOString().split('T')[0];
+      const payload = {
+        eventType: 'INSERT' as const,
+        new: {
+          id: '1',
+          date: today,
+          task_id: 'task-1',
+          completed_flag: false,
+          user_id: 'user-1',
+          created_at: new Date().toISOString(),
+          deleted_at: new Date().toISOString() // Уже удалена
+        },
+        old: {},
+        errors: null
+      };
+
+      // Act
+      (realtimeService as any).handleDailySelectionChange(payload);
+
+      // Assert
+      expect(mockCallback).not.toHaveBeenCalled();
+    });
+
+    it("should ignore events for different dates", () => {
+      // Arrange
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const payload = {
+        eventType: 'INSERT' as const,
+        new: {
+          id: '1',
+          date: yesterday,
+          task_id: 'task-1',
+          completed_flag: false,
+          user_id: 'user-1',
+          created_at: new Date().toISOString(),
+          deleted_at: null
+        },
+        old: {},
+        errors: null
+      };
+
+      // Act
+      (realtimeService as any).handleDailySelectionChange(payload);
+
+      // Assert
+      expect(mockCallback).not.toHaveBeenCalled();
+    });
+
+    it("should handle DELETE event for current date", () => {
+      // Arrange
+      const today = new Date().toISOString().split('T')[0];
+      const payload = {
+        eventType: 'DELETE' as const,
+        new: {},
+        old: {
+          id: '1',
+          date: today,
+          task_id: 'task-1',
+          completed_flag: false,
+          user_id: 'user-1',
+          created_at: new Date().toISOString(),
+          deleted_at: null
+        },
+        errors: null
+      };
+
+      // Act
+      (realtimeService as any).handleDailySelectionChange(payload);
+
+      // Assert
+      expect(mockCallback).toHaveBeenCalledWith({
+        eventType: 'DELETE',
+        data: payload.old,
+        date: today
+      });
+    });
+  });
+
+  describe("connection status", () => {
+    it("should return correct connection status", async () => {
+      // Arrange
+      const userId = "user123";
+      realtimeService.setUserId(userId);
+      
+      mockChannel.subscribe.mockImplementation((callback) => {
+        callback("SUBSCRIBED", null);
+        return mockChannel;
+      });
+
+      // Act - изначально нет подключений
+      expect(realtimeService.isConnected()).toBe(false);
+      expect(realtimeService.isTasksConnected()).toBe(false);
+      expect(realtimeService.isDailySelectionConnected()).toBe(false);
+
+      // Подписываемся только на задачи
+      await realtimeService.subscribeToTaskChanges();
+
+      // Assert - подключены только задачи
+      expect(realtimeService.isConnected()).toBe(true);
+      expect(realtimeService.isTasksConnected()).toBe(true);
+      expect(realtimeService.isDailySelectionConnected()).toBe(false);
+
+      // Подписываемся на ежедневный выбор
+      await realtimeService.subscribeToDailySelectionChanges();
+
+      // Assert - подключены оба канала
+      expect(realtimeService.isConnected()).toBe(true);
+      expect(realtimeService.isTasksConnected()).toBe(true);
+      expect(realtimeService.isDailySelectionConnected()).toBe(true);
+
+      // Отписываемся от задач
+      await realtimeService.unsubscribeFromTaskChanges();
+
+      // Assert - подключен только ежедневный выбор
+      expect(realtimeService.isConnected()).toBe(true);
+      expect(realtimeService.isTasksConnected()).toBe(false);
+      expect(realtimeService.isDailySelectionConnected()).toBe(true);
+
+      // Отписываемся от всего
+      await realtimeService.unsubscribeFromDailySelectionChanges();
+
+      // Assert - ничего не подключено
+      expect(realtimeService.isConnected()).toBe(false);
+      expect(realtimeService.isTasksConnected()).toBe(false);
+      expect(realtimeService.isDailySelectionConnected()).toBe(false);
     });
   });
 });

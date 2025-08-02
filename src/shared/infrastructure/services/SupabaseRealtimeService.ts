@@ -12,7 +12,7 @@ import { TaskId } from "../../domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../domain/types";
-import { taskEventBus } from "../../application/events/TaskEventBus";
+import { taskEventBus } from "../events/TaskEventBus";
 import * as tokens from "../di/tokens";
 
 /**
@@ -49,31 +49,85 @@ export class SupabaseRealtimeService {
   }
 
   /**
+   * Устанавливает ID пользователя (для тестирования)
+   */
+  setUserId(userId: string): void {
+    this.userId = userId;
+  }
+
+  /**
    * Подписывается на изменения задач в реальном времени
    */
   async subscribeToTaskChanges(): Promise<void> {
-    if (this.isSubscribed || !this.userId) {
+    if (this.isTasksSubscribed || !this.userId) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        // Создаем канал для подписки на изменения задач
+        this.tasksChannel = this.client
+          .channel(`tasks_${this.userId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*", // Слушаем все события: INSERT, UPDATE, DELETE
+              schema: "public",
+              table: "tasks",
+              filter: `user_id=eq.${this.userId}`,
+            },
+            (payload) => this.handleTaskChange(payload)
+          )
+          .on("system", {}, (payload) => this.handleSystemEvent(payload))
+          .subscribe((status, error) => {
+            if (status === "SUBSCRIBED") {
+              this.isTasksSubscribed = true;
+              this.reconnectAttempts = 0;
+              resolve();
+            } else if (status === "CHANNEL_ERROR") {
+              this.handleConnectionError(error);
+              reject(new Error(`Subscription failed: ${error?.message || 'Unknown error'}`));
+            } else if (status === "TIMED_OUT") {
+              this.handleTimeout();
+              reject(new Error('Subscription timed out'));
+            } else if (status === "CLOSED") {
+              this.handleConnectionClosed();
+              reject(new Error('Connection closed'));
+            }
+          });
+      } catch (error) {
+        console.error("Error subscribing to task changes:", error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Подписывается на изменения ежедневного выбора в реальном времени
+   */
+  async subscribeToDailySelectionChanges(): Promise<void> {
+    if (this.isDailySelectionSubscribed || !this.userId) {
       return;
     }
 
     try {
-      // Создаем канал для подписки на изменения задач
-      this.channel = this.client
-        .channel(`tasks_${this.userId}`)
+      // Создаем канал для подписки на изменения ежедневного выбора
+      this.dailySelectionChannel = this.client
+        .channel(`daily_selection_${this.userId}`)
         .on(
           "postgres_changes",
           {
             event: "*", // Слушаем все события: INSERT, UPDATE, DELETE
             schema: "public",
-            table: "tasks",
+            table: "daily_selection_entries",
             filter: `user_id=eq.${this.userId}`,
           },
-          (payload) => this.handleTaskChange(payload)
+          (payload) => this.handleDailySelectionChange(payload)
         )
         .on("system", {}, (payload) => this.handleSystemEvent(payload))
         .subscribe((status, error) => {
           if (status === "SUBSCRIBED") {
-            this.isSubscribed = true;
+            this.isDailySelectionSubscribed = true;
             this.reconnectAttempts = 0;
           } else if (status === "CHANNEL_ERROR") {
             this.handleConnectionError(error);
@@ -84,27 +138,72 @@ export class SupabaseRealtimeService {
           }
         });
     } catch (error) {
-      console.error("Error subscribing to task changes:", error);
-      throw error; // Пробрасываем ошибку для обработки на верхнем уровне
+      console.error("Error subscribing to daily selection changes:", error);
+      throw error;
     }
+  }
+
+  /**
+   * Подписывается на все изменения (задачи и ежедневный выбор)
+   */
+  async subscribeToAllChanges(): Promise<void> {
+    await Promise.all([
+      this.subscribeToTaskChanges(),
+      this.subscribeToDailySelectionChanges()
+    ]);
   }
 
   /**
    * Отписывается от изменений задач
    */
   async unsubscribeFromTaskChanges(): Promise<void> {
-    if (this.channel) {
-      await this.channel.unsubscribe();
-      this.channel = null;
-      this.isSubscribed = false;
+    if (this.tasksChannel) {
+      await this.tasksChannel.unsubscribe();
+      this.tasksChannel = null;
+      this.isTasksSubscribed = false;
     }
   }
 
   /**
-   * Проверяет статус подписки
+   * Отписывается от изменений ежедневного выбора
+   */
+  async unsubscribeFromDailySelectionChanges(): Promise<void> {
+    if (this.dailySelectionChannel) {
+      await this.dailySelectionChannel.unsubscribe();
+      this.dailySelectionChannel = null;
+      this.isDailySelectionSubscribed = false;
+    }
+  }
+
+  /**
+   * Отписывается от всех изменений
+   */
+  async unsubscribeFromAllChanges(): Promise<void> {
+    await Promise.all([
+      this.unsubscribeFromTaskChanges(),
+      this.unsubscribeFromDailySelectionChanges()
+    ]);
+  }
+
+  /**
+   * Проверяет статус подписки на задачи
+   */
+  isTasksConnected(): boolean {
+    return this.isTasksSubscribed && this.tasksChannel !== null;
+  }
+
+  /**
+   * Проверяет статус подписки на ежедневный выбор
+   */
+  isDailySelectionConnected(): boolean {
+    return this.isDailySelectionSubscribed && this.dailySelectionChannel !== null;
+  }
+
+  /**
+   * Проверяет статус подписки (совместимость с предыдущей версией)
    */
   isConnected(): boolean {
-    return this.isSubscribed && this.channel !== null;
+    return this.isTasksConnected() || this.isDailySelectionConnected();
   }
 
   /**
@@ -117,16 +216,16 @@ export class SupabaseRealtimeService {
 
     this.reconnectAttempts++;
 
-    // Отписываемся от текущего канала
-    await this.unsubscribeFromTaskChanges();
+    // Отписываемся от всех каналов
+    await this.unsubscribeFromAllChanges();
 
     // Ждем перед переподключением
     await new Promise((resolve) =>
       setTimeout(resolve, this.reconnectDelay * this.reconnectAttempts)
     );
 
-    // Переподключаемся
-    await this.subscribeToTaskChanges();
+    // Переподключаемся ко всем каналам
+    await this.subscribeToAllChanges();
   }
 
   /**
@@ -151,6 +250,50 @@ export class SupabaseRealtimeService {
       }
     } catch (error) {
       console.error("Error handling task change:", error);
+    }
+  }
+
+  /**
+   * Обрабатывает изменения ежедневного выбора
+   */
+  private async handleDailySelectionChange(payload: any): Promise<void> {
+    try {
+      let { eventType, new: newRecord, old: oldRecord } = payload;
+      const record = newRecord || oldRecord;
+      
+      if (!record) {
+        console.warn('No record found in daily selection change payload');
+        return;
+      }
+
+      // Игнорируем soft-удаленные записи (кроме случая, когда это само событие soft delete)
+      if (record.deleted_at && eventType !== 'UPDATE') {
+        return;
+      }
+
+      // Для UPDATE событий проверяем, не является ли это soft delete
+      if (eventType === 'UPDATE' && newRecord?.deleted_at && !oldRecord?.deleted_at) {
+        // Это soft delete - обрабатываем как удаление
+        eventType = 'DELETE';
+      }
+
+      // Получаем текущую дату для проверки актуальности изменения
+      const today = DateOnly.today();
+      const recordDate = DateOnly.fromString(record.date);
+      
+      // Обрабатываем только изменения для сегодняшней даты
+      if (recordDate.equals(today)) {
+        // Эмитируем событие для обновления списка задач на сегодня
+        taskEventBus.emit('daily_selection_changed', {
+          type: eventType.toLowerCase(),
+          entry: record,
+          date: recordDate
+        });
+        
+        console.log(`Daily selection ${eventType} for today:`, record);
+      }
+    } catch (error) {
+      console.error('Error handling daily selection change:', error);
     }
   }
 
@@ -222,7 +365,8 @@ export class SupabaseRealtimeService {
    * Обрабатывает ошибки подключения
    */
   private async handleConnectionError(error?: any): Promise<void> {
-    this.isSubscribed = false;
+    this.isTasksSubscribed = false;
+    this.isDailySelectionSubscribed = false;
 
     console.error("Real-time connection error:", error);
 
@@ -240,7 +384,8 @@ export class SupabaseRealtimeService {
    * Обрабатывает таймаут подключения
    */
   private async handleTimeout(): Promise<void> {
-    this.isSubscribed = false;
+    this.isTasksSubscribed = false;
+    this.isDailySelectionSubscribed = false;
 
     // Пытаемся переподключиться
     setTimeout(() => this.reconnect(), this.reconnectDelay);
@@ -250,7 +395,8 @@ export class SupabaseRealtimeService {
    * Обрабатывает закрытие подключения
    */
   private async handleConnectionClosed(): Promise<void> {
-    this.isSubscribed = false;
+    this.isTasksSubscribed = false;
+    this.isDailySelectionSubscribed = false;
   }
 
   /**

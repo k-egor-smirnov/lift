@@ -18,11 +18,13 @@ export interface TaskRecord {
 }
 
 export interface DailySelectionEntryRecord {
-  id?: number;
+  id: string; // ULID primary key
   date: string; // YYYY-MM-DD format
   taskId: string;
   completedFlag: boolean;
   createdAt: Date;
+  updatedAt: Date;
+  deletedAt?: Date;
 }
 
 export interface TaskLogRecord {
@@ -198,6 +200,106 @@ export class TodoDatabase extends Dexie {
         // No migration needed for new optional fields
       });
 
+    // Version 5 - Add soft delete support for daily selection entries
+    this.version(5)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory",
+        dailySelectionEntries:
+          "++id, [date+taskId], date, taskId, completedFlag, createdAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 5 - adding soft delete support for daily selection entries"
+        );
+        // No migration needed for new optional field
+      });
+
+    // Version 6 - Change daily selection entries ID to ULID for Supabase compatibility
+    this.version(6)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 6 - changing daily selection entries ID to ULID"
+        );
+        // Migrate existing entries to use ULID
+        const { ulid } = await import('ulid');
+        const existingEntries = await trans.table('dailySelectionEntries').toArray();
+        
+        // Clear the table and re-add with ULID
+        await trans.table('dailySelectionEntries').clear();
+        
+        for (const entry of existingEntries) {
+          await trans.table('dailySelectionEntries').add({
+            id: ulid(),
+            date: entry.date,
+            taskId: entry.taskId,
+            completedFlag: entry.completedFlag,
+            createdAt: entry.createdAt,
+            deletedAt: entry.deletedAt
+          });
+        }
+      });
+
+    // Version 7 - Add updatedAt field to daily selection entries
+    this.version(7)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 7 - adding updatedAt field to daily selection entries"
+        );
+        // Add updatedAt field to existing entries
+        const existingEntries = await trans.table('dailySelectionEntries').toArray();
+        
+        for (const entry of existingEntries) {
+          if (!entry.updatedAt) {
+            await trans.table('dailySelectionEntries').update(entry.id, {
+              updatedAt: entry.createdAt || new Date()
+            });
+          }
+        }
+      });
+
     // Add hooks for automatic timestamp updates
     this.tasks.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
@@ -210,6 +312,11 @@ export class TodoDatabase extends Dexie {
 
     this.dailySelectionEntries.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
+      obj.updatedAt = new Date();
+    });
+
+    this.dailySelectionEntries.hook("updating", (modifications, _primKey, _obj, _trans) => {
+      (modifications as any).updatedAt = new Date();
     });
 
     this.taskLogs.hook("creating", (_primKey, obj, _trans) => {

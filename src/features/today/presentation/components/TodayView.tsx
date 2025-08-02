@@ -177,10 +177,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
     if (onDeleteTask) {
       onDeleteTask(taskId);
     } else {
-      if (confirm("Are you sure you want to delete this task?")) {
-        // For now, just remove from today - actual deletion should be handled by parent
-        handleRemoveFromToday(taskId);
-      }
+      console.warn("onDeleteTask prop not provided to TodayView - task deletion not available");
     }
   };
 

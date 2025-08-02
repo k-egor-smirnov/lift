@@ -129,9 +129,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     if (onDeleteTask) {
       onDeleteTask(taskId);
     } else {
-      if (confirm('Are you sure you want to delete this task?')) {
-        handleRemoveFromToday(taskId);
-      }
+      console.warn('onDeleteTask prop not provided to TodayMobileView - task deletion not available');
     }
   };
 

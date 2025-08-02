@@ -1,190 +1,9 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { injectable } from 'tsyringe';
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { injectable } from "tsyringe";
+import { Database } from "./supabase-types";
 
-/**
- * Типы для базы данных Supabase
- */
-export interface Database {
-  public: {
-    Tables: {
-      tasks: {
-        Row: {
-          id: string;
-          title: string;
-          category: string;
-          status: string;
-          order: number;
-          created_at: string;
-          updated_at: string;
-          deleted_at: string | null;
-          inbox_entered_at: string | null;
-          deferred_until: string | null;
-          original_category: string | null;
-          user_id: string;
-        };
-        Insert: {
-          id: string;
-          title: string;
-          category: string;
-          status: string;
-          order: number;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-          inbox_entered_at?: string | null;
-          deferred_until?: string | null;
-          original_category?: string | null;
-          user_id: string;
-        };
-        Update: {
-          id?: string;
-          title?: string;
-          category?: string;
-          status?: string;
-          order?: number;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-          inbox_entered_at?: string | null;
-          deferred_until?: string | null;
-          original_category?: string | null;
-          user_id?: string;
-        };
-      };
-      daily_selection_entries: {
-        Row: {
-          id: number;
-          date: string;
-          task_id: string;
-          completed_flag: boolean;
-          created_at: string;
-          user_id: string;
-        };
-        Insert: {
-          id?: number;
-          date: string;
-          task_id: string;
-          completed_flag: boolean;
-          created_at?: string;
-          user_id: string;
-        };
-        Update: {
-          id?: number;
-          date?: string;
-          task_id?: string;
-          completed_flag?: boolean;
-          created_at?: string;
-          user_id?: string;
-        };
-      };
-      task_logs: {
-        Row: {
-          id: string;
-          task_id: string | null;
-          action: string;
-          details: any | null;
-          timestamp: string;
-          user_id: string;
-          device_id: string | null;
-          sync_version: number;
-        };
-        Insert: {
-          id?: string;
-          task_id?: string | null;
-          action: string;
-          details?: any | null;
-          timestamp?: string;
-          user_id: string;
-          device_id?: string | null;
-          sync_version?: number;
-        };
-        Update: {
-          id?: string;
-          task_id?: string | null;
-          action?: string;
-          details?: any | null;
-          timestamp?: string;
-          user_id?: string;
-          device_id?: string | null;
-          sync_version?: number;
-        };
-      };
-      user_settings: {
-        Row: {
-          id: string;
-          user_id: string;
-          settings: any;
-          created_at: string;
-          updated_at: string;
-          device_id: string | null;
-          sync_version: number;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          settings?: any;
-          created_at?: string;
-          updated_at?: string;
-          device_id?: string | null;
-          sync_version?: number;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          settings?: any;
-          created_at?: string;
-          updated_at?: string;
-          device_id?: string | null;
-          sync_version?: number;
-        };
-      };
-      sync_metadata: {
-        Row: {
-          id: string;
-          user_id: string;
-          device_id: string;
-          last_sync_at: string;
-          sync_token: string | null;
-          metadata: any | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          device_id: string;
-          last_sync_at?: string;
-          sync_token?: string | null;
-          metadata?: any | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          device_id?: string;
-          last_sync_at?: string;
-          sync_token?: string | null;
-          metadata?: any | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      [_ in never]: never;
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
-}
+// Экспортируем типы из автогенерированного файла
+export type { Database } from "./supabase-types";
 
 /**
  * Конфигурация Supabase клиента
@@ -223,7 +42,7 @@ export class SupabaseClientFactory {
       },
       global: {
         headers: {
-          'X-Client-Info': 'daily-todo-pwa',
+          "X-Client-Info": "daily-todo-pwa",
         },
       },
     });
@@ -234,7 +53,9 @@ export class SupabaseClientFactory {
    */
   getClient(): SupabaseClient<Database> {
     if (!this.client) {
-      throw new Error('Supabase client not initialized. Call initialize() first.');
+      throw new Error(
+        "Supabase client not initialized. Call initialize() first."
+      );
     }
     return this.client;
   }
@@ -280,7 +101,7 @@ export class SupabaseUtils {
    */
   static async checkConnection(client: SupabaseClient): Promise<boolean> {
     try {
-      const { error } = await client.from('tasks').select('id').limit(1);
+      const { error } = await client.from("tasks").select("id").limit(1);
       return !error;
     } catch {
       return false;
@@ -291,7 +112,9 @@ export class SupabaseUtils {
    * Получение ID пользователя
    */
   static async getUserId(client: SupabaseClient): Promise<string | null> {
-    const { data: { user } } = await client.auth.getUser();
+    const {
+      data: { user },
+    } = await client.auth.getUser();
     return user?.id || null;
   }
 
@@ -299,12 +122,21 @@ export class SupabaseUtils {
    * Генерация уникального ID устройства
    */
   static generateDeviceId(): string {
-    // Используем комбинацию userAgent и случайного числа
-    const userAgent = navigator.userAgent;
-    const random = Math.random().toString(36).substring(2);
-    const timestamp = Date.now().toString(36);
-    
-    return btoa(`${userAgent}-${random}-${timestamp}`).substring(0, 32);
+    return crypto.randomUUID();
+  }
+
+  static getDeviceId(): string {
+    if (!("localStorage" in window)) {
+      throw new Error("LocalStorage is not supported");
+    }
+
+    const deviceId = localStorage.getItem("lift-deviceId");
+    if (deviceId) {
+      return deviceId;
+    }
+    const newDeviceId = this.generateDeviceId();
+    localStorage.setItem("lift-deviceId", newDeviceId);
+    return newDeviceId;
   }
 
   /**

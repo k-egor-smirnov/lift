@@ -48,8 +48,11 @@ export class SyncService {
         await this.syncRepository.getLastSyncTimestamp();
 
       // Выполняем синхронизацию всех данных
-      const [tasksResult, dailySelectionResult, taskLogsResult] = await Promise.all([
-        this.syncRepository.syncTasks(lastSyncTimestamp || undefined),
+      // Сначала синхронизируем задачи, затем связанные данные
+      const tasksResult = await this.syncRepository.syncTasks(lastSyncTimestamp || undefined);
+      
+      // Синхронизируем daily selection entries и task logs только после успешной синхронизации задач
+      const [dailySelectionResult, taskLogsResult] = await Promise.all([
         this.syncRepository.syncDailySelectionEntries(lastSyncTimestamp || undefined),
         this.syncRepository.syncTaskLogs(lastSyncTimestamp || undefined)
       ]);

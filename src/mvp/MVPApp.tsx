@@ -193,8 +193,8 @@ export const MVPApp: React.FC = () => {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Ensure database is open
-        await database.open();
+        // Initialize database using the proper method
+        await database.initialize();
 
         // Initialize task event adapter to bridge domain events with task events
         await taskEventAdapter.initialize();
@@ -203,7 +203,9 @@ export const MVPApp: React.FC = () => {
         // Load tasks after database is ready
         await loadTasks();
       } catch (error) {
-        console.error("Failed to initialize database:", error);
+        console.error("Failed to initialize app:", error);
+        // Show user-friendly error message
+        toast.error("Failed to initialize application. Please refresh the page.");
       }
     };
 

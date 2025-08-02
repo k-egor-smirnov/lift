@@ -122,7 +122,7 @@ export class SyncInitializer {
     if (!this.realtimeService) return;
 
     try {
-      await this.realtimeService.subscribeToTaskChanges();
+      await this.realtimeService.subscribeToAllChanges();
       console.log('Real-time subscriptions enabled');
     } catch (error) {
       console.error('Failed to enable real-time:', error);
@@ -217,7 +217,7 @@ export class SyncInitializer {
     // Отключаем real-time подписки
     if (this.realtimeService) {
       try {
-        await this.realtimeService.unsubscribeFromTaskChanges();
+        await this.realtimeService.unsubscribeFromAllChanges();
       } catch (error) {
         console.error('Error unsubscribing from real-time:', error);
       }
@@ -268,9 +268,9 @@ export class SyncInitializer {
 
     try {
       if (enabled) {
-        await this.realtimeService.subscribeToTaskChanges();
+        await this.realtimeService.subscribeToAllChanges();
       } else {
-        await this.realtimeService.unsubscribeFromTaskChanges();
+        await this.realtimeService.unsubscribeFromAllChanges();
       }
     } catch (error) {
       console.error('Error toggling real-time:', error);
