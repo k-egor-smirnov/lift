@@ -55,6 +55,7 @@ const mockTaskRepository = {
   markAsIncomplete: vi.fn(),
   defer: vi.fn(),
   undefer: vi.fn(),
+  findDeleted: vi.fn(),
 };
 
 describe("SupabaseRealtimeService", () => {

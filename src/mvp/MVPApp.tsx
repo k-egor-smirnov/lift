@@ -47,12 +47,14 @@ import { LogViewModelDependencies } from "../features/logs/presentation/view-mod
 import { toast, Toaster } from "sonner";
 import { Settings } from "../features/settings/presentation/components/Settings";
 import { ContentArea } from "./components/ContentArea";
+import { ClearDeletedTasksUseCase } from "../shared/application/use-cases/ClearDeletedTasksUseCase";
+import { TrashViewDependencies } from "../features/tasks/presentation/components/TrashView";
 
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [activeView, setActiveView] = useState<
-    "today" | "logs" | "settings" | TaskCategory
+    "today" | "logs" | "settings" | "trash" | TaskCategory
   >("today");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
@@ -113,6 +115,9 @@ export const MVPApp: React.FC = () => {
   const undeferTaskUseCase = getService<UndeferTaskUseCase>(
     tokens.UNDEFER_TASK_USE_CASE_TOKEN
   );
+  const clearDeletedTasksUseCase = getService<ClearDeletedTasksUseCase>(
+    tokens.CLEAR_DELETED_TASKS_USE_CASE_TOKEN
+  );
   const getTaskLogsUseCase = getService<GetTaskLogsUseCase>(
     tokens.GET_TASK_LOGS_USE_CASE_TOKEN
   );
@@ -153,6 +158,14 @@ export const MVPApp: React.FC = () => {
     () => ({
       getTaskLogsUseCase,
       createUserLogUseCase,
+    }),
+    []
+  );
+
+  const trashDependencies: TrashViewDependencies = useMemo(
+    () => ({
+      taskRepository,
+      clearDeletedTasksUseCase,
     }),
     []
   );
@@ -343,7 +356,12 @@ export const MVPApp: React.FC = () => {
 
   // Update view model filter when active view changes
   useEffect(() => {
-    if (activeView === "today" || activeView === "logs") {
+    if (
+      activeView === "today" ||
+      activeView === "logs" ||
+      activeView === "settings" ||
+      activeView === "trash"
+    ) {
       setViewModelFilter({});
     } else {
       setViewModelFilter({ category: activeView });
@@ -730,9 +748,12 @@ export const MVPApp: React.FC = () => {
 
   // Get the current category for modal
   const currentCategory =
-    activeView === "today" || activeView === "logs"
+    activeView === "today" ||
+    activeView === "logs" ||
+    activeView === "settings" ||
+    activeView === "trash"
       ? TaskCategory.INBOX
-      : activeView;
+      : (activeView as TaskCategory);
   const hideCategorySelection = activeView !== "today";
 
   // If mobile view should be used, render it directly without sidebar/header
@@ -835,6 +856,7 @@ export const MVPApp: React.FC = () => {
             loading={loading}
             todayDependencies={todayDependencies}
             logDependencies={logDependencies}
+            trashDependencies={trashDependencies}
             tasks={getFilteredTasks()}
             currentCategory={currentCategory}
             todayTaskIds={todayTaskIds}

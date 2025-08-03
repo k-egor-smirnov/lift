@@ -26,6 +26,7 @@ export const CREATE_USER_LOG_USE_CASE_TOKEN = Symbol('CreateUserLogUseCase');
 export const CREATE_SYSTEM_LOG_USE_CASE_TOKEN = Symbol('CreateSystemLogUseCase');
 export const DEFER_TASK_USE_CASE_TOKEN = Symbol('DeferTaskUseCase');
 export const UNDEFER_TASK_USE_CASE_TOKEN = Symbol('UndeferTaskUseCase');
+export const CLEAR_DELETED_TASKS_USE_CASE_TOKEN = Symbol('ClearDeletedTasksUseCase');
 
 // Services
 export const DEFERRED_TASK_SERVICE_TOKEN = Symbol('DeferredTaskService');
