@@ -86,6 +86,14 @@ export class TaskRepositoryImpl implements TaskRepository {
     return records.map((record) => this.mapRecordToEntity(record));
   }
 
+  async findDeleted(): Promise<Task[]> {
+    const records = await this.db.tasks
+      .filter((record) => !!record.deletedAt)
+      .toArray();
+
+    return records.map((record) => this.mapRecordToEntity(record));
+  }
+
   async save(task: Task): Promise<void> {
     const record = this.mapEntityToRecord(task);
     await this.db.tasks.put(record);

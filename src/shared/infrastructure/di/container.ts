@@ -23,6 +23,7 @@ import { CreateUserLogUseCase } from "../../application/use-cases/CreateUserLogU
 import { CreateSystemLogUseCase } from "../../application/use-cases/CreateSystemLogUseCase";
 import { DeferTaskUseCase } from "../../application/use-cases/DeferTaskUseCase";
 import { UndeferTaskUseCase } from "../../application/use-cases/UndeferTaskUseCase";
+import { ClearDeletedTasksUseCase } from "../../application/use-cases/ClearDeletedTasksUseCase";
 
 // Import services
 import { DeferredTaskService } from "../../application/services/DeferredTaskService";
@@ -109,6 +110,10 @@ export function configureContainer(): void {
   container.registerSingleton(
     tokens.UNDEFER_TASK_USE_CASE_TOKEN,
     UndeferTaskUseCase
+  );
+  container.registerSingleton(
+    tokens.CLEAR_DELETED_TASKS_USE_CASE_TOKEN,
+    ClearDeletedTasksUseCase
   );
 
   // Register services as singletons

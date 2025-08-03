@@ -16,6 +16,7 @@ const mockTaskRepository = {
   findByCategory: vi.fn(),
   findByStatus: vi.fn(),
   findOverdue: vi.fn(),
+  findDeleted: vi.fn(),
   save: vi.fn(),
   saveMany: vi.fn(),
   delete: vi.fn(),

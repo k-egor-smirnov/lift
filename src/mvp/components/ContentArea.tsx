@@ -9,16 +9,21 @@ import { TodayViewModelDependencies } from "../../features/today/presentation/vi
 import { LogViewModelDependencies } from "../../features/logs/presentation/view-models/LogViewModel";
 import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { ViewContainer } from "./ViewContainer";
+import { TrashView, TrashViewDependencies } from "../../features/tasks/presentation/components/TrashView";
 
 interface ContentAreaProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
+  activeView: "today" | "logs" | "settings" | "trash" | TaskCategory;
   loading: boolean;
   
   // Today view props
   todayDependencies: TodayViewModelDependencies;
-  
+
   // Logs view props
   logDependencies: LogViewModelDependencies;
+
+  // Trash view props
+  trashDependencies: TrashViewDependencies;
+  trashDependencies: TrashViewDependencies;
   
   // Task list props
   tasks: Task[];
@@ -44,6 +49,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   loading,
   todayDependencies,
   logDependencies,
+  trashDependencies,
   tasks,
   currentCategory,
   todayTaskIds,
@@ -99,6 +105,13 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
       return (
         <ViewContainer>
           <Settings />
+        </ViewContainer>
+      );
+
+    case "trash":
+      return (
+        <ViewContainer>
+          <TrashView dependencies={trashDependencies} />
         </ViewContainer>
       );
 
