@@ -4,9 +4,11 @@ import {
   RemoveTaskFromTodayRequest,
 } from "../RemoveTaskFromTodayUseCase";
 import { DailySelectionRepository } from "../../../domain/repositories/DailySelectionRepository";
+import { EventBus } from "../../../domain/events/EventBus";
 import { TaskId } from "../../../domain/value-objects/TaskId";
 import { DateOnly } from "../../../domain/value-objects/DateOnly";
 import { ResultUtils } from "../../../domain/Result";
+import { DebouncedSyncService } from "../../services/DebouncedSyncService";
 
 // Mock implementations
 const mockDailySelectionRepository: DailySelectionRepository = {
@@ -23,12 +25,29 @@ const mockDailySelectionRepository: DailySelectionRepository = {
   getLastSelectionDateForTask: vi.fn(),
 };
 
+const mockEventBus: EventBus = {
+  publish: vi.fn(),
+  publishAll: vi.fn(),
+  subscribe: vi.fn(),
+  subscribeToAll: vi.fn(),
+  clear: vi.fn(),
+};
+
+const mockDebouncedSyncService: DebouncedSyncService = {
+  triggerSync: vi.fn(),
+  cleanup: vi.fn(),
+} as unknown as DebouncedSyncService;
+
 describe("RemoveTaskFromTodayUseCase", () => {
   let useCase: RemoveTaskFromTodayUseCase;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useCase = new RemoveTaskFromTodayUseCase(mockDailySelectionRepository);
+    useCase = new RemoveTaskFromTodayUseCase(
+      mockDailySelectionRepository,
+      mockEventBus,
+      mockDebouncedSyncService
+    );
   });
 
   describe("execute", () => {
