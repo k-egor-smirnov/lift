@@ -4,20 +4,25 @@ import { TodoDatabase, TaskLogRecord } from '../../../infrastructure/database/To
 import { TaskId } from '../../../domain/value-objects/TaskId';
 import { TaskCategory } from '../../../domain/types';
 import { ResultUtils } from '../../../domain/Result';
+import { DebouncedSyncService } from '../../services/DebouncedSyncService';
 
 // Mock database
 const mockDatabase = {
   taskLogs: {
-    add: vi.fn()
-  }
+    add: vi.fn(),
+  },
 } as unknown as TodoDatabase;
+
+const mockSyncService = {
+  triggerSync: vi.fn(),
+} as unknown as DebouncedSyncService;
 
 describe('CreateSystemLogUseCase', () => {
   let useCase: CreateSystemLogUseCase;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useCase = new CreateSystemLogUseCase(mockDatabase);
+    useCase = new CreateSystemLogUseCase(mockDatabase, mockSyncService);
   });
 
   describe('execute', () => {

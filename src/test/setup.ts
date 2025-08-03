@@ -3,72 +3,33 @@ import '@testing-library/jest-dom/vitest'
 import 'fake-indexeddb/auto'
 import { vi } from 'vitest'
 
-// Mock DateOnly
-vi.mock('../shared/domain/value-objects/DateOnly', () => {
-  const mockDate = new Date('2023-12-01T12:00:00Z');
-  const mockDateString = '2023-12-01';
-  const mockYesterdayString = '2023-11-30';
-  
-  // Mock Date.now to return fixed timestamp
-  const originalDateNow = Date.now;
-  Date.now = () => new Date('2023-12-01T12:00:00Z').getTime();
-  
-  // Store original Date for cleanup
-  const originalDate = global.Date;
-  
-  return {
-    DateOnly: {
-      today: () => ({
-        value: mockDateString,
-        daysDifference: (other: any) => {
-          const thisDate = new Date(mockDateString);
-          const otherDate = new Date(other.value || other);
-          const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-          const days = diffTime / (1000 * 60 * 60 * 24);
-          return days === 0 ? 0 : Math.ceil(days);
-        },
-      }),
-      yesterday: () => ({
-        value: mockYesterdayString,
-        daysDifference: (other: any) => {
-          const thisDate = new Date(mockYesterdayString);
-          const otherDate = new Date(other.value || other);
-          const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-          const days = diffTime / (1000 * 60 * 60 * 24);
-          return days === 0 ? 0 : Math.ceil(days);
-        },
-      }),
-      getCurrentDate: () => mockDate,
-      fromDate: (date: Date) => {
-        // Use local date formatting to avoid timezone issues
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const localDateString = `${year}-${month}-${day}`;
-        
-        return {
-          value: localDateString,
-          daysDifference: (other: any) => {
-            const thisDate = new Date(localDateString);
-            const otherDate = new Date(other.value || other);
-            const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-            const days = diffTime / (1000 * 60 * 60 * 24);
-            return days === 0 ? 0 : Math.ceil(days);
-          },
-        };
-      },
-      fromString: (dateString: string) => ({
-        value: dateString,
-        daysDifference: (other: any) => {
-          const thisDate = new Date(dateString);
-          const otherDate = new Date(other.value || other);
-          const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-          const days = diffTime / (1000 * 60 * 60 * 24);
-          return days === 0 ? 0 : Math.ceil(days);
-        },
-      }),
-    },
-  };
+// Use a fixed system time for deterministic tests
+vi.useFakeTimers()
+vi.setSystemTime(new Date('2023-12-01T12:00:00Z'))
+
+// Provide a lightweight mock for DateOnly that preserves the class behaviour
+vi.mock('../shared/domain/value-objects/DateOnly', async () => {
+  const actual = await vi.importActual<typeof import('../shared/domain/value-objects/DateOnly')>(
+    '../shared/domain/value-objects/DateOnly'
+  )
+
+  const { DateOnly: ActualDateOnly } = actual
+
+  class MockDateOnly extends ActualDateOnly {
+    static override today(): any {
+      return ActualDateOnly.fromDate(new Date(Date.now()))
+    }
+
+    static override yesterday(): any {
+      return this.today().subtractDays(1)
+    }
+
+    static override getCurrentDate(): Date {
+      return new Date(Date.now())
+    }
+  }
+
+  return { ...actual, DateOnly: MockDateOnly }
 })
 
 // Mock react-i18next

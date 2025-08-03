@@ -12,7 +12,6 @@ import { TaskId } from "../../domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../domain/types";
-import { taskEventBus } from "../events/TaskEventBus";
 import * as tokens from "../di/tokens";
 
 /**
@@ -31,6 +30,7 @@ export class SupabaseRealtimeService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000; // 1 секунда
+  private listeners: Map<string, Set<(payload: any) => void>> = new Map();
 
   constructor(
     @inject(tokens.SUPABASE_CLIENT_FACTORY_TOKEN)
@@ -42,6 +42,30 @@ export class SupabaseRealtimeService {
   ) {
     this.client = this.clientFactory.getClient();
     this.initializeUserId();
+  }
+
+  on(event: string, listener: (payload: any) => void): void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event)!.add(listener);
+  }
+
+  off(event: string, listener: (payload: any) => void): void {
+    this.listeners.get(event)?.delete(listener);
+  }
+
+  private emit(event: string, payload: any): void {
+    const listeners = this.listeners.get(event);
+    if (listeners) {
+      for (const fn of listeners) {
+        try {
+          fn(payload);
+        } catch (error) {
+          console.error('Error in realtime event listener:', error);
+        }
+      }
+    }
   }
 
   private async initializeUserId(): Promise<void> {
@@ -259,7 +283,7 @@ export class SupabaseRealtimeService {
   private async handleDailySelectionChange(payload: any): Promise<void> {
     try {
       let { eventType, new: newRecord, old: oldRecord } = payload;
-      const record = newRecord || oldRecord;
+      const record = newRecord && Object.keys(newRecord).length > 0 ? newRecord : oldRecord;
       
       if (!record) {
         console.warn('No record found in daily selection change payload');
@@ -283,13 +307,12 @@ export class SupabaseRealtimeService {
       
       // Обрабатываем только изменения для сегодняшней даты
       if (recordDate.equals(today)) {
-        // Эмитируем событие для обновления списка задач на сегодня
-        taskEventBus.emit('daily_selection_changed', {
-          type: eventType.toLowerCase(),
-          entry: record,
-          date: recordDate
+        this.emit('daily_selection_changed', {
+          eventType,
+          data: record,
+          date: recordDate.value,
         });
-        
+
         console.log(`Daily selection ${eventType} for today:`, record);
       }
     } catch (error) {
