@@ -353,7 +353,7 @@ describe('TaskRepositoryImpl', () => {
       const { task } = Task.create(taskId, new NonEmptyTitle('Test Task'), TaskCategory.SIMPLE);
 
       await repository.save(task);
-      
+
       // Verify task exists
       expect(await repository.exists(taskId)).toBe(true);
 
@@ -363,6 +363,29 @@ describe('TaskRepositoryImpl', () => {
       // Verify task is gone
       expect(await repository.exists(taskId)).toBe(false);
       expect(await repository.findById(taskId)).toBeNull();
+    });
+  });
+
+  describe('findDeleted and clearDeleted', () => {
+    it('should return soft-deleted tasks and clear them', async () => {
+      const task1Id = TaskId.generate();
+      const task2Id = TaskId.generate();
+
+      const { task: task1 } = Task.create(task1Id, new NonEmptyTitle('Task 1'), TaskCategory.SIMPLE);
+      const { task: task2 } = Task.create(task2Id, new NonEmptyTitle('Task 2'), TaskCategory.FOCUS);
+
+      task1.softDelete();
+      task2.softDelete();
+
+      await repository.saveMany([task1, task2]);
+
+      const deletedTasks = await repository.findDeleted();
+      expect(deletedTasks).toHaveLength(2);
+
+      await repository.clearDeleted();
+
+      const afterClear = await repository.findDeleted();
+      expect(afterClear).toHaveLength(0);
     });
   });
 

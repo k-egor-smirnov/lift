@@ -9,20 +9,25 @@ import {
   Menu,
   Clock,
   Settings,
+  Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
 
 interface HeaderProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
+  activeView: "today" | "logs" | "settings" | "trash" | TaskCategory;
   onMobileMenuToggle: () => void;
 }
 
-const getViewTitle = (view: "today" | "logs" | "settings" | TaskCategory, t: any) => {
+const getViewTitle = (
+  view: "today" | "logs" | "settings" | "trash" | TaskCategory,
+  t: any
+) => {
   if (view === "today") return t("navigation.today");
   if (view === "logs") return t("logs.title", "Activity Logs");
   if (view === "settings") return t("settings.title");
+  if (view === "trash") return t("navigation.trash", "Trash");
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -38,11 +43,15 @@ const getViewTitle = (view: "today" | "logs" | "settings" | TaskCategory, t: any
   }
 };
 
-const getViewDescription = (view: "today" | "logs" | "settings" | TaskCategory, t: any) => {
+const getViewDescription = (
+  view: "today" | "logs" | "settings" | "trash" | TaskCategory,
+  t: any
+) => {
   if (view === "today") return t("navigation.descriptions.today");
   if (view === "logs")
     return t("logs.subtitle", "View all system and user activity");
   if (view === "settings") return t("settings.app.description");
+  if (view === "trash") return t("navigation.descriptions.trash", "Deleted tasks");
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -58,10 +67,13 @@ const getViewDescription = (view: "today" | "logs" | "settings" | TaskCategory, 
   }
 };
 
-const getViewIcon = (view: "today" | "logs" | "settings" | TaskCategory) => {
+const getViewIcon = (
+  view: "today" | "logs" | "settings" | "trash" | TaskCategory
+) => {
   if (view === "today") return Sun;
   if (view === "logs") return FileText;
   if (view === "settings") return Settings;
+  if (view === "trash") return Trash2;
 
   switch (view) {
     case TaskCategory.SIMPLE:

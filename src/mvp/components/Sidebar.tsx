@@ -1,5 +1,5 @@
 import React from "react";
-import { Sun, Zap, Target, Inbox, Clock, FileText, Settings } from "lucide-react";
+import { Sun, Zap, Target, Inbox, Clock, FileText, Settings, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
@@ -7,8 +7,10 @@ import { cn } from "../../shared/lib/utils";
 import LiftLogo from "../../../assets/icon.png";
 
 interface SidebarProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
-  onViewChange: (view: "today" | "logs" | "settings" | TaskCategory) => void;
+  activeView: "today" | "logs" | "settings" | "trash" | TaskCategory;
+  onViewChange: (
+    view: "today" | "logs" | "settings" | "trash" | TaskCategory
+  ) => void;
   taskCounts: Record<TaskCategory, number>;
   hasOverdueTasks: boolean;
   isMobileMenuOpen: boolean;
@@ -53,6 +55,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       name: getCategoryInfo(category, t).name,
       count: taskCounts[category] || 0,
     })),
+    {
+      id: "trash" as const,
+      icon: Trash2,
+      name: t("navigation.trash", "Trash"),
+      count: null,
+    },
     {
       id: "logs" as const,
       icon: FileText,

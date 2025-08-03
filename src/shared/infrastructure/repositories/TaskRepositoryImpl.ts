@@ -86,6 +86,14 @@ export class TaskRepositoryImpl implements TaskRepository {
     return records.map((record) => this.mapRecordToEntity(record));
   }
 
+  async findDeleted(): Promise<Task[]> {
+    const records = await this.db.tasks
+      .filter((record) => record.deletedAt != null)
+      .sortBy("updatedAt");
+
+    return records.map((record) => this.mapRecordToEntity(record));
+  }
+
   async save(task: Task): Promise<void> {
     const record = this.mapEntityToRecord(task);
     await this.db.tasks.put(record);
@@ -98,6 +106,10 @@ export class TaskRepositoryImpl implements TaskRepository {
 
   async delete(id: TaskId): Promise<void> {
     await this.db.tasks.delete(id.value);
+  }
+
+  async clearDeleted(): Promise<void> {
+    await this.db.tasks.filter((record) => record.deletedAt != null).delete();
   }
 
   async count(): Promise<number> {
