@@ -74,7 +74,7 @@ export class KeyboardShortcutService {
    */
   getShortcutsByCategory(category: string): KeyboardShortcutRegistration[] {
     return Array.from(this.shortcuts.values()).filter(
-      registration => registration.shortcut.category === category
+      (registration) => registration.shortcut.category === category
     );
   }
 
@@ -82,10 +82,11 @@ export class KeyboardShortcutService {
    * Check if device is mobile
    */
   private detectMobile(): void {
-    if (typeof window !== 'undefined') {
-      this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      );
+    if (typeof window !== "undefined") {
+      this.isMobile =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent
+        );
     }
   }
 
@@ -93,7 +94,7 @@ export class KeyboardShortcutService {
    * Setup global keyboard event listener
    */
   private setupEventListener(): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     this.eventListener = (event: KeyboardEvent) => {
       if (!this.getEnabled()) return;
@@ -102,12 +103,12 @@ export class KeyboardShortcutService {
       const target = event.target as HTMLElement;
       if (
         target &&
-        (target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.contentEditable === 'true')
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.contentEditable === "true")
       ) {
         // Allow form shortcuts (Escape, Enter) in input fields
-        if (event.key !== 'Escape' && event.key !== 'Enter') {
+        if (event.key !== "Escape" && event.key !== "Enter") {
           return;
         }
       }
@@ -123,13 +124,16 @@ export class KeyboardShortcutService {
       }
     };
 
-    window.addEventListener('keydown', this.eventListener);
+    window.addEventListener("keydown", this.eventListener);
   }
 
   /**
    * Check if event matches shortcut
    */
-  private matchesShortcut(event: KeyboardEvent, shortcut: KeyboardShortcut): boolean {
+  private matchesShortcut(
+    event: KeyboardEvent,
+    shortcut: KeyboardShortcut
+  ): boolean {
     return (
       event.key.toLowerCase() === shortcut.key.toLowerCase() &&
       !!event.ctrlKey === !!shortcut.ctrlKey &&
@@ -143,8 +147,8 @@ export class KeyboardShortcutService {
    * Cleanup event listeners
    */
   destroy(): void {
-    if (this.eventListener && typeof window !== 'undefined') {
-      window.removeEventListener('keydown', this.eventListener);
+    if (this.eventListener && typeof window !== "undefined") {
+      window.removeEventListener("keydown", this.eventListener);
       this.eventListener = null;
     }
     this.shortcuts.clear();
@@ -155,15 +159,15 @@ export class KeyboardShortcutService {
    */
   static formatShortcut(shortcut: KeyboardShortcut): string {
     const parts: string[] = [];
-    
-    if (shortcut.ctrlKey) parts.push('Ctrl');
-    if (shortcut.altKey) parts.push('Alt');
-    if (shortcut.shiftKey) parts.push('Shift');
-    if (shortcut.metaKey) parts.push('Cmd');
-    
+
+    if (shortcut.ctrlKey) parts.push("Ctrl");
+    if (shortcut.altKey) parts.push("Alt");
+    if (shortcut.shiftKey) parts.push("Shift");
+    if (shortcut.metaKey) parts.push("Cmd");
+
     parts.push(shortcut.key.toUpperCase());
-    
-    return parts.join(' + ');
+
+    return parts.join(" + ");
   }
 }
 

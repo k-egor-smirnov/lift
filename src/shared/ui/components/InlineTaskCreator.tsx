@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { TaskCategory } from '../../domain/types';
-import { Check } from 'lucide-react';
+import React, { useState, useRef, useEffect } from "react";
+import { TaskCategory } from "../../domain/types";
+import { Check } from "lucide-react";
 
 interface InlineTaskCreatorProps {
   onCreateTask: (title: string, category: TaskCategory) => Promise<boolean>;
@@ -11,9 +11,9 @@ interface InlineTaskCreatorProps {
 export const InlineTaskCreator: React.FC<InlineTaskCreatorProps> = ({
   onCreateTask,
   category,
-  placeholder = "Добавить новую задачу..."
+  placeholder = "Добавить новую задачу...",
 }) => {
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -25,38 +25,38 @@ export const InlineTaskCreator: React.FC<InlineTaskCreatorProps> = ({
     try {
       const success = await onCreateTask(trimmedTitle, category);
       if (success) {
-        setTitle('');
+        setTitle("");
         if (inputRef.current) {
           inputRef.current.focus();
         }
       }
     } catch (error) {
-      console.error('Failed to create task:', error);
+      console.error("Failed to create task:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       e.stopPropagation();
       handleSubmit();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
-      setTitle('');
+      setTitle("");
       if (inputRef.current) {
         inputRef.current.blur();
       }
-    } else if (e.key === ' ') {
+    } else if (e.key === " ") {
       // Prevent space from triggering drag and drop
       e.stopPropagation();
     }
   };
 
   const handleCancel = () => {
-    setTitle('');
+    setTitle("");
     if (inputRef.current) {
       inputRef.current.blur();
     }

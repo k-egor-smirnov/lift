@@ -41,7 +41,10 @@ export const TaskTitleEditor: React.FC<TaskTitleEditorProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2" data-testid="task-card-title-editor">
+    <div
+      className="flex items-center gap-2"
+      data-testid="task-card-title-editor"
+    >
       <input
         ref={inputRef}
         type="text"

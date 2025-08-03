@@ -1,7 +1,10 @@
-import { create } from 'zustand';
-import { UserSettingsService, UserSettings } from '../../application/services/UserSettingsService';
-import { UserSettingsRepositoryImpl } from '../../../../shared/infrastructure/repositories/UserSettingsRepositoryImpl';
-import { todoDatabase } from '../../../../shared/infrastructure/database/TodoDatabase';
+import { create } from "zustand";
+import {
+  UserSettingsService,
+  UserSettings,
+} from "../../application/services/UserSettingsService";
+import { UserSettingsRepositoryImpl } from "../../../../shared/infrastructure/repositories/UserSettingsRepositoryImpl";
+import { todoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 
 /**
  * State for the user settings view model
@@ -11,7 +14,7 @@ interface UserSettingsState {
   settings: UserSettings | null;
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   loadSettings: () => Promise<void>;
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
@@ -32,142 +35,165 @@ const createUserSettingsService = () => {
 /**
  * Zustand store for user settings functionality
  */
-export const useUserSettingsViewModel = create<UserSettingsState>((set, get) => {
-  const userSettingsService = createUserSettingsService();
+export const useUserSettingsViewModel = create<UserSettingsState>(
+  (set, get) => {
+    const userSettingsService = createUserSettingsService();
 
-  return {
-    // Initial state
-    settings: null,
-    isLoading: false,
-    error: null,
+    return {
+      // Initial state
+      settings: null,
+      isLoading: false,
+      error: null,
 
-    // Load user settings
-    loadSettings: async () => {
-      set({ isLoading: true, error: null });
-      
-      try {
-        // Initialize defaults first
-        await userSettingsService.initializeDefaults();
-        
-        // Load settings
-        const settings = await userSettingsService.getUserSettings();
-        set({ 
-          settings, 
-          isLoading: false 
-        });
-      } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to load settings',
-          isLoading: false 
-        });
-      }
-    },
+      // Load user settings
+      loadSettings: async () => {
+        set({ isLoading: true, error: null });
 
-    // Update user settings
-    updateSettings: async (settingsUpdate: Partial<UserSettings>) => {
-      const currentSettings = get().settings;
-      if (!currentSettings) {
-        set({ error: 'Settings not loaded' });
-        return;
-      }
+        try {
+          // Initialize defaults first
+          await userSettingsService.initializeDefaults();
 
-      set({ isLoading: true, error: null });
-      
-      try {
-        await userSettingsService.updateUserSettings(settingsUpdate);
-        
-        // Update local state
-        const updatedSettings = { ...currentSettings, ...settingsUpdate };
-        set({ 
-          settings: updatedSettings, 
-          isLoading: false 
-        });
-      } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to update settings',
-          isLoading: false 
-        });
-      }
-    },
+          // Load settings
+          const settings = await userSettingsService.getUserSettings();
+          set({
+            settings,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to load settings",
+            isLoading: false,
+          });
+        }
+      },
 
-    // Set inbox overdue days
-    setInboxOverdueDays: async (days: number) => {
-      const currentSettings = get().settings;
-      if (!currentSettings) {
-        set({ error: 'Settings not loaded' });
-        return;
-      }
+      // Update user settings
+      updateSettings: async (settingsUpdate: Partial<UserSettings>) => {
+        const currentSettings = get().settings;
+        if (!currentSettings) {
+          set({ error: "Settings not loaded" });
+          return;
+        }
 
-      set({ isLoading: true, error: null });
-      
-      try {
-        await userSettingsService.setInboxOverdueDays(days);
-        
-        // Update local state
-        const updatedSettings = { ...currentSettings, inboxOverdueDays: days };
-        set({ 
-          settings: updatedSettings, 
-          isLoading: false 
-        });
-      } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to update inbox overdue days',
-          isLoading: false 
-        });
-      }
-    },
+        set({ isLoading: true, error: null });
 
-    // Set keyboard shortcuts enabled
-    setKeyboardShortcutsEnabled: async (enabled: boolean) => {
-      const currentSettings = get().settings;
-      if (!currentSettings) {
-        set({ error: 'Settings not loaded' });
-        return;
-      }
+        try {
+          await userSettingsService.updateUserSettings(settingsUpdate);
 
-      set({ isLoading: true, error: null });
-      
-      try {
-        await userSettingsService.setKeyboardShortcutsEnabled(enabled);
-        
-        // Update local state
-        const updatedSettings = { ...currentSettings, keyboardShortcutsEnabled: enabled };
-        set({ 
-          settings: updatedSettings, 
-          isLoading: false 
-        });
-      } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to update keyboard shortcuts setting',
-          isLoading: false 
-        });
-      }
-    },
+          // Update local state
+          const updatedSettings = { ...currentSettings, ...settingsUpdate };
+          set({
+            settings: updatedSettings,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update settings",
+            isLoading: false,
+          });
+        }
+      },
 
-    // Reset to defaults
-    resetToDefaults: async () => {
-      set({ isLoading: true, error: null });
-      
-      try {
-        await userSettingsService.resetToDefaults();
-        
-        // Reload settings
-        const settings = await userSettingsService.getUserSettings();
-        set({ 
-          settings, 
-          isLoading: false 
-        });
-      } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to reset settings',
-          isLoading: false 
-        });
-      }
-    },
+      // Set inbox overdue days
+      setInboxOverdueDays: async (days: number) => {
+        const currentSettings = get().settings;
+        if (!currentSettings) {
+          set({ error: "Settings not loaded" });
+          return;
+        }
 
-    // Clear error
-    clearError: () => {
-      set({ error: null });
-    }
-  };
-});
+        set({ isLoading: true, error: null });
+
+        try {
+          await userSettingsService.setInboxOverdueDays(days);
+
+          // Update local state
+          const updatedSettings = {
+            ...currentSettings,
+            inboxOverdueDays: days,
+          };
+          set({
+            settings: updatedSettings,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update inbox overdue days",
+            isLoading: false,
+          });
+        }
+      },
+
+      // Set keyboard shortcuts enabled
+      setKeyboardShortcutsEnabled: async (enabled: boolean) => {
+        const currentSettings = get().settings;
+        if (!currentSettings) {
+          set({ error: "Settings not loaded" });
+          return;
+        }
+
+        set({ isLoading: true, error: null });
+
+        try {
+          await userSettingsService.setKeyboardShortcutsEnabled(enabled);
+
+          // Update local state
+          const updatedSettings = {
+            ...currentSettings,
+            keyboardShortcutsEnabled: enabled,
+          };
+          set({
+            settings: updatedSettings,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update keyboard shortcuts setting",
+            isLoading: false,
+          });
+        }
+      },
+
+      // Reset to defaults
+      resetToDefaults: async () => {
+        set({ isLoading: true, error: null });
+
+        try {
+          await userSettingsService.resetToDefaults();
+
+          // Reload settings
+          const settings = await userSettingsService.getUserSettings();
+          set({
+            settings,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to reset settings",
+            isLoading: false,
+          });
+        }
+      },
+
+      // Clear error
+      clearError: () => {
+        set({ error: null });
+      },
+    };
+  }
+);

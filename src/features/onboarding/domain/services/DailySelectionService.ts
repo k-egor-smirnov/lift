@@ -76,9 +76,8 @@ export class DailySelectionService {
     try {
       const taskIdObj = new TaskId(taskId);
       const today = DateOnly.today();
-      const todayTaskIds = await this.dailySelectionRepository.getTaskIdsForDay(
-        today
-      );
+      const todayTaskIds =
+        await this.dailySelectionRepository.getTaskIdsForDay(today);
       return todayTaskIds.some((id) => id.equals(taskIdObj));
     } catch (error) {
       console.error("Error checking if task is in today:", error);
@@ -92,9 +91,8 @@ export class DailySelectionService {
   async getTodayTasks(): Promise<Task[]> {
     try {
       const today = DateOnly.today();
-      const taskIds = await this.dailySelectionRepository.getTaskIdsForDay(
-        today
-      );
+      const taskIds =
+        await this.dailySelectionRepository.getTaskIdsForDay(today);
       const tasks: Task[] = [];
 
       for (const taskId of taskIds) {

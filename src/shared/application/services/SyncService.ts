@@ -49,21 +49,40 @@ export class SyncService {
 
       // Выполняем синхронизацию всех данных
       // Сначала синхронизируем задачи, затем связанные данные
-      const tasksResult = await this.syncRepository.syncTasks(lastSyncTimestamp || undefined);
-      
+      const tasksResult = await this.syncRepository.syncTasks(
+        lastSyncTimestamp || undefined
+      );
+
       // Синхронизируем daily selection entries и task logs только после успешной синхронизации задач
       const [dailySelectionResult, taskLogsResult] = await Promise.all([
-        this.syncRepository.syncDailySelectionEntries(lastSyncTimestamp || undefined),
-        this.syncRepository.syncTaskLogs(lastSyncTimestamp || undefined)
+        this.syncRepository.syncDailySelectionEntries(
+          lastSyncTimestamp || undefined
+        ),
+        this.syncRepository.syncTaskLogs(lastSyncTimestamp || undefined),
       ]);
 
       // Объединяем результаты синхронизации
       const combinedResult: SyncResult = {
-        success: tasksResult.success && dailySelectionResult.success && taskLogsResult.success,
-        pushedCount: (tasksResult.pushedCount || 0) + (dailySelectionResult.pushedCount || 0) + (taskLogsResult.pushedCount || 0),
-        pulledCount: (tasksResult.pulledCount || 0) + (dailySelectionResult.pulledCount || 0) + (taskLogsResult.pulledCount || 0),
-        conflictsResolved: (tasksResult.conflictsResolved || 0) + (dailySelectionResult.conflictsResolved || 0) + (taskLogsResult.conflictsResolved || 0),
-        error: tasksResult.error || dailySelectionResult.error || taskLogsResult.error
+        success:
+          tasksResult.success &&
+          dailySelectionResult.success &&
+          taskLogsResult.success,
+        pushedCount:
+          (tasksResult.pushedCount || 0) +
+          (dailySelectionResult.pushedCount || 0) +
+          (taskLogsResult.pushedCount || 0),
+        pulledCount:
+          (tasksResult.pulledCount || 0) +
+          (dailySelectionResult.pulledCount || 0) +
+          (taskLogsResult.pulledCount || 0),
+        conflictsResolved:
+          (tasksResult.conflictsResolved || 0) +
+          (dailySelectionResult.conflictsResolved || 0) +
+          (taskLogsResult.conflictsResolved || 0),
+        error:
+          tasksResult.error ||
+          dailySelectionResult.error ||
+          taskLogsResult.error,
       };
 
       if (combinedResult.success) {

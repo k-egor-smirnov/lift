@@ -119,14 +119,17 @@ export const TaskList: React.FC<TaskListProps> = ({
 
   // Group tasks by category if needed
   const groupedTasks = groupByCategory
-    ? sortedTasks.reduce((acc, task) => {
-        const category = task.category;
-        if (!acc[category]) {
-          acc[category] = [];
-        }
-        acc[category].push(task);
-        return acc;
-      }, {} as Record<TaskCategory, Task[]>)
+    ? sortedTasks.reduce(
+        (acc, task) => {
+          const category = task.category;
+          if (!acc[category]) {
+            acc[category] = [];
+          }
+          acc[category].push(task);
+          return acc;
+        },
+        {} as Record<TaskCategory, Task[]>
+      )
     : { all: sortedTasks };
 
   const handleDragStart = (event: DragStartEvent) => {

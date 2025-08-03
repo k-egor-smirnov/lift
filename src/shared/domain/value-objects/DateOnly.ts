@@ -1,4 +1,4 @@
-import { ValueObject } from './ValueObject';
+import { ValueObject } from "./ValueObject";
 
 /**
  * Domain error for invalid DateOnly values
@@ -6,7 +6,7 @@ import { ValueObject } from './ValueObject';
 export class InvalidDateOnlyError extends Error {
   constructor(value: string) {
     super(`Invalid DateOnly: ${value}. Must be in YYYY-MM-DD format.`);
-    this.name = 'InvalidDateOnlyError';
+    this.name = "InvalidDateOnlyError";
   }
 }
 
@@ -18,7 +18,7 @@ export class DateOnly extends ValueObject<string> {
   private static readonly DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
   protected validate(value: string): void {
-    if (!value || typeof value !== 'string') {
+    if (!value || typeof value !== "string") {
       throw new InvalidDateOnlyError(value);
     }
 
@@ -27,16 +27,18 @@ export class DateOnly extends ValueObject<string> {
     }
 
     // Validate that it's a real date
-    const date = new Date(value + 'T00:00:00.000Z');
+    const date = new Date(value + "T00:00:00.000Z");
     if (isNaN(date.getTime())) {
       throw new InvalidDateOnlyError(value);
     }
 
     // Ensure the parsed date matches the input (catches invalid dates like 2023-02-30)
-    const [year, month, day] = value.split('-').map(Number);
-    if (date.getUTCFullYear() !== year || 
-        date.getUTCMonth() !== month - 1 || 
-        date.getUTCDate() !== day) {
+    const [year, month, day] = value.split("-").map(Number);
+    if (
+      date.getUTCFullYear() !== year ||
+      date.getUTCMonth() !== month - 1 ||
+      date.getUTCDate() !== day
+    ) {
       throw new InvalidDateOnlyError(value);
     }
   }
@@ -47,21 +49,21 @@ export class DateOnly extends ValueObject<string> {
    */
   static today(): DateOnly {
     // Check for dev mode mocked date
-    if (typeof window !== 'undefined') {
-      const mockedDate = localStorage.getItem('__dev_mocked_date__');
+    if (typeof window !== "undefined") {
+      const mockedDate = localStorage.getItem("__dev_mocked_date__");
       if (mockedDate) {
         const date = new Date(mockedDate);
         const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
         return new DateOnly(`${year}-${month}-${day}`);
       }
     }
-    
+
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
     return new DateOnly(`${year}-${month}-${day}`);
   }
 
@@ -77,8 +79,8 @@ export class DateOnly extends ValueObject<string> {
    */
   static fromDate(date: Date): DateOnly {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     return new DateOnly(`${year}-${month}-${day}`);
   }
 
@@ -93,7 +95,7 @@ export class DateOnly extends ValueObject<string> {
    * Convert to Date object (at midnight UTC)
    */
   toDate(): Date {
-    return new Date(this._value + 'T00:00:00.000Z');
+    return new Date(this._value + "T00:00:00.000Z");
   }
 
   /**
@@ -143,13 +145,13 @@ export class DateOnly extends ValueObject<string> {
    */
   static getCurrentDate(): Date {
     // Check for dev mode mocked date
-    if (typeof window !== 'undefined') {
-      const mockedDate = localStorage.getItem('__dev_mocked_date__');
+    if (typeof window !== "undefined") {
+      const mockedDate = localStorage.getItem("__dev_mocked_date__");
       if (mockedDate) {
         return new Date(mockedDate);
       }
     }
-    
+
     return new Date();
   }
 }

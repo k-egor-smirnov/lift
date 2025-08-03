@@ -1,7 +1,11 @@
-import { configureSyncContainer, getSyncService, getRealtimeService } from '../di/syncContainer';
-import { SyncService } from '../../application/services/SyncService';
-import { SupabaseRealtimeService } from '../services/SupabaseRealtimeService';
-import { getSupabaseConfig } from '../config/supabase.config';
+import {
+  configureSyncContainer,
+  getSyncService,
+  getRealtimeService,
+} from "../di/syncContainer";
+import { SyncService } from "../../application/services/SyncService";
+import { SupabaseRealtimeService } from "../services/SupabaseRealtimeService";
+import { getSupabaseConfig } from "../config/supabase.config";
 
 /**
  * Класс для инициализации и управления синхронизацией
@@ -31,17 +35,17 @@ export class SyncInitializer {
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
-      console.log('Sync already initialized');
+      console.log("Sync already initialized");
       return;
     }
 
     try {
-      console.log('Initializing sync system...');
+      console.log("Initializing sync system...");
 
       // Проверяем конфигурацию
       const config = getSupabaseConfig();
       if (!config.environment.url || !config.environment.anonKey) {
-        console.warn('Supabase configuration not found, sync disabled');
+        console.warn("Supabase configuration not found, sync disabled");
         return;
       }
 
@@ -66,9 +70,9 @@ export class SyncInitializer {
       }
 
       this.isInitialized = true;
-      console.log('Sync system initialized successfully');
+      console.log("Sync system initialized successfully");
     } catch (error) {
-      console.error('Failed to initialize sync system:', error);
+      console.error("Failed to initialize sync system:", error);
       throw error;
     }
   }
@@ -80,16 +84,18 @@ export class SyncInitializer {
     if (!this.syncService) return;
 
     try {
-      console.log('Performing initial sync...');
+      console.log("Performing initial sync...");
       const result = await this.syncService.performSync();
-      
+
       if (result.success) {
-        console.log(`Initial sync completed: pushed ${result.pushedCount}, pulled ${result.pulledCount}`);
+        console.log(
+          `Initial sync completed: pushed ${result.pushedCount}, pulled ${result.pulledCount}`
+        );
       } else {
-        console.warn('Initial sync failed:', result.error);
+        console.warn("Initial sync failed:", result.error);
       }
     } catch (error) {
-      console.error('Initial sync error:', error);
+      console.error("Initial sync error:", error);
       // Не прерываем инициализацию из-за ошибки синхронизации
     }
   }
@@ -107,7 +113,7 @@ export class SyncInitializer {
         try {
           await this.syncService.performBackgroundSync();
         } catch (error) {
-          console.error('Auto sync error:', error);
+          console.error("Auto sync error:", error);
         }
       }
     }, interval);
@@ -123,9 +129,9 @@ export class SyncInitializer {
 
     try {
       await this.realtimeService.subscribeToAllChanges();
-      console.log('Real-time subscriptions enabled');
+      console.log("Real-time subscriptions enabled");
     } catch (error) {
-      console.error('Failed to enable real-time:', error);
+      console.error("Failed to enable real-time:", error);
     }
   }
 
@@ -134,7 +140,7 @@ export class SyncInitializer {
    */
   async manualSync(): Promise<boolean> {
     if (!this.syncService) {
-      console.warn('Sync service not initialized');
+      console.warn("Sync service not initialized");
       return false;
     }
 
@@ -142,7 +148,7 @@ export class SyncInitializer {
       const result = await this.syncService.performSync();
       return result.success;
     } catch (error) {
-      console.error('Manual sync error:', error);
+      console.error("Manual sync error:", error);
       return false;
     }
   }
@@ -152,7 +158,7 @@ export class SyncInitializer {
    */
   async forcePushChanges(): Promise<boolean> {
     if (!this.syncService) {
-      console.warn('Sync service not initialized');
+      console.warn("Sync service not initialized");
       return false;
     }
 
@@ -160,7 +166,7 @@ export class SyncInitializer {
       const result = await this.syncService.forcePushLocalChanges();
       return result.success;
     } catch (error) {
-      console.error('Force push error:', error);
+      console.error("Force push error:", error);
       return false;
     }
   }
@@ -175,7 +181,7 @@ export class SyncInitializer {
         isOnline: navigator.onLine,
         lastSyncAt: null,
         error: null,
-        isRealtimeConnected: false
+        isRealtimeConnected: false,
       };
     }
 
@@ -188,16 +194,20 @@ export class SyncInitializer {
         isOnline: navigator.onLine,
         lastSyncAt: syncStatus.lastSyncAt,
         error: syncStatus.error,
-        isRealtimeConnected
+        isRealtimeConnected,
       };
     } catch (error) {
-      console.error('Error getting sync status:', error);
+      console.error("Error getting sync status:", error);
       return {
         isInitialized: this.isInitialized,
         isOnline: navigator.onLine,
         lastSyncAt: null,
-        error: { code: 'STATUS_ERROR', message: 'Ошибка получения статуса', details: error },
-        isRealtimeConnected: false
+        error: {
+          code: "STATUS_ERROR",
+          message: "Ошибка получения статуса",
+          details: error,
+        },
+        isRealtimeConnected: false,
       };
     }
   }
@@ -206,7 +216,7 @@ export class SyncInitializer {
    * Останавливает синхронизацию
    */
   async shutdown(): Promise<void> {
-    console.log('Shutting down sync system...');
+    console.log("Shutting down sync system...");
 
     // Останавливаем автосинхронизацию
     if (this.autoSyncInterval) {
@@ -219,7 +229,7 @@ export class SyncInitializer {
       try {
         await this.realtimeService.unsubscribeFromAllChanges();
       } catch (error) {
-        console.error('Error unsubscribing from real-time:', error);
+        console.error("Error unsubscribing from real-time:", error);
       }
     }
 
@@ -227,7 +237,7 @@ export class SyncInitializer {
     this.syncService = null;
     this.realtimeService = null;
 
-    console.log('Sync system shut down');
+    console.log("Sync system shut down");
   }
 
   /**
@@ -273,7 +283,7 @@ export class SyncInitializer {
         await this.realtimeService.unsubscribeFromAllChanges();
       }
     } catch (error) {
-      console.error('Error toggling real-time:', error);
+      console.error("Error toggling real-time:", error);
     }
   }
 }

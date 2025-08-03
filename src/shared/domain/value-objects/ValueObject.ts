@@ -37,22 +37,28 @@ export abstract class ValueObject<T> {
    */
   private isEqual(a: T, b: T): boolean {
     if (a === b) return true;
-    
+
     if (a instanceof Date && b instanceof Date) {
       return a.getTime() === b.getTime();
     }
-    
-    if (typeof a === 'object' && typeof b === 'object' && a !== null && b !== null) {
+
+    if (
+      typeof a === "object" &&
+      typeof b === "object" &&
+      a !== null &&
+      b !== null
+    ) {
       const keysA = Object.keys(a);
       const keysB = Object.keys(b);
-      
+
       if (keysA.length !== keysB.length) return false;
-      
-      return keysA.every(key => 
-        keysB.includes(key) && this.isEqual((a as any)[key], (b as any)[key])
+
+      return keysA.every(
+        (key) =>
+          keysB.includes(key) && this.isEqual((a as any)[key], (b as any)[key])
       );
     }
-    
+
     return false;
   }
 

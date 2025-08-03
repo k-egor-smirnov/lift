@@ -1,13 +1,13 @@
-import { injectable, inject } from 'tsyringe';
-import { TaskId } from '../../domain/value-objects/TaskId';
-import { DateOnly } from '../../domain/value-objects/DateOnly';
-import { DailySelectionRepository } from '../../domain/repositories/DailySelectionRepository';
-import { TaskRepository } from '../../domain/repositories/TaskRepository';
-import { EventBus } from '../../domain/events/EventBus';
-import { TaskAddedToTodayEvent } from '../../domain/events/TaskEvents';
-import { Result, ResultUtils } from '../../domain/Result';
-import { DebouncedSyncService } from '../services/DebouncedSyncService';
-import * as tokens from '../../infrastructure/di/tokens';
+import { injectable, inject } from "tsyringe";
+import { TaskId } from "../../domain/value-objects/TaskId";
+import { DateOnly } from "../../domain/value-objects/DateOnly";
+import { DailySelectionRepository } from "../../domain/repositories/DailySelectionRepository";
+import { TaskRepository } from "../../domain/repositories/TaskRepository";
+import { EventBus } from "../../domain/events/EventBus";
+import { TaskAddedToTodayEvent } from "../../domain/events/TaskEvents";
+import { Result, ResultUtils } from "../../domain/Result";
+import { DebouncedSyncService } from "../services/DebouncedSyncService";
+import * as tokens from "../../infrastructure/di/tokens";
 
 /**
  * Request for adding a task to today's selection
@@ -21,9 +21,12 @@ export interface AddTaskToTodayRequest {
  * Domain errors for adding task to today
  */
 export class AddTaskToTodayError extends Error {
-  constructor(message: string, public readonly code: string) {
+  constructor(
+    message: string,
+    public readonly code: string
+  ) {
     super(message);
-    this.name = 'AddTaskToTodayError';
+    this.name = "AddTaskToTodayError";
   }
 }
 
@@ -33,13 +36,18 @@ export class AddTaskToTodayError extends Error {
 @injectable()
 export class AddTaskToTodayUseCase {
   constructor(
-    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN) private readonly dailySelectionRepository: DailySelectionRepository,
-    @inject(tokens.TASK_REPOSITORY_TOKEN) private readonly taskRepository: TaskRepository,
+    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN)
+    private readonly dailySelectionRepository: DailySelectionRepository,
+    @inject(tokens.TASK_REPOSITORY_TOKEN)
+    private readonly taskRepository: TaskRepository,
     @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) private readonly debouncedSyncService: DebouncedSyncService
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
+    private readonly debouncedSyncService: DebouncedSyncService
   ) {}
 
-  async execute(request: AddTaskToTodayRequest): Promise<Result<void, AddTaskToTodayError>> {
+  async execute(
+    request: AddTaskToTodayRequest
+  ): Promise<Result<void, AddTaskToTodayError>> {
     try {
       // Parse and validate task ID
       let taskId: TaskId;
@@ -47,7 +55,7 @@ export class AddTaskToTodayUseCase {
         taskId = TaskId.fromString(request.taskId);
       } catch (error) {
         return ResultUtils.error(
-          new AddTaskToTodayError('Invalid task ID format', 'INVALID_TASK_ID')
+          new AddTaskToTodayError("Invalid task ID format", "INVALID_TASK_ID")
         );
       }
 
@@ -61,7 +69,7 @@ export class AddTaskToTodayUseCase {
         }
       } catch (error) {
         return ResultUtils.error(
-          new AddTaskToTodayError('Invalid date format', 'INVALID_DATE')
+          new AddTaskToTodayError("Invalid date format", "INVALID_DATE")
         );
       }
 
@@ -69,7 +77,7 @@ export class AddTaskToTodayUseCase {
       const task = await this.taskRepository.findById(taskId);
       if (!task) {
         return ResultUtils.error(
-          new AddTaskToTodayError('Task not found', 'TASK_NOT_FOUND')
+          new AddTaskToTodayError("Task not found", "TASK_NOT_FOUND")
         );
       }
 
@@ -87,8 +95,8 @@ export class AddTaskToTodayUseCase {
     } catch (error) {
       return ResultUtils.error(
         new AddTaskToTodayError(
-          `Failed to add task to today: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          'ADD_FAILED'
+          `Failed to add task to today: ${error instanceof Error ? error.message : "Unknown error"}`,
+          "ADD_FAILED"
         )
       );
     }

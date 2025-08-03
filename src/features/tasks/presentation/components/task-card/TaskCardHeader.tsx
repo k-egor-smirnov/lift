@@ -1,13 +1,7 @@
 import React from "react";
 import { TaskCategory } from "../../../../../shared/domain/types";
 import { useTranslation } from "react-i18next";
-import {
-  Zap,
-  Target,
-  Inbox,
-  FileText,
-  AlertTriangle,
-} from "lucide-react";
+import { Zap, Target, Inbox, FileText, AlertTriangle } from "lucide-react";
 
 interface TaskCardHeaderProps {
   category: TaskCategory;

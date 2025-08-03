@@ -6,7 +6,7 @@ Daily Todo PWA is a task management Progressive Web Application focused on daily
 
 - **Task Management**: Create, edit, complete, and delete tasks with categorization
 - **Daily Focus**: "Today" view for daily task selection and focus
-- **Task Categories**: 
+- **Task Categories**:
   - Inbox (new/unprocessed tasks)
   - Simple (quick tasks)
   - Focus (important/complex tasks)

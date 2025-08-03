@@ -19,7 +19,10 @@ interface HeaderProps {
   onMobileMenuToggle: () => void;
 }
 
-const getViewTitle = (view: "today" | "logs" | "settings" | TaskCategory, t: any) => {
+const getViewTitle = (
+  view: "today" | "logs" | "settings" | TaskCategory,
+  t: any
+) => {
   if (view === "today") return t("navigation.today");
   if (view === "logs") return t("logs.title", "Activity Logs");
   if (view === "settings") return t("settings.title");
@@ -38,7 +41,10 @@ const getViewTitle = (view: "today" | "logs" | "settings" | TaskCategory, t: any
   }
 };
 
-const getViewDescription = (view: "today" | "logs" | "settings" | TaskCategory, t: any) => {
+const getViewDescription = (
+  view: "today" | "logs" | "settings" | TaskCategory,
+  t: any
+) => {
   if (view === "today") return t("navigation.descriptions.today");
   if (view === "logs")
     return t("logs.subtitle", "View all system and user activity");

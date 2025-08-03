@@ -177,7 +177,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
     if (onDeleteTask) {
       onDeleteTask(taskId);
     } else {
-      console.warn("onDeleteTask prop not provided to TodayView - task deletion not available");
+      console.warn(
+        "onDeleteTask prop not provided to TodayView - task deletion not available"
+      );
     }
   };
 

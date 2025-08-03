@@ -1,10 +1,10 @@
-import { injectable, inject } from 'tsyringe';
-import { DateOnly } from '../../domain/value-objects/DateOnly';
-import { Task } from '../../domain/entities/Task';
-import { DailySelectionRepository } from '../../domain/repositories/DailySelectionRepository';
-import { TaskRepository } from '../../domain/repositories/TaskRepository';
-import { Result, ResultUtils } from '../../domain/Result';
-import * as tokens from '../../infrastructure/di/tokens';
+import { injectable, inject } from "tsyringe";
+import { DateOnly } from "../../domain/value-objects/DateOnly";
+import { Task } from "../../domain/entities/Task";
+import { DailySelectionRepository } from "../../domain/repositories/DailySelectionRepository";
+import { TaskRepository } from "../../domain/repositories/TaskRepository";
+import { Result, ResultUtils } from "../../domain/Result";
+import * as tokens from "../../infrastructure/di/tokens";
 
 /**
  * Request for getting today's tasks
@@ -38,9 +38,12 @@ export interface GetTodayTasksResponse {
  * Domain errors for getting today's tasks
  */
 export class GetTodayTasksError extends Error {
-  constructor(message: string, public readonly code: string) {
+  constructor(
+    message: string,
+    public readonly code: string
+  ) {
     super(message);
-    this.name = 'GetTodayTasksError';
+    this.name = "GetTodayTasksError";
   }
 }
 
@@ -50,11 +53,15 @@ export class GetTodayTasksError extends Error {
 @injectable()
 export class GetTodayTasksUseCase {
   constructor(
-    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN) private readonly dailySelectionRepository: DailySelectionRepository,
-    @inject(tokens.TASK_REPOSITORY_TOKEN) private readonly taskRepository: TaskRepository
+    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN)
+    private readonly dailySelectionRepository: DailySelectionRepository,
+    @inject(tokens.TASK_REPOSITORY_TOKEN)
+    private readonly taskRepository: TaskRepository
   ) {}
 
-  async execute(request: GetTodayTasksRequest = {}): Promise<Result<GetTodayTasksResponse, GetTodayTasksError>> {
+  async execute(
+    request: GetTodayTasksRequest = {}
+  ): Promise<Result<GetTodayTasksResponse, GetTodayTasksError>> {
     try {
       // Parse date or use today
       let date: DateOnly;
@@ -66,12 +73,13 @@ export class GetTodayTasksUseCase {
         }
       } catch (error) {
         return ResultUtils.error(
-          new GetTodayTasksError('Invalid date format', 'INVALID_DATE')
+          new GetTodayTasksError("Invalid date format", "INVALID_DATE")
         );
       }
 
       // Get daily selection entries for the date
-      const dailySelectionEntries = await this.dailySelectionRepository.getTasksForDay(date);
+      const dailySelectionEntries =
+        await this.dailySelectionRepository.getTasksForDay(date);
 
       // Get the actual tasks
       const taskInfos: TodayTaskInfo[] = [];
@@ -86,7 +94,7 @@ export class GetTodayTasksUseCase {
           taskInfos.push({
             task,
             completedInSelection: entry.completedFlag,
-            selectedAt: entry.createdAt
+            selectedAt: entry.createdAt,
           });
         }
       }
@@ -96,7 +104,9 @@ export class GetTodayTasksUseCase {
 
       // Calculate counts
       const totalCount = taskInfos.length;
-      const completedCount = taskInfos.filter(info => info.completedInSelection || info.task.isCompleted).length;
+      const completedCount = taskInfos.filter(
+        (info) => info.completedInSelection || info.task.isCompleted
+      ).length;
       const activeCount = totalCount - completedCount;
 
       return ResultUtils.ok({
@@ -104,13 +114,13 @@ export class GetTodayTasksUseCase {
         date: date.value,
         totalCount,
         completedCount,
-        activeCount
+        activeCount,
       });
     } catch (error) {
       return ResultUtils.error(
         new GetTodayTasksError(
-          `Failed to get today's tasks: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          'GET_FAILED'
+          `Failed to get today's tasks: ${error instanceof Error ? error.message : "Unknown error"}`,
+          "GET_FAILED"
         )
       );
     }

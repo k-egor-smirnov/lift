@@ -164,7 +164,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     <>
       {/* Blue line indicator for drop location */}
       {isOver && <div className="h-0.5 bg-blue-500 mx-4 mb-2 rounded-full" />}
-      
+
       <motion.article
         ref={(node) => {
           setNodeRef(node);

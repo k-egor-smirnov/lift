@@ -1,5 +1,5 @@
-import React from 'react';
-import { useSync } from '../hooks/useSync';
+import React from "react";
+import { useSync } from "../hooks/useSync";
 
 interface SyncStatusIndicatorProps {
   /** Показывать ли детальную информацию */
@@ -16,8 +16,8 @@ interface SyncStatusIndicatorProps {
  */
 export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
   detailed = false,
-  className = '',
-  onManualSync
+  className = "",
+  onManualSync,
 }) => {
   const { status, sync } = useSync();
 
@@ -30,11 +30,11 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
   };
 
   const getStatusColor = () => {
-    if (status.error) return 'text-red-500';
-    if (status.isSyncing) return 'text-blue-500';
-    if (!status.isOnline) return 'text-gray-500';
-    if (status.isRealtimeConnected) return 'text-green-500';
-    return 'text-yellow-500';
+    if (status.error) return "text-red-500";
+    if (status.isSyncing) return "text-blue-500";
+    if (!status.isOnline) return "text-gray-500";
+    if (status.isRealtimeConnected) return "text-green-500";
+    return "text-yellow-500";
   };
 
   const getStatusIcon = () => {
@@ -60,7 +60,12 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
 
     if (status.error) {
       return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -73,7 +78,12 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
 
     if (!status.isOnline) {
       return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -86,7 +96,12 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
 
     if (status.isRealtimeConnected) {
       return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -98,7 +113,12 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
     }
 
     return (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -110,23 +130,23 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
   };
 
   const getStatusText = () => {
-    if (status.isSyncing) return 'Синхронизация...';
-    if (status.error) return 'Ошибка синхронизации';
-    if (!status.isOnline) return 'Офлайн';
-    if (status.isRealtimeConnected) return 'Синхронизировано';
-    return 'Готов к синхронизации';
+    if (status.isSyncing) return "Синхронизация...";
+    if (status.error) return "Ошибка синхронизации";
+    if (!status.isOnline) return "Офлайн";
+    if (status.isRealtimeConnected) return "Синхронизировано";
+    return "Готов к синхронизации";
   };
 
   const formatLastSync = (date: Date | null) => {
-    if (!date) return 'Никогда';
-    
+    if (!date) return "Никогда";
+
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
 
-    if (minutes < 1) return 'Только что';
+    if (minutes < 1) return "Только что";
     if (minutes < 60) return `${minutes} мин назад`;
     if (hours < 24) return `${hours} ч назад`;
     return `${days} дн назад`;
@@ -151,19 +171,22 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
         {getStatusIcon()}
         <span className="text-sm font-medium">{getStatusText()}</span>
       </div>
-      
+
       {status.lastSyncAt && (
         <span className="text-xs text-gray-500">
           {formatLastSync(status.lastSyncAt)}
         </span>
       )}
-      
+
       {status.error && (
-        <div className="text-xs text-red-600 max-w-xs truncate" title={status.error.message}>
+        <div
+          className="text-xs text-red-600 max-w-xs truncate"
+          title={status.error.message}
+        >
           {status.error.message}
         </div>
       )}
-      
+
       {!status.isSyncing && (
         <button
           onClick={handleManualSync}

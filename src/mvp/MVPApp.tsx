@@ -47,6 +47,7 @@ import { LogViewModelDependencies } from "../features/logs/presentation/view-mod
 import { toast, Toaster } from "sonner";
 import { Settings } from "../features/settings/presentation/components/Settings";
 import { ContentArea } from "./components/ContentArea";
+import { ResultUtils } from "@/shared/domain/Result";
 
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -121,10 +122,10 @@ export const MVPApp: React.FC = () => {
   );
 
   // Create TaskLogService manually to avoid circular dependency
-  const logService = useMemo(() => new TaskLogService(
-    getTaskLogsUseCase,
-    createUserLogUseCase
-  ), [getTaskLogsUseCase, createUserLogUseCase]);
+  const logService = useMemo(
+    () => new TaskLogService(getTaskLogsUseCase, createUserLogUseCase),
+    [getTaskLogsUseCase, createUserLogUseCase]
+  );
 
   // Create dependencies for view models
   const taskDependencies: TaskViewModelDependencies = useMemo(
@@ -205,7 +206,9 @@ export const MVPApp: React.FC = () => {
       } catch (error) {
         console.error("Failed to initialize app:", error);
         // Show user-friendly error message
-        toast.error("Failed to initialize application. Please refresh the page.");
+        toast.error(
+          "Failed to initialize application. Please refresh the page."
+        );
       }
     };
 
@@ -407,7 +410,7 @@ export const MVPApp: React.FC = () => {
                 );
                 const result = await revertUseCase.execute({ taskId });
 
-                if (result.isSuccess()) {
+                if (ResultUtils.isSuccess(result)) {
                   toast.success("Выполнение задачи отменено");
                   // Reload tasks to reflect changes
                   await loadTasks();

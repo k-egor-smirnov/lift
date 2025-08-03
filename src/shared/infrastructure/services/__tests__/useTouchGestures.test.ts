@@ -1,6 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useTouchGestures, isTouchDevice, getDeviceType } from '../useTouchGestures';
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import {
+  useTouchGestures,
+  isTouchDevice,
+  getDeviceType,
+} from "../useTouchGestures";
 
 // Mock window properties
 const mockWindow = {
@@ -8,29 +12,29 @@ const mockWindow = {
   ontouchstart: undefined,
   navigator: {
     maxTouchPoints: 0,
-    msMaxTouchPoints: 0
-  }
+    msMaxTouchPoints: 0,
+  },
 };
 
-Object.defineProperty(window, 'innerWidth', {
+Object.defineProperty(window, "innerWidth", {
   writable: true,
   configurable: true,
-  value: mockWindow.innerWidth
+  value: mockWindow.innerWidth,
 });
 
-Object.defineProperty(window, 'ontouchstart', {
+Object.defineProperty(window, "ontouchstart", {
   writable: true,
   configurable: true,
-  value: mockWindow.ontouchstart
+  value: mockWindow.ontouchstart,
 });
 
-Object.defineProperty(navigator, 'maxTouchPoints', {
+Object.defineProperty(navigator, "maxTouchPoints", {
   writable: true,
   configurable: true,
-  value: mockWindow.navigator.maxTouchPoints
+  value: mockWindow.navigator.maxTouchPoints,
 });
 
-describe('useTouchGestures', () => {
+describe("useTouchGestures", () => {
   let mockElement: HTMLElement;
   let mockHandlers: {
     onSwipeLeft: ReturnType<typeof vi.fn>;
@@ -42,16 +46,16 @@ describe('useTouchGestures', () => {
   };
 
   beforeEach(() => {
-    mockElement = document.createElement('div');
+    mockElement = document.createElement("div");
     document.body.appendChild(mockElement);
-    
+
     mockHandlers = {
       onSwipeLeft: vi.fn(),
       onSwipeRight: vi.fn(),
       onSwipeUp: vi.fn(),
       onSwipeDown: vi.fn(),
       onTap: vi.fn(),
-      onLongPress: vi.fn()
+      onLongPress: vi.fn(),
     };
 
     vi.useFakeTimers();
@@ -62,81 +66,105 @@ describe('useTouchGestures', () => {
     vi.useRealTimers();
   });
 
-  describe('hook initialization', () => {
-    it('should initialize without handlers', () => {
+  describe("hook initialization", () => {
+    it("should initialize without handlers", () => {
       const { result } = renderHook(() => useTouchGestures());
-      
+
       expect(result.current.attachGestures).toBeDefined();
       expect(result.current.isLongPressing).toBe(false);
     });
 
-    it('should initialize with handlers', () => {
+    it("should initialize with handlers", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
+
       expect(result.current.attachGestures).toBeDefined();
       expect(result.current.isLongPressing).toBe(false);
     });
   });
 
-  describe('gesture attachment', () => {
-    it('should attach event listeners to element', () => {
+  describe("gesture attachment", () => {
+    it("should attach event listeners to element", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
-      const addEventListenerSpy = vi.spyOn(mockElement, 'addEventListener');
-      
+
+      const addEventListenerSpy = vi.spyOn(mockElement, "addEventListener");
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
-      expect(addEventListenerSpy).toHaveBeenCalledWith('touchstart', expect.any(Function), { passive: true });
-      expect(addEventListenerSpy).toHaveBeenCalledWith('touchmove', expect.any(Function), { passive: true });
-      expect(addEventListenerSpy).toHaveBeenCalledWith('touchend', expect.any(Function), { passive: true });
+      expect(addEventListenerSpy).toHaveBeenCalledWith(
+        "touchstart",
+        expect.any(Function),
+        { passive: true }
+      );
+      expect(addEventListenerSpy).toHaveBeenCalledWith(
+        "touchmove",
+        expect.any(Function),
+        { passive: true }
+      );
+      expect(addEventListenerSpy).toHaveBeenCalledWith(
+        "touchend",
+        expect.any(Function),
+        { passive: true }
+      );
     });
 
-    it('should return cleanup function', () => {
+    it("should return cleanup function", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
-      const removeEventListenerSpy = vi.spyOn(mockElement, 'removeEventListener');
-      
+
+      const removeEventListenerSpy = vi.spyOn(
+        mockElement,
+        "removeEventListener"
+      );
+
       let cleanup: (() => void) | undefined;
       act(() => {
         cleanup = result.current.attachGestures(mockElement);
       });
 
       expect(cleanup).toBeDefined();
-      
+
       if (cleanup) {
         cleanup();
-        expect(removeEventListenerSpy).toHaveBeenCalledWith('touchstart', expect.any(Function));
-        expect(removeEventListenerSpy).toHaveBeenCalledWith('touchmove', expect.any(Function));
-        expect(removeEventListenerSpy).toHaveBeenCalledWith('touchend', expect.any(Function));
+        expect(removeEventListenerSpy).toHaveBeenCalledWith(
+          "touchstart",
+          expect.any(Function)
+        );
+        expect(removeEventListenerSpy).toHaveBeenCalledWith(
+          "touchmove",
+          expect.any(Function)
+        );
+        expect(removeEventListenerSpy).toHaveBeenCalledWith(
+          "touchend",
+          expect.any(Function)
+        );
       }
     });
 
-    it('should handle null element gracefully', () => {
+    it("should handle null element gracefully", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
+
       expect(() => {
         result.current.attachGestures(null);
       }).not.toThrow();
     });
   });
 
-  describe('swipe detection', () => {
-    it('should detect horizontal swipe right', () => {
+  describe("swipe detection", () => {
+    it("should detect horizontal swipe right", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
       // Simulate swipe right
-      const touchStart = new TouchEvent('touchstart', {
-        touches: [{ clientX: 100, clientY: 100 } as Touch]
+      const touchStart = new TouchEvent("touchstart", {
+        touches: [{ clientX: 100, clientY: 100 } as Touch],
       });
-      
-      const touchEnd = new TouchEvent('touchend', {
-        changedTouches: [{ clientX: 200, clientY: 100 } as Touch]
+
+      const touchEnd = new TouchEvent("touchend", {
+        changedTouches: [{ clientX: 200, clientY: 100 } as Touch],
       });
 
       act(() => {
@@ -152,20 +180,20 @@ describe('useTouchGestures', () => {
       expect(mockHandlers.onSwipeLeft).not.toHaveBeenCalled();
     });
 
-    it('should detect horizontal swipe left', () => {
+    it("should detect horizontal swipe left", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
       // Simulate swipe left
-      const touchStart = new TouchEvent('touchstart', {
-        touches: [{ clientX: 200, clientY: 100 } as Touch]
+      const touchStart = new TouchEvent("touchstart", {
+        touches: [{ clientX: 200, clientY: 100 } as Touch],
       });
-      
-      const touchEnd = new TouchEvent('touchend', {
-        changedTouches: [{ clientX: 100, clientY: 100 } as Touch]
+
+      const touchEnd = new TouchEvent("touchend", {
+        changedTouches: [{ clientX: 100, clientY: 100 } as Touch],
       });
 
       act(() => {
@@ -181,20 +209,20 @@ describe('useTouchGestures', () => {
       expect(mockHandlers.onSwipeRight).not.toHaveBeenCalled();
     });
 
-    it('should detect vertical swipe up', () => {
+    it("should detect vertical swipe up", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
       // Simulate swipe up
-      const touchStart = new TouchEvent('touchstart', {
-        touches: [{ clientX: 100, clientY: 200 } as Touch]
+      const touchStart = new TouchEvent("touchstart", {
+        touches: [{ clientX: 100, clientY: 200 } as Touch],
       });
-      
-      const touchEnd = new TouchEvent('touchend', {
-        changedTouches: [{ clientX: 100, clientY: 100 } as Touch]
+
+      const touchEnd = new TouchEvent("touchend", {
+        changedTouches: [{ clientX: 100, clientY: 100 } as Touch],
       });
 
       act(() => {
@@ -210,20 +238,20 @@ describe('useTouchGestures', () => {
       expect(mockHandlers.onSwipeDown).not.toHaveBeenCalled();
     });
 
-    it('should detect vertical swipe down', () => {
+    it("should detect vertical swipe down", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
       // Simulate swipe down
-      const touchStart = new TouchEvent('touchstart', {
-        touches: [{ clientX: 100, clientY: 100 } as Touch]
+      const touchStart = new TouchEvent("touchstart", {
+        touches: [{ clientX: 100, clientY: 100 } as Touch],
       });
-      
-      const touchEnd = new TouchEvent('touchend', {
-        changedTouches: [{ clientX: 100, clientY: 200 } as Touch]
+
+      const touchEnd = new TouchEvent("touchend", {
+        changedTouches: [{ clientX: 100, clientY: 200 } as Touch],
       });
 
       act(() => {
@@ -240,21 +268,21 @@ describe('useTouchGestures', () => {
     });
   });
 
-  describe('tap detection', () => {
-    it('should detect quick tap', () => {
+  describe("tap detection", () => {
+    it("should detect quick tap", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
       // Simulate quick tap
-      const touchStart = new TouchEvent('touchstart', {
-        touches: [{ clientX: 100, clientY: 100 } as Touch]
+      const touchStart = new TouchEvent("touchstart", {
+        touches: [{ clientX: 100, clientY: 100 } as Touch],
       });
-      
-      const touchEnd = new TouchEvent('touchend', {
-        changedTouches: [{ clientX: 105, clientY: 105 } as Touch]
+
+      const touchEnd = new TouchEvent("touchend", {
+        changedTouches: [{ clientX: 105, clientY: 105 } as Touch],
       });
 
       act(() => {
@@ -269,20 +297,20 @@ describe('useTouchGestures', () => {
       expect(mockHandlers.onTap).toHaveBeenCalled();
     });
 
-    it('should not detect tap if movement is too large', () => {
+    it("should not detect tap if movement is too large", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
       // Simulate movement that's too large for tap
-      const touchStart = new TouchEvent('touchstart', {
-        touches: [{ clientX: 100, clientY: 100 } as Touch]
+      const touchStart = new TouchEvent("touchstart", {
+        touches: [{ clientX: 100, clientY: 100 } as Touch],
       });
-      
-      const touchEnd = new TouchEvent('touchend', {
-        changedTouches: [{ clientX: 200, clientY: 100 } as Touch]
+
+      const touchEnd = new TouchEvent("touchend", {
+        changedTouches: [{ clientX: 200, clientY: 100 } as Touch],
       });
 
       act(() => {
@@ -298,17 +326,17 @@ describe('useTouchGestures', () => {
     });
   });
 
-  describe('long press detection', () => {
-    it('should detect long press', () => {
+  describe("long press detection", () => {
+    it("should detect long press", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
       // Simulate long press
-      const touchStart = new TouchEvent('touchstart', {
-        touches: [{ clientX: 100, clientY: 100 } as Touch]
+      const touchStart = new TouchEvent("touchstart", {
+        touches: [{ clientX: 100, clientY: 100 } as Touch],
       });
 
       act(() => {
@@ -325,16 +353,16 @@ describe('useTouchGestures', () => {
       expect(mockHandlers.onLongPress).toHaveBeenCalled();
     });
 
-    it('should cancel long press on touch move', () => {
+    it("should cancel long press on touch move", () => {
       const { result } = renderHook(() => useTouchGestures(mockHandlers));
-      
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
       // Simulate touch start
-      const touchStart = new TouchEvent('touchstart', {
-        touches: [{ clientX: 100, clientY: 100 } as Touch]
+      const touchStart = new TouchEvent("touchstart", {
+        touches: [{ clientX: 100, clientY: 100 } as Touch],
       });
 
       act(() => {
@@ -342,8 +370,8 @@ describe('useTouchGestures', () => {
       });
 
       // Simulate touch move (should cancel long press)
-      const touchMove = new TouchEvent('touchmove', {
-        touches: [{ clientX: 110, clientY: 110 } as Touch]
+      const touchMove = new TouchEvent("touchmove", {
+        touches: [{ clientX: 110, clientY: 110 } as Touch],
       });
 
       act(() => {
@@ -359,24 +387,26 @@ describe('useTouchGestures', () => {
     });
   });
 
-  describe('custom thresholds', () => {
-    it('should use custom swipe threshold', () => {
-      const { result } = renderHook(() => useTouchGestures({
-        ...mockHandlers,
-        swipeThreshold: 100
-      }));
-      
+  describe("custom thresholds", () => {
+    it("should use custom swipe threshold", () => {
+      const { result } = renderHook(() =>
+        useTouchGestures({
+          ...mockHandlers,
+          swipeThreshold: 100,
+        })
+      );
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
       // Simulate swipe that's below custom threshold
-      const touchStart = new TouchEvent('touchstart', {
-        touches: [{ clientX: 100, clientY: 100 } as Touch]
+      const touchStart = new TouchEvent("touchstart", {
+        touches: [{ clientX: 100, clientY: 100 } as Touch],
       });
-      
-      const touchEnd = new TouchEvent('touchend', {
-        changedTouches: [{ clientX: 150, clientY: 100 } as Touch] // 50px movement
+
+      const touchEnd = new TouchEvent("touchend", {
+        changedTouches: [{ clientX: 150, clientY: 100 } as Touch], // 50px movement
       });
 
       act(() => {
@@ -391,18 +421,20 @@ describe('useTouchGestures', () => {
       expect(mockHandlers.onSwipeRight).not.toHaveBeenCalled();
     });
 
-    it('should use custom long press delay', () => {
-      const { result } = renderHook(() => useTouchGestures({
-        ...mockHandlers,
-        longPressDelay: 1000
-      }));
-      
+    it("should use custom long press delay", () => {
+      const { result } = renderHook(() =>
+        useTouchGestures({
+          ...mockHandlers,
+          longPressDelay: 1000,
+        })
+      );
+
       act(() => {
         result.current.attachGestures(mockElement);
       });
 
-      const touchStart = new TouchEvent('touchstart', {
-        touches: [{ clientX: 100, clientY: 100 } as Touch]
+      const touchStart = new TouchEvent("touchstart", {
+        touches: [{ clientX: 100, clientY: 100 } as Touch],
       });
 
       act(() => {
@@ -426,60 +458,90 @@ describe('useTouchGestures', () => {
   });
 });
 
-describe('device detection utilities', () => {
+describe("device detection utilities", () => {
   beforeEach(() => {
     // Reset to desktop defaults
-    Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
-    Object.defineProperty(window, 'ontouchstart', { value: undefined, writable: true });
-    Object.defineProperty(navigator, 'maxTouchPoints', { value: 0, writable: true });
+    Object.defineProperty(window, "innerWidth", {
+      value: 1024,
+      writable: true,
+    });
+    Object.defineProperty(window, "ontouchstart", {
+      value: undefined,
+      writable: true,
+    });
+    Object.defineProperty(navigator, "maxTouchPoints", {
+      value: 0,
+      writable: true,
+    });
   });
 
-  describe('isTouchDevice', () => {
-    it('should detect touch device by ontouchstart', () => {
-      Object.defineProperty(window, 'ontouchstart', { value: null, writable: true });
+  describe("isTouchDevice", () => {
+    it("should detect touch device by ontouchstart", () => {
+      Object.defineProperty(window, "ontouchstart", {
+        value: null,
+        writable: true,
+      });
       expect(isTouchDevice()).toBe(true);
     });
 
-    it('should detect touch device by maxTouchPoints', () => {
-      Object.defineProperty(navigator, 'maxTouchPoints', { value: 1, writable: true });
+    it("should detect touch device by maxTouchPoints", () => {
+      Object.defineProperty(navigator, "maxTouchPoints", {
+        value: 1,
+        writable: true,
+      });
       expect(isTouchDevice()).toBe(true);
     });
 
-    it.skip('should detect non-touch device', () => {
+    it.skip("should detect non-touch device", () => {
       // Skip this test as the test environment may have touch support
       // The function works correctly in actual browser environments
       expect(isTouchDevice()).toBeDefined();
     });
   });
 
-  describe('getDeviceType', () => {
-    it('should detect mobile device', () => {
-      Object.defineProperty(window, 'innerWidth', { value: 375, writable: true });
-      Object.defineProperty(window, 'ontouchstart', { value: null, writable: true });
-      
-      expect(getDeviceType()).toBe('mobile');
+  describe("getDeviceType", () => {
+    it("should detect mobile device", () => {
+      Object.defineProperty(window, "innerWidth", {
+        value: 375,
+        writable: true,
+      });
+      Object.defineProperty(window, "ontouchstart", {
+        value: null,
+        writable: true,
+      });
+
+      expect(getDeviceType()).toBe("mobile");
     });
 
-    it('should detect tablet device', () => {
-      Object.defineProperty(window, 'innerWidth', { value: 768, writable: true });
-      Object.defineProperty(window, 'ontouchstart', { value: null, writable: true });
-      
-      expect(getDeviceType()).toBe('tablet');
+    it("should detect tablet device", () => {
+      Object.defineProperty(window, "innerWidth", {
+        value: 768,
+        writable: true,
+      });
+      Object.defineProperty(window, "ontouchstart", {
+        value: null,
+        writable: true,
+      });
+
+      expect(getDeviceType()).toBe("tablet");
     });
 
-    it('should detect desktop device', () => {
-      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
-      
-      expect(getDeviceType()).toBe('desktop');
+    it("should detect desktop device", () => {
+      Object.defineProperty(window, "innerWidth", {
+        value: 1024,
+        writable: true,
+      });
+
+      expect(getDeviceType()).toBe("desktop");
     });
 
-    it('should default to desktop in server environment', () => {
+    it("should default to desktop in server environment", () => {
       const originalWindow = global.window;
       // @ts-ignore
       delete global.window;
-      
-      expect(getDeviceType()).toBe('desktop');
-      
+
+      expect(getDeviceType()).toBe("desktop");
+
       global.window = originalWindow;
     });
   });

@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { useUserSettingsViewModel } from '../view-models/UserSettingsViewModel';
+import { useEffect } from "react";
+import { useUserSettingsViewModel } from "../view-models/UserSettingsViewModel";
 
 /**
  * Hook to manage user settings
@@ -15,7 +15,7 @@ export const useUserSettings = () => {
     setInboxOverdueDays,
     setKeyboardShortcutsEnabled,
     resetToDefaults,
-    clearError
+    clearError,
   } = useUserSettingsViewModel();
 
   // Load settings on mount
@@ -34,6 +34,6 @@ export const useUserSettings = () => {
     setInboxOverdueDays,
     setKeyboardShortcutsEnabled,
     resetToDefaults,
-    clearError
+    clearError,
   };
 };

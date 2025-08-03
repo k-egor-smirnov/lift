@@ -1,13 +1,7 @@
 import React from "react";
 import { TaskStatus } from "../../../../../shared/domain/types";
 import { useTranslation } from "react-i18next";
-import {
-  Check,
-  Undo2,
-  MoreHorizontal,
-  Clock,
-  Trash2,
-} from "lucide-react";
+import { Check, Undo2, MoreHorizontal, Clock, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,

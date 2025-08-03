@@ -1,12 +1,12 @@
-import { injectable, inject } from 'tsyringe';
-import { TaskId } from '../../domain/value-objects/TaskId';
-import { DateOnly } from '../../domain/value-objects/DateOnly';
-import { DailySelectionRepository } from '../../domain/repositories/DailySelectionRepository';
-import { EventBus } from '../../domain/events/EventBus';
-import { TaskRemovedFromTodayEvent } from '../../domain/events/TaskEvents';
-import { Result, ResultUtils } from '../../domain/Result';
-import { DebouncedSyncService } from '../services/DebouncedSyncService';
-import * as tokens from '../../infrastructure/di/tokens';
+import { injectable, inject } from "tsyringe";
+import { TaskId } from "../../domain/value-objects/TaskId";
+import { DateOnly } from "../../domain/value-objects/DateOnly";
+import { DailySelectionRepository } from "../../domain/repositories/DailySelectionRepository";
+import { EventBus } from "../../domain/events/EventBus";
+import { TaskRemovedFromTodayEvent } from "../../domain/events/TaskEvents";
+import { Result, ResultUtils } from "../../domain/Result";
+import { DebouncedSyncService } from "../services/DebouncedSyncService";
+import * as tokens from "../../infrastructure/di/tokens";
 
 /**
  * Request for removing a task from today's selection
@@ -20,9 +20,12 @@ export interface RemoveTaskFromTodayRequest {
  * Domain errors for removing task from today
  */
 export class RemoveTaskFromTodayError extends Error {
-  constructor(message: string, public readonly code: string) {
+  constructor(
+    message: string,
+    public readonly code: string
+  ) {
     super(message);
-    this.name = 'RemoveTaskFromTodayError';
+    this.name = "RemoveTaskFromTodayError";
   }
 }
 
@@ -32,12 +35,16 @@ export class RemoveTaskFromTodayError extends Error {
 @injectable()
 export class RemoveTaskFromTodayUseCase {
   constructor(
-    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN) private readonly dailySelectionRepository: DailySelectionRepository,
+    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN)
+    private readonly dailySelectionRepository: DailySelectionRepository,
     @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) private readonly debouncedSyncService: DebouncedSyncService
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
+    private readonly debouncedSyncService: DebouncedSyncService
   ) {}
 
-  async execute(request: RemoveTaskFromTodayRequest): Promise<Result<void, RemoveTaskFromTodayError>> {
+  async execute(
+    request: RemoveTaskFromTodayRequest
+  ): Promise<Result<void, RemoveTaskFromTodayError>> {
     try {
       // Parse and validate task ID
       let taskId: TaskId;
@@ -45,7 +52,10 @@ export class RemoveTaskFromTodayUseCase {
         taskId = TaskId.fromString(request.taskId);
       } catch (error) {
         return ResultUtils.error(
-          new RemoveTaskFromTodayError('Invalid task ID format', 'INVALID_TASK_ID')
+          new RemoveTaskFromTodayError(
+            "Invalid task ID format",
+            "INVALID_TASK_ID"
+          )
         );
       }
 
@@ -59,7 +69,7 @@ export class RemoveTaskFromTodayUseCase {
         }
       } catch (error) {
         return ResultUtils.error(
-          new RemoveTaskFromTodayError('Invalid date format', 'INVALID_DATE')
+          new RemoveTaskFromTodayError("Invalid date format", "INVALID_DATE")
         );
       }
 
@@ -77,8 +87,8 @@ export class RemoveTaskFromTodayUseCase {
     } catch (error) {
       return ResultUtils.error(
         new RemoveTaskFromTodayError(
-          `Failed to remove task from today: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          'REMOVE_FAILED'
+          `Failed to remove task from today: ${error instanceof Error ? error.message : "Unknown error"}`,
+          "REMOVE_FAILED"
         )
       );
     }

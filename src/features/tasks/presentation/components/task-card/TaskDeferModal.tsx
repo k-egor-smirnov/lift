@@ -38,7 +38,7 @@ export const TaskDeferModal: React.FC<TaskDeferModalProps> = ({
         <p className="text-sm text-gray-600 mb-4">
           Выберите дату, на которую отложить задачу:
         </p>
-        
+
         {/* Календарь */}
         <div className="mb-4">
           <Popover>
@@ -51,7 +51,11 @@ export const TaskDeferModal: React.FC<TaskDeferModalProps> = ({
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, "PPP") : <span>Выберите дату</span>}
+                {selectedDate ? (
+                  format(selectedDate, "PPP")
+                ) : (
+                  <span>Выберите дату</span>
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">

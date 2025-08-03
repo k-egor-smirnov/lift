@@ -23,7 +23,7 @@ export class DebouncedSyncService {
    */
   triggerSync(): void {
     const now = Date.now();
-    
+
     // Если прошло меньше 10 секунд с последней синхронизации, откладываем
     if (now - this.lastSyncTime < this.DEBOUNCE_DELAY) {
       this.scheduleDelayedSync();
@@ -44,9 +44,12 @@ export class DebouncedSyncService {
     }
 
     // Устанавливаем новый таймер
-    this.debounceTimer = setTimeout(() => {
-      this.performImmediateSync();
-    }, this.DEBOUNCE_DELAY - (Date.now() - this.lastSyncTime));
+    this.debounceTimer = setTimeout(
+      () => {
+        this.performImmediateSync();
+      },
+      this.DEBOUNCE_DELAY - (Date.now() - this.lastSyncTime)
+    );
   }
 
   /**
@@ -54,7 +57,7 @@ export class DebouncedSyncService {
    */
   private performImmediateSync(): void {
     this.lastSyncTime = Date.now();
-    
+
     // Отменяем таймер, если он есть
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -62,8 +65,8 @@ export class DebouncedSyncService {
     }
 
     // Выполняем фоновую синхронизацию
-    this.syncService.performBackgroundSync().catch(error => {
-      console.warn('Debounced sync failed:', error);
+    this.syncService.performBackgroundSync().catch((error) => {
+      console.warn("Debounced sync failed:", error);
     });
   }
 

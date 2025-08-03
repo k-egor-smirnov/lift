@@ -2,11 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
     "noCheck": true,
@@ -26,19 +22,11 @@
     /* Path mapping */
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "src/*"
-      ]
+      "@/*": ["src/*"]
     }
   },
-  "include": [
-    "src",
-    "src/test/vitest.d.ts"
-  ],
-  "types": [
-    "@testing-library/jest-dom",
-    "vitest/globals"
-  ],
+  "include": ["src", "src/test/vitest.d.ts"],
+  "types": ["@testing-library/jest-dom", "vitest/globals"],
   "references": [
     {
       "path": "./tsconfig.node.json"

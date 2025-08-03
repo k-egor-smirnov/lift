@@ -1,6 +1,6 @@
-import { Task } from '../entities/Task';
-import { TaskId } from '../value-objects/TaskId';
-import { TaskCategory, TaskStatus } from '../types';
+import { Task } from "../entities/Task";
+import { TaskId } from "../value-objects/TaskId";
+import { TaskCategory, TaskStatus } from "../types";
 
 /**
  * Repository interface for Task entity operations
@@ -29,7 +29,10 @@ export interface TaskRepository {
   /**
    * Find tasks by category and status (active only)
    */
-  findByCategoryAndStatus(category: TaskCategory, status: TaskStatus): Promise<Task[]>;
+  findByCategoryAndStatus(
+    category: TaskCategory,
+    status: TaskStatus
+  ): Promise<Task[]>;
 
   /**
    * Find overdue tasks in INBOX category

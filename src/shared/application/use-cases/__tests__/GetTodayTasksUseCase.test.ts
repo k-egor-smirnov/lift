@@ -1,13 +1,19 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GetTodayTasksUseCase, GetTodayTasksRequest } from '../GetTodayTasksUseCase';
-import { DailySelectionRepository, DailySelectionEntry } from '../../../domain/repositories/DailySelectionRepository';
-import { TaskRepository } from '../../../domain/repositories/TaskRepository';
-import { Task } from '../../../domain/entities/Task';
-import { TaskId } from '../../../domain/value-objects/TaskId';
-import { NonEmptyTitle } from '../../../domain/value-objects/NonEmptyTitle';
-import { DateOnly } from '../../../domain/value-objects/DateOnly';
-import { TaskCategory, TaskStatus } from '../../../domain/types';
-import { ResultUtils } from '../../../domain/Result';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import {
+  GetTodayTasksUseCase,
+  GetTodayTasksRequest,
+} from "../GetTodayTasksUseCase";
+import {
+  DailySelectionRepository,
+  DailySelectionEntry,
+} from "../../../domain/repositories/DailySelectionRepository";
+import { TaskRepository } from "../../../domain/repositories/TaskRepository";
+import { Task } from "../../../domain/entities/Task";
+import { TaskId } from "../../../domain/value-objects/TaskId";
+import { NonEmptyTitle } from "../../../domain/value-objects/NonEmptyTitle";
+import { DateOnly } from "../../../domain/value-objects/DateOnly";
+import { TaskCategory, TaskStatus } from "../../../domain/types";
+import { ResultUtils } from "../../../domain/Result";
 
 // Mock implementations
 const mockDailySelectionRepository: DailySelectionRepository = {
@@ -21,7 +27,7 @@ const mockDailySelectionRepository: DailySelectionRepository = {
   getDailySelectionsForRange: vi.fn(),
   clearDay: vi.fn(),
   countTasksForDay: vi.fn(),
-  getLastSelectionDateForTask: vi.fn()
+  getLastSelectionDateForTask: vi.fn(),
 };
 
 const mockTaskRepository: TaskRepository = {
@@ -36,43 +42,58 @@ const mockTaskRepository: TaskRepository = {
   delete: vi.fn(),
   count: vi.fn(),
   countByCategory: vi.fn(),
-  exists: vi.fn()
+  exists: vi.fn(),
 };
 
-describe('GetTodayTasksUseCase', () => {
+describe("GetTodayTasksUseCase", () => {
   let useCase: GetTodayTasksUseCase;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useCase = new GetTodayTasksUseCase(mockDailySelectionRepository, mockTaskRepository);
+    useCase = new GetTodayTasksUseCase(
+      mockDailySelectionRepository,
+      mockTaskRepository
+    );
   });
 
-  describe('execute', () => {
-    it('should get today\'s tasks successfully', async () => {
+  describe("execute", () => {
+    it("should get today's tasks successfully", async () => {
       // Arrange
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
-      const task1 = new Task(taskId1, NonEmptyTitle.fromString('Task 1'), TaskCategory.SIMPLE, TaskStatus.ACTIVE);
-      const task2 = new Task(taskId2, NonEmptyTitle.fromString('Task 2'), TaskCategory.FOCUS, TaskStatus.ACTIVE);
-      
+      const task1 = new Task(
+        taskId1,
+        NonEmptyTitle.fromString("Task 1"),
+        TaskCategory.SIMPLE,
+        TaskStatus.ACTIVE
+      );
+      const task2 = new Task(
+        taskId2,
+        NonEmptyTitle.fromString("Task 2"),
+        TaskCategory.FOCUS,
+        TaskStatus.ACTIVE
+      );
+
       const selectionEntries: DailySelectionEntry[] = [
         {
           date: DateOnly.today(),
           taskId: taskId1,
           completedFlag: false,
-          createdAt: new Date('2024-01-15T10:00:00Z')
+          createdAt: new Date("2024-01-15T10:00:00Z"),
         },
         {
           date: DateOnly.today(),
           taskId: taskId2,
           completedFlag: true,
-          createdAt: new Date('2024-01-15T11:00:00Z')
-        }
+          createdAt: new Date("2024-01-15T11:00:00Z"),
+        },
       ];
 
       const request: GetTodayTasksRequest = {};
 
-      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(selectionEntries);
+      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(
+        selectionEntries
+      );
       vi.mocked(mockTaskRepository.findById)
         .mockResolvedValueOnce(task1)
         .mockResolvedValueOnce(task2);
@@ -89,7 +110,7 @@ describe('GetTodayTasksUseCase', () => {
         expect(response.completedCount).toBe(1);
         expect(response.activeCount).toBe(1);
         expect(response.date).toBe(DateOnly.today().value);
-        
+
         // Check sorting (most recent first)
         expect(response.tasks[0].task.id.value).toBe(taskId2.value);
         expect(response.tasks[0].completedInSelection).toBe(true);
@@ -97,30 +118,39 @@ describe('GetTodayTasksUseCase', () => {
         expect(response.tasks[1].completedInSelection).toBe(false);
       }
 
-      expect(mockDailySelectionRepository.getTasksForDay).toHaveBeenCalledWith(DateOnly.today());
+      expect(mockDailySelectionRepository.getTasksForDay).toHaveBeenCalledWith(
+        DateOnly.today()
+      );
       expect(mockTaskRepository.findById).toHaveBeenCalledTimes(2);
     });
 
-    it('should get tasks for specific date', async () => {
+    it("should get tasks for specific date", async () => {
       // Arrange
-      const specificDate = '2024-01-15';
+      const specificDate = "2024-01-15";
       const taskId = TaskId.generate();
-      const task = new Task(taskId, NonEmptyTitle.fromString('Task'), TaskCategory.INBOX, TaskStatus.ACTIVE);
-      
+      const task = new Task(
+        taskId,
+        NonEmptyTitle.fromString("Task"),
+        TaskCategory.INBOX,
+        TaskStatus.ACTIVE
+      );
+
       const selectionEntries: DailySelectionEntry[] = [
         {
           date: DateOnly.fromString(specificDate),
           taskId,
           completedFlag: false,
-          createdAt: new Date('2024-01-15T10:00:00Z')
-        }
+          createdAt: new Date("2024-01-15T10:00:00Z"),
+        },
       ];
 
       const request: GetTodayTasksRequest = {
-        date: specificDate
+        date: specificDate,
       };
 
-      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(selectionEntries);
+      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(
+        selectionEntries
+      );
       vi.mocked(mockTaskRepository.findById).mockResolvedValue(task);
 
       // Act
@@ -133,36 +163,50 @@ describe('GetTodayTasksUseCase', () => {
         expect(result.data.tasks).toHaveLength(1);
       }
 
-      expect(mockDailySelectionRepository.getTasksForDay).toHaveBeenCalledWith(DateOnly.fromString(specificDate));
+      expect(mockDailySelectionRepository.getTasksForDay).toHaveBeenCalledWith(
+        DateOnly.fromString(specificDate)
+      );
     });
 
-    it('should filter out completed tasks when requested', async () => {
+    it("should filter out completed tasks when requested", async () => {
       // Arrange
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
-      const task1 = new Task(taskId1, NonEmptyTitle.fromString('Active Task'), TaskCategory.SIMPLE, TaskStatus.ACTIVE);
-      const task2 = new Task(taskId2, NonEmptyTitle.fromString('Completed Task'), TaskCategory.FOCUS, TaskStatus.ACTIVE);
-      
+      const task1 = new Task(
+        taskId1,
+        NonEmptyTitle.fromString("Active Task"),
+        TaskCategory.SIMPLE,
+        TaskStatus.ACTIVE
+      );
+      const task2 = new Task(
+        taskId2,
+        NonEmptyTitle.fromString("Completed Task"),
+        TaskCategory.FOCUS,
+        TaskStatus.ACTIVE
+      );
+
       const selectionEntries: DailySelectionEntry[] = [
         {
           date: DateOnly.today(),
           taskId: taskId1,
           completedFlag: false,
-          createdAt: new Date('2024-01-15T10:00:00Z')
+          createdAt: new Date("2024-01-15T10:00:00Z"),
         },
         {
           date: DateOnly.today(),
           taskId: taskId2,
           completedFlag: true,
-          createdAt: new Date('2024-01-15T11:00:00Z')
-        }
+          createdAt: new Date("2024-01-15T11:00:00Z"),
+        },
       ];
 
       const request: GetTodayTasksRequest = {
-        includeCompleted: false
+        includeCompleted: false,
       };
 
-      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(selectionEntries);
+      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(
+        selectionEntries
+      );
       vi.mocked(mockTaskRepository.findById).mockResolvedValue(task1);
 
       // Act
@@ -183,30 +227,42 @@ describe('GetTodayTasksUseCase', () => {
       expect(mockTaskRepository.findById).toHaveBeenCalledWith(taskId1);
     });
 
-    it('should handle deleted tasks gracefully', async () => {
+    it("should handle deleted tasks gracefully", async () => {
       // Arrange
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
-      const task1 = new Task(taskId1, NonEmptyTitle.fromString('Active Task'), TaskCategory.SIMPLE, TaskStatus.ACTIVE);
-      const deletedTask = new Task(taskId2, NonEmptyTitle.fromString('Deleted Task'), TaskCategory.FOCUS, TaskStatus.ACTIVE);
+      const task1 = new Task(
+        taskId1,
+        NonEmptyTitle.fromString("Active Task"),
+        TaskCategory.SIMPLE,
+        TaskStatus.ACTIVE
+      );
+      const deletedTask = new Task(
+        taskId2,
+        NonEmptyTitle.fromString("Deleted Task"),
+        TaskCategory.FOCUS,
+        TaskStatus.ACTIVE
+      );
       deletedTask.softDelete(); // Mark as deleted
-      
+
       const selectionEntries: DailySelectionEntry[] = [
         {
           date: DateOnly.today(),
           taskId: taskId1,
           completedFlag: false,
-          createdAt: new Date('2024-01-15T10:00:00Z')
+          createdAt: new Date("2024-01-15T10:00:00Z"),
         },
         {
           date: DateOnly.today(),
           taskId: taskId2,
           completedFlag: false,
-          createdAt: new Date('2024-01-15T11:00:00Z')
-        }
+          createdAt: new Date("2024-01-15T11:00:00Z"),
+        },
       ];
 
-      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(selectionEntries);
+      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(
+        selectionEntries
+      );
       vi.mocked(mockTaskRepository.findById)
         .mockResolvedValueOnce(task1)
         .mockResolvedValueOnce(deletedTask);
@@ -223,28 +279,35 @@ describe('GetTodayTasksUseCase', () => {
       }
     });
 
-    it('should handle missing tasks gracefully', async () => {
+    it("should handle missing tasks gracefully", async () => {
       // Arrange
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
-      const task1 = new Task(taskId1, NonEmptyTitle.fromString('Existing Task'), TaskCategory.SIMPLE, TaskStatus.ACTIVE);
-      
+      const task1 = new Task(
+        taskId1,
+        NonEmptyTitle.fromString("Existing Task"),
+        TaskCategory.SIMPLE,
+        TaskStatus.ACTIVE
+      );
+
       const selectionEntries: DailySelectionEntry[] = [
         {
           date: DateOnly.today(),
           taskId: taskId1,
           completedFlag: false,
-          createdAt: new Date('2024-01-15T10:00:00Z')
+          createdAt: new Date("2024-01-15T10:00:00Z"),
         },
         {
           date: DateOnly.today(),
           taskId: taskId2,
           completedFlag: false,
-          createdAt: new Date('2024-01-15T11:00:00Z')
-        }
+          createdAt: new Date("2024-01-15T11:00:00Z"),
+        },
       ];
 
-      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(selectionEntries);
+      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(
+        selectionEntries
+      );
       vi.mocked(mockTaskRepository.findById)
         .mockResolvedValueOnce(task1)
         .mockResolvedValueOnce(null); // Task not found
@@ -261,9 +324,11 @@ describe('GetTodayTasksUseCase', () => {
       }
     });
 
-    it('should return empty result when no tasks selected', async () => {
+    it("should return empty result when no tasks selected", async () => {
       // Arrange
-      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue([]);
+      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockResolvedValue(
+        []
+      );
 
       // Act
       const result = await useCase.execute();
@@ -280,10 +345,10 @@ describe('GetTodayTasksUseCase', () => {
       expect(mockTaskRepository.findById).not.toHaveBeenCalled();
     });
 
-    it('should fail with invalid date format', async () => {
+    it("should fail with invalid date format", async () => {
       // Arrange
       const request: GetTodayTasksRequest = {
-        date: 'invalid-date'
+        date: "invalid-date",
       };
 
       // Act
@@ -292,15 +357,19 @@ describe('GetTodayTasksUseCase', () => {
       // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe('INVALID_DATE');
+        expect(result.error.code).toBe("INVALID_DATE");
       }
 
-      expect(mockDailySelectionRepository.getTasksForDay).not.toHaveBeenCalled();
+      expect(
+        mockDailySelectionRepository.getTasksForDay
+      ).not.toHaveBeenCalled();
     });
 
-    it('should handle repository failure', async () => {
+    it("should handle repository failure", async () => {
       // Arrange
-      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockRejectedValue(new Error('Database error'));
+      vi.mocked(mockDailySelectionRepository.getTasksForDay).mockRejectedValue(
+        new Error("Database error")
+      );
 
       // Act
       const result = await useCase.execute();
@@ -308,8 +377,8 @@ describe('GetTodayTasksUseCase', () => {
       // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe('GET_FAILED');
-        expect(result.error.message).toContain('Database error');
+        expect(result.error.code).toBe("GET_FAILED");
+        expect(result.error.message).toContain("Database error");
       }
     });
   });

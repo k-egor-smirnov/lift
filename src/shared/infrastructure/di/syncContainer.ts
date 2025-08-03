@@ -1,11 +1,14 @@
-import { container } from 'tsyringe';
-import { SupabaseClientFactory } from '../database/SupabaseClient';
-import { SupabaseSyncRepository } from '../repositories/SupabaseSyncRepository';
-import { SyncService } from '../../application/services/SyncService';
-import { DebouncedSyncService } from '../../application/services/DebouncedSyncService';
-import { SupabaseRealtimeService } from '../services/SupabaseRealtimeService';
-import { getSupabaseConfig, validateSupabaseConfig } from '../config/supabase.config';
-import * as tokens from './tokens';
+import { container } from "tsyringe";
+import { SupabaseClientFactory } from "../database/SupabaseClient";
+import { SupabaseSyncRepository } from "../repositories/SupabaseSyncRepository";
+import { SyncService } from "../../application/services/SyncService";
+import { DebouncedSyncService } from "../../application/services/DebouncedSyncService";
+import { SupabaseRealtimeService } from "../services/SupabaseRealtimeService";
+import {
+  getSupabaseConfig,
+  validateSupabaseConfig,
+} from "../config/supabase.config";
+import * as tokens from "./tokens";
 
 /**
  * Настройка DI контейнера для компонентов синхронизации
@@ -23,7 +26,9 @@ export function configureSyncContainer(): void {
     );
 
     // Инициализируем фабрику с конфигурацией
-    const clientFactory = container.resolve<SupabaseClientFactory>(tokens.SUPABASE_CLIENT_FACTORY_TOKEN);
+    const clientFactory = container.resolve<SupabaseClientFactory>(
+      tokens.SUPABASE_CLIENT_FACTORY_TOKEN
+    );
     clientFactory.initialize(config.environment);
 
     // Регистрируем SyncRepository
@@ -33,10 +38,7 @@ export function configureSyncContainer(): void {
     );
 
     // Регистрируем SyncService
-    container.registerSingleton(
-      tokens.SYNC_SERVICE_TOKEN,
-      SyncService
-    );
+    container.registerSingleton(tokens.SYNC_SERVICE_TOKEN, SyncService);
 
     // Регистрируем DebouncedSyncService
     container.registerSingleton(
@@ -50,9 +52,9 @@ export function configureSyncContainer(): void {
       SupabaseRealtimeService
     );
 
-    console.log('Sync container configured successfully');
+    console.log("Sync container configured successfully");
   } catch (error) {
-    console.error('Failed to configure sync container:', error);
+    console.error("Failed to configure sync container:", error);
     throw error;
   }
 }
@@ -68,21 +70,27 @@ export function getSyncService(): SyncService {
  * Получает сервис real-time из контейнера
  */
 export function getRealtimeService(): SupabaseRealtimeService {
-  return container.resolve<SupabaseRealtimeService>(tokens.SUPABASE_REALTIME_SERVICE_TOKEN);
+  return container.resolve<SupabaseRealtimeService>(
+    tokens.SUPABASE_REALTIME_SERVICE_TOKEN
+  );
 }
 
 /**
  * Получает сервис дебаунсированной синхронизации из контейнера
  */
 export function getDebouncedSyncService(): DebouncedSyncService {
-  return container.resolve<DebouncedSyncService>(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN);
+  return container.resolve<DebouncedSyncService>(
+    tokens.DEBOUNCED_SYNC_SERVICE_TOKEN
+  );
 }
 
 /**
  * Получает репозиторий синхронизации из контейнера
  */
 export function getSyncRepository(): SupabaseSyncRepository {
-  return container.resolve<SupabaseSyncRepository>(tokens.SYNC_REPOSITORY_TOKEN);
+  return container.resolve<SupabaseSyncRepository>(
+    tokens.SYNC_REPOSITORY_TOKEN
+  );
 }
 
 /**

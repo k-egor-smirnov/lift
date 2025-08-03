@@ -14,7 +14,10 @@ import * as tokens from "../../infrastructure/di/tokens";
  * Base error for task operations
  */
 export class TaskOperationError extends Error {
-  constructor(message: string, public readonly code: string) {
+  constructor(
+    message: string,
+    public readonly code: string
+  ) {
     super(message);
     this.name = "TaskOperationError";
   }

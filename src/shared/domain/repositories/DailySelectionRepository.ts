@@ -1,5 +1,5 @@
-import { TaskId } from '../value-objects/TaskId';
-import { DateOnly } from '../value-objects/DateOnly';
+import { TaskId } from "../value-objects/TaskId";
+import { DateOnly } from "../value-objects/DateOnly";
 
 /**
  * Daily selection entry representing a task selected for a specific day
@@ -43,17 +43,27 @@ export interface DailySelectionRepository {
   /**
    * Mark a task as completed for a specific day
    */
-  markTaskCompleted(date: DateOnly, taskId: TaskId, completed: boolean): Promise<void>;
+  markTaskCompleted(
+    date: DateOnly,
+    taskId: TaskId,
+    completed: boolean
+  ): Promise<void>;
 
   /**
    * Get completion status of a task for a specific day
    */
-  getTaskCompletionStatus(date: DateOnly, taskId: TaskId): Promise<boolean | null>;
+  getTaskCompletionStatus(
+    date: DateOnly,
+    taskId: TaskId
+  ): Promise<boolean | null>;
 
   /**
    * Get all daily selections for a date range
    */
-  getDailySelectionsForRange(startDate: DateOnly, endDate: DateOnly): Promise<DailySelectionEntry[]>;
+  getDailySelectionsForRange(
+    startDate: DateOnly,
+    endDate: DateOnly
+  ): Promise<DailySelectionEntry[]>;
 
   /**
    * Clear all selections for a specific day

@@ -1,7 +1,10 @@
-import { Task } from '../entities/Task';
-import { TaskId } from '../value-objects/TaskId';
-import { DateOnly } from '../value-objects/DateOnly';
-import { DailySelectionEntryRecord, TaskLogRecord } from '../../infrastructure/database/TodoDatabase';
+import { Task } from "../entities/Task";
+import { TaskId } from "../value-objects/TaskId";
+import { DateOnly } from "../value-objects/DateOnly";
+import {
+  DailySelectionEntryRecord,
+  TaskLogRecord,
+} from "../../infrastructure/database/TodoDatabase";
 
 /**
  * Интерфейс для синхронизации данных с внешними источниками
@@ -88,8 +91,8 @@ export interface SyncError {
  * Стратегии разрешения конфликтов
  */
 export enum ConflictResolutionStrategy {
-  LOCAL_WINS = 'local_wins',
-  REMOTE_WINS = 'remote_wins',
-  LAST_MODIFIED_WINS = 'last_modified_wins',
-  MANUAL = 'manual'
+  LOCAL_WINS = "local_wins",
+  REMOTE_WINS = "remote_wins",
+  LAST_MODIFIED_WINS = "last_modified_wins",
+  MANUAL = "manual",
 }

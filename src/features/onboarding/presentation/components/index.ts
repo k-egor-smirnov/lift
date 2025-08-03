@@ -1,3 +1,3 @@
-export { DailyModal } from './DailyModal';
-export { DailyModalContainer } from './DailyModalContainer';
-export { UserSettingsModal } from './UserSettingsModal';
+export { DailyModal } from "./DailyModal";
+export { DailyModalContainer } from "./DailyModalContainer";
+export { UserSettingsModal } from "./UserSettingsModal";

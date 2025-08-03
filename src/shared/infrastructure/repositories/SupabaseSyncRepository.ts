@@ -76,9 +76,8 @@ export class SupabaseSyncRepository implements SyncRepository {
       result.pulledCount = remoteTasks.length;
 
       // 2. Получаем локальные задачи, измененные после последней синхронизации
-      const localTasks = await this.getLocalTasksModifiedAfter(
-        lastSyncTimestamp
-      );
+      const localTasks =
+        await this.getLocalTasksModifiedAfter(lastSyncTimestamp);
 
       // 3. Разрешаем конфликты и применяем изменения
       const { resolvedTasks, conflicts } = await this.resolveConflictsAndMerge(
@@ -400,9 +399,8 @@ export class SupabaseSyncRepository implements SyncRepository {
       }
 
       // 1. Получаем изменения с сервера
-      const remoteEntries = await this.pullDailySelectionEntries(
-        lastSyncTimestamp
-      );
+      const remoteEntries =
+        await this.pullDailySelectionEntries(lastSyncTimestamp);
       result.pulledCount = remoteEntries.length;
 
       // 2. Получаем локальные записи, измененные после последней синхронизации
@@ -463,9 +461,8 @@ export class SupabaseSyncRepository implements SyncRepository {
       result.pulledCount = remoteLogs.length;
 
       // 2. Получаем локальные логи, измененные после последней синхронизации
-      const localLogs = await this.getLocalTaskLogsModifiedAfter(
-        lastSyncTimestamp
-      );
+      const localLogs =
+        await this.getLocalTaskLogsModifiedAfter(lastSyncTimestamp);
 
       // 3. Сохраняем удаленные логи локально
       if (remoteLogs.length > 0) {

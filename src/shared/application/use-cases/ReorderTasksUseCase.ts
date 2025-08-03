@@ -1,11 +1,11 @@
-import { injectable, inject } from 'tsyringe';
-import { TaskId } from '../../domain/value-objects/TaskId';
-import { TaskRepository } from '../../domain/repositories/TaskRepository';
-import { EventBus } from '../../domain/events/EventBus';
-import { Result, ResultUtils } from '../../domain/Result';
-import { TodoDatabase } from '../../infrastructure/database/TodoDatabase';
-import { hashTask } from '../../infrastructure/utils/hashUtils';
-import * as tokens from '../../infrastructure/di/tokens';
+import { injectable, inject } from "tsyringe";
+import { TaskId } from "../../domain/value-objects/TaskId";
+import { TaskRepository } from "../../domain/repositories/TaskRepository";
+import { EventBus } from "../../domain/events/EventBus";
+import { Result, ResultUtils } from "../../domain/Result";
+import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
+import { hashTask } from "../../infrastructure/utils/hashUtils";
+import * as tokens from "../../infrastructure/di/tokens";
 
 /**
  * Request for reordering tasks
@@ -21,9 +21,12 @@ export interface ReorderTasksRequest {
  * Domain errors for task reordering
  */
 export class TaskReorderError extends Error {
-  constructor(message: string, public readonly code: string) {
+  constructor(
+    message: string,
+    public readonly code: string
+  ) {
     super(message);
-    this.name = 'TaskReorderError';
+    this.name = "TaskReorderError";
   }
 }
 
@@ -33,12 +36,15 @@ export class TaskReorderError extends Error {
 @injectable()
 export class ReorderTasksUseCase {
   constructor(
-    @inject(tokens.TASK_REPOSITORY_TOKEN) private readonly taskRepository: TaskRepository,
+    @inject(tokens.TASK_REPOSITORY_TOKEN)
+    private readonly taskRepository: TaskRepository,
     @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
     @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
   ) {}
 
-  async execute(request: ReorderTasksRequest): Promise<Result<void, TaskReorderError>> {
+  async execute(
+    request: ReorderTasksRequest
+  ): Promise<Result<void, TaskReorderError>> {
     try {
       const tasks = [];
       const allEvents: any[] = [];
@@ -50,14 +56,17 @@ export class ReorderTasksUseCase {
           parsedTaskId = TaskId.fromString(taskId);
         } catch (error) {
           return ResultUtils.error(
-            new TaskReorderError(`Invalid task ID format: ${taskId}`, 'INVALID_TASK_ID')
+            new TaskReorderError(
+              `Invalid task ID format: ${taskId}`,
+              "INVALID_TASK_ID"
+            )
           );
         }
 
         const task = await this.taskRepository.findById(parsedTaskId);
         if (!task) {
           return ResultUtils.error(
-            new TaskReorderError(`Task not found: ${taskId}`, 'TASK_NOT_FOUND')
+            new TaskReorderError(`Task not found: ${taskId}`, "TASK_NOT_FOUND")
           );
         }
 
@@ -68,25 +77,30 @@ export class ReorderTasksUseCase {
       }
 
       // Execute transactional operation
-      await this.database.transaction('rw', 
-        [this.database.tasks, this.database.syncQueue, this.database.eventStore], 
+      await this.database.transaction(
+        "rw",
+        [
+          this.database.tasks,
+          this.database.syncQueue,
+          this.database.eventStore,
+        ],
         async () => {
           // Save all updated tasks
           for (const task of tasks) {
             await this.taskRepository.save(task);
-            
+
             // Add sync queue entry for each task
             await this.database.syncQueue.add({
-              entityType: 'task',
+              entityType: "task",
               entityId: task.id.value,
-              operation: 'update',
+              operation: "update",
               payloadHash: hashTask(task),
               attemptCount: 0,
               createdAt: new Date(),
-              nextAttemptAt: Date.now()
+              nextAttemptAt: Date.now(),
             });
           }
-          
+
           // Publish domain events
           if (allEvents.length > 0) {
             await this.eventBus.publishAll(allEvents);
@@ -98,8 +112,8 @@ export class ReorderTasksUseCase {
     } catch (error) {
       return ResultUtils.error(
         new TaskReorderError(
-          `Failed to reorder tasks: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          'REORDER_FAILED'
+          `Failed to reorder tasks: ${error instanceof Error ? error.message : "Unknown error"}`,
+          "REORDER_FAILED"
         )
       );
     }

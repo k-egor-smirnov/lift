@@ -38,7 +38,8 @@ export class UpdateTaskUseCase extends BaseTaskUseCase {
     @inject(tokens.TASK_REPOSITORY_TOKEN) taskRepository: TaskRepository,
     @inject(tokens.EVENT_BUS_TOKEN) eventBus: EventBus,
     @inject(tokens.DATABASE_TOKEN) database: TodoDatabase,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) debouncedSyncService: DebouncedSyncService
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
+    debouncedSyncService: DebouncedSyncService
   ) {
     super(taskRepository, eventBus, database, debouncedSyncService);
   }

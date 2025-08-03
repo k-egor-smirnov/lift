@@ -2,13 +2,7 @@ import React, { useRef, useEffect } from "react";
 import { LogEntry } from "../../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
 import { useTranslation } from "react-i18next";
-import {
-  Settings,
-  User,
-  AlertTriangle,
-  FileText,
-  Pen,
-} from "lucide-react";
+import { Settings, User, AlertTriangle, FileText, Pen } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -167,8 +161,8 @@ export const TaskLogsModal: React.FC<TaskLogsModalProps> = ({
                               log.type === "SYSTEM"
                                 ? "bg-blue-100 text-blue-800"
                                 : log.type === "USER"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
                             }`}
                           >
                             {log.type}

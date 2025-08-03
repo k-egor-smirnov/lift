@@ -1,10 +1,13 @@
-import { injectable, inject } from 'tsyringe';
-import { TaskId } from '../../domain/value-objects/TaskId';
-import { TodoDatabase, TaskLogRecord } from '../../infrastructure/database/TodoDatabase';
-import { Result, ResultUtils } from '../../domain/Result';
-import { DebouncedSyncService } from '../services/DebouncedSyncService';
-import * as tokens from '../../infrastructure/di/tokens';
-import { ulid } from 'ulid';
+import { injectable, inject } from "tsyringe";
+import { TaskId } from "../../domain/value-objects/TaskId";
+import {
+  TodoDatabase,
+  TaskLogRecord,
+} from "../../infrastructure/database/TodoDatabase";
+import { Result, ResultUtils } from "../../domain/Result";
+import { DebouncedSyncService } from "../services/DebouncedSyncService";
+import * as tokens from "../../infrastructure/di/tokens";
+import { ulid } from "ulid";
 
 /**
  * Request for creating a user log
@@ -19,9 +22,12 @@ export interface CreateUserLogRequest {
  * Domain errors for user log creation
  */
 export class CreateUserLogError extends Error {
-  constructor(message: string, public readonly code: string) {
+  constructor(
+    message: string,
+    public readonly code: string
+  ) {
     super(message);
-    this.name = 'CreateUserLogError';
+    this.name = "CreateUserLogError";
   }
 }
 
@@ -34,15 +40,18 @@ export class CreateUserLogUseCase {
 
   constructor(
     @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN) private readonly debouncedSyncService: DebouncedSyncService
+    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
+    private readonly debouncedSyncService: DebouncedSyncService
   ) {}
 
-  async execute(request: CreateUserLogRequest): Promise<Result<void, CreateUserLogError>> {
+  async execute(
+    request: CreateUserLogRequest
+  ): Promise<Result<void, CreateUserLogError>> {
     try {
       // Validate message length
       if (!request.message || request.message.trim().length === 0) {
         return ResultUtils.error(
-          new CreateUserLogError('Log message cannot be empty', 'EMPTY_MESSAGE')
+          new CreateUserLogError("Log message cannot be empty", "EMPTY_MESSAGE")
         );
       }
 
@@ -50,7 +59,7 @@ export class CreateUserLogUseCase {
         return ResultUtils.error(
           new CreateUserLogError(
             `Log message cannot exceed ${CreateUserLogUseCase.MAX_MESSAGE_LENGTH} characters`,
-            'MESSAGE_TOO_LONG'
+            "MESSAGE_TOO_LONG"
           )
         );
       }
@@ -62,7 +71,7 @@ export class CreateUserLogUseCase {
           taskId = TaskId.fromString(request.taskId);
         } catch (error) {
           return ResultUtils.error(
-            new CreateUserLogError('Invalid task ID format', 'INVALID_TASK_ID')
+            new CreateUserLogError("Invalid task ID format", "INVALID_TASK_ID")
           );
         }
       }
@@ -71,10 +80,10 @@ export class CreateUserLogUseCase {
       const logRecord: TaskLogRecord = {
         id: ulid(),
         taskId: taskId?.value,
-        type: 'USER',
+        type: "USER",
         message: request.message.trim(),
         metadata: request.metadata,
-        createdAt: new Date()
+        createdAt: new Date(),
       };
 
       // Save to database
@@ -87,8 +96,8 @@ export class CreateUserLogUseCase {
     } catch (error) {
       return ResultUtils.error(
         new CreateUserLogError(
-          `Failed to create user log: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          'CREATION_FAILED'
+          `Failed to create user log: ${error instanceof Error ? error.message : "Unknown error"}`,
+          "CREATION_FAILED"
         )
       );
     }

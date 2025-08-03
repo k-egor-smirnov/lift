@@ -9,6 +9,6 @@
       "name": "Dev server",
       "request": "launch",
       "type": "node-terminal"
-    },
+    }
   ]
 }

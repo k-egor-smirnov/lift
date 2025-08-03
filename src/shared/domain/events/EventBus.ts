@@ -1,15 +1,22 @@
-import { injectable, inject } from 'tsyringe';
-import { DomainEvent } from './DomainEvent';
-import { DomainEventType } from '../types';
-import { ulid } from 'ulid';
-import Dexie from 'dexie';
-import { TodoDatabase, EventStoreRecord, HandledEventRecord, LockRecord } from '../../infrastructure/database/TodoDatabase';
-import * as tokens from '../../infrastructure/di/tokens';
+import { injectable, inject } from "tsyringe";
+import { DomainEvent } from "./DomainEvent";
+import { DomainEventType } from "../types";
+import { ulid } from "ulid";
+import Dexie from "dexie";
+import {
+  TodoDatabase,
+  EventStoreRecord,
+  HandledEventRecord,
+  LockRecord,
+} from "../../infrastructure/database/TodoDatabase";
+import * as tokens from "../../infrastructure/di/tokens";
 
 /**
  * Event handler function type
  */
-export type EventHandler<T extends DomainEvent = DomainEvent> = (event: T) => void | Promise<void>;
+export type EventHandler<T extends DomainEvent = DomainEvent> = (
+  event: T
+) => void | Promise<void>;
 
 /**
  * Persistent event handler interface with unique ID for idempotency tracking
@@ -160,7 +167,7 @@ export class InMemoryEventBus implements EventBus {
         if (handlers.size === 0) {
           this.handlers.delete(eventType);
         }
-      }
+      },
     };
   }
 
@@ -170,7 +177,7 @@ export class InMemoryEventBus implements EventBus {
     return {
       unsubscribe: () => {
         this.globalHandlers.delete(handler);
-      }
+      },
     };
   }
 
@@ -179,7 +186,10 @@ export class InMemoryEventBus implements EventBus {
     this.globalHandlers.clear();
   }
 
-  private async executeHandler(handler: EventHandler, event: DomainEvent): Promise<void> {
+  private async executeHandler(
+    handler: EventHandler,
+    event: DomainEvent
+  ): Promise<void> {
     try {
       const result = handler(event);
       if (result instanceof Promise) {
@@ -187,7 +197,7 @@ export class InMemoryEventBus implements EventBus {
       }
     } catch (error) {
       // Log error but don't throw to prevent one handler from breaking others
-      console.error('Error executing event handler:', error);
+      console.error("Error executing event handler:", error);
     }
   }
 
@@ -219,9 +229,12 @@ export class PersistentEventBusImpl implements PersistentEventBus {
 
   private handlers = new Map<DomainEventType, Set<EventHandler>>();
   private globalHandlers = new Set<EventHandler>();
-  private persistentHandlers = new Map<DomainEventType, Set<PersistentEventHandler>>();
+  private persistentHandlers = new Map<
+    DomainEventType,
+    Set<PersistentEventHandler>
+  >();
   private globalPersistentHandlers = new Set<PersistentEventHandler>();
-  
+
   private processingLoopId?: number;
   private isProcessing = false;
   private isShuttingDown = false;
@@ -236,7 +249,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     if (events.length === 0) return;
 
     // Store events in database within current transaction or create new one
-    const eventRecords: EventStoreRecord[] = events.map(event => ({
+    const eventRecords: EventStoreRecord[] = events.map((event) => ({
       id: ulid(),
       aggregateId: this.extractAggregateId(event),
       aggregateType: this.extractAggregateType(event),
@@ -244,11 +257,11 @@ export class PersistentEventBusImpl implements PersistentEventBus {
       eventData: JSON.stringify({
         ...event.getEventData(),
         eventId: event.eventId,
-        occurredAt: event.occurredAt.toISOString()
+        occurredAt: event.occurredAt.toISOString(),
       }),
       createdAt: Date.now(),
-      status: 'pending' as const,
-      attemptCount: 0
+      status: "pending" as const,
+      attemptCount: 0,
     }));
 
     // Execute in-memory handlers immediately (for backward compatibility)
@@ -258,23 +271,34 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     if (Dexie.currentTransaction) {
       // We're in a transaction, add to event store
       await this.database.eventStore.bulkAdd(eventRecords);
-      
+
       // Schedule processing after transaction commits
-      Dexie.currentTransaction.on('complete', () => {
-        queueMicrotask(() => this.processNextBatch().catch(error => {
-          console.error('Error in event processing after transaction:', error);
-        }));
+      Dexie.currentTransaction.on("complete", () => {
+        queueMicrotask(() =>
+          this.processNextBatch().catch((error) => {
+            console.error(
+              "Error in event processing after transaction:",
+              error
+            );
+          })
+        );
       });
     } else {
       // No current transaction, create one
-      await this.database.transaction('rw', [this.database.eventStore], async () => {
-        await this.database.eventStore.bulkAdd(eventRecords);
-      });
-      
+      await this.database.transaction(
+        "rw",
+        [this.database.eventStore],
+        async () => {
+          await this.database.eventStore.bulkAdd(eventRecords);
+        }
+      );
+
       // Process immediately
-      queueMicrotask(() => this.processNextBatch().catch(error => {
-        console.error('Error in event processing:', error);
-      }));
+      queueMicrotask(() =>
+        this.processNextBatch().catch((error) => {
+          console.error("Error in event processing:", error);
+        })
+      );
     }
   }
 
@@ -295,7 +319,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
         if (handlers.size === 0) {
           this.handlers.delete(eventType);
         }
-      }
+      },
     };
   }
 
@@ -305,7 +329,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     return {
       unsubscribe: () => {
         this.globalHandlers.delete(handler);
-      }
+      },
     };
   }
 
@@ -326,7 +350,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
         if (handlers.size === 0) {
           this.persistentHandlers.delete(eventType);
         }
-      }
+      },
     };
   }
 
@@ -336,7 +360,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     return {
       unsubscribe: () => {
         this.globalPersistentHandlers.delete(handler);
-      }
+      },
     };
   }
 
@@ -355,13 +379,13 @@ export class PersistentEventBusImpl implements PersistentEventBus {
 
     this.processingLoopId = window.setInterval(() => {
       if (!this.isProcessing) {
-        this.processNextBatch().catch(error => {
-          console.error('Error in event processing loop:', error);
+        this.processNextBatch().catch((error) => {
+          console.error("Error in event processing loop:", error);
         });
       }
     }, this.PROCESSING_INTERVAL);
 
-    console.log('Event processing loop started');
+    console.log("Event processing loop started");
   }
 
   stopProcessingLoop(): void {
@@ -369,17 +393,17 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     if (this.processingLoopId) {
       clearInterval(this.processingLoopId);
       this.processingLoopId = undefined;
-      console.log('Event processing loop stopped');
+      console.log("Event processing loop stopped");
     }
   }
 
   async getProcessingStats(): Promise<EventProcessingStats> {
     const [total, pending, processing, done, deadLetter] = await Promise.all([
       this.database.eventStore.count(),
-      this.database.eventStore.where('status').equals('pending').count(),
-      this.database.eventStore.where('status').equals('processing').count(),
-      this.database.eventStore.where('status').equals('done').count(),
-      this.database.eventStore.where('status').equals('dead').count()
+      this.database.eventStore.where("status").equals("pending").count(),
+      this.database.eventStore.where("status").equals("processing").count(),
+      this.database.eventStore.where("status").equals("done").count(),
+      this.database.eventStore.where("status").equals("dead").count(),
     ]);
 
     return {
@@ -388,7 +412,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
       processingEvents: processing,
       doneEvents: done,
       deadLetterEvents: deadLetter,
-      averageProcessingTime: 0 // TODO: implement timing with processing duration tracking
+      averageProcessingTime: 0, // TODO: implement timing with processing duration tracking
     };
   }
 
@@ -413,7 +437,10 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     await Promise.all(promises);
   }
 
-  private async executeHandler(handler: EventHandler, event: DomainEvent): Promise<void> {
+  private async executeHandler(
+    handler: EventHandler,
+    event: DomainEvent
+  ): Promise<void> {
     try {
       const result = handler(event);
       if (result instanceof Promise) {
@@ -421,7 +448,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
       }
     } catch (error) {
       // Log error but don't throw to prevent one handler from breaking others
-      console.error('Error executing event handler:', error);
+      console.error("Error executing event handler:", error);
     }
   }
 
@@ -434,17 +461,19 @@ export class PersistentEventBusImpl implements PersistentEventBus {
 
     try {
       // Acquire global processing lock using Web Locks API with database fallback
-      await this.withLock('event-processing', async () => {
+      await this.withLock("event-processing", async () => {
         // Get pending events, grouped by aggregateId for ordered processing
         const pendingEvents = await this.database.eventStore
-          .where('status')
-          .equals('pending')
-          .or('status').equals('processing')
-          .and(record => !record.nextAttemptAt || record.nextAttemptAt <= Date.now())
+          .where("status")
+          .equals("pending")
+          .or("status")
+          .equals("processing")
+          .and(
+            (record) =>
+              !record.nextAttemptAt || record.nextAttemptAt <= Date.now()
+          )
           .limit(this.PROCESSING_BATCH_SIZE)
           .toArray();
-
-
 
         if (pendingEvents.length === 0) {
           return;
@@ -472,10 +501,13 @@ export class PersistentEventBusImpl implements PersistentEventBus {
   private async processEventsDirectly(): Promise<void> {
     // Get pending events, grouped by aggregateId for ordered processing
     const pendingEvents = await this.database.eventStore
-      .where('status')
-      .equals('pending')
-      .or('status').equals('processing')
-      .and(record => !record.nextAttemptAt || record.nextAttemptAt <= Date.now())
+      .where("status")
+      .equals("pending")
+      .or("status")
+      .equals("processing")
+      .and(
+        (record) => !record.nextAttemptAt || record.nextAttemptAt <= Date.now()
+      )
       .limit(this.PROCESSING_BATCH_SIZE)
       .toArray();
 
@@ -498,7 +530,10 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     }
   }
 
-  private async processAggregateEvents(aggregateId: string, events: EventStoreRecord[]): Promise<void> {
+  private async processAggregateEvents(
+    aggregateId: string,
+    events: EventStoreRecord[]
+  ): Promise<void> {
     // Sort events by creation time to ensure proper ordering
     events.sort((a, b) => a.createdAt - b.createdAt);
 
@@ -511,8 +546,8 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     try {
       // Mark as processing
       await this.database.eventStore.update(eventRecord.id, {
-        status: 'processing' as const,
-        attemptCount: eventRecord.attemptCount + 1
+        status: "processing" as const,
+        attemptCount: eventRecord.attemptCount + 1,
       });
 
       // Deserialize event
@@ -524,15 +559,18 @@ export class PersistentEventBusImpl implements PersistentEventBus {
 
       // Execute each handler with idempotency check
       for (const handler of handlers) {
-        await this.executeHandlerWithIdempotency(handler, domainEvent, eventRecord.id);
+        await this.executeHandlerWithIdempotency(
+          handler,
+          domainEvent,
+          eventRecord.id
+        );
       }
 
       // Mark as done
       await this.database.eventStore.update(eventRecord.id, {
-        status: 'done' as const,
-        lastError: undefined
+        status: "done" as const,
+        lastError: undefined,
       });
-
     } catch (error) {
       await this.handleEventProcessingError(eventRecord, error as Error);
     }
@@ -545,7 +583,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
   ): Promise<void> {
     // Check if already handled
     const alreadyHandled = await this.database.handledEvents
-      .where(['eventId', 'handlerId'])
+      .where(["eventId", "handlerId"])
       .equals([eventId, handler.id])
       .first();
 
@@ -560,19 +598,22 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     await this.database.handledEvents.add({
       eventId,
       handlerId: handler.id,
-      processedAt: Date.now()
+      processedAt: Date.now(),
     });
   }
 
-  private async handleEventProcessingError(eventRecord: EventStoreRecord, error: Error): Promise<void> {
+  private async handleEventProcessingError(
+    eventRecord: EventStoreRecord,
+    error: Error
+  ): Promise<void> {
     const newAttemptCount = eventRecord.attemptCount + 1;
 
     if (newAttemptCount >= this.MAX_RETRY_ATTEMPTS) {
       // Move to dead letter queue
       await this.database.eventStore.update(eventRecord.id, {
-        status: 'dead' as const,
+        status: "dead" as const,
         lastError: error.message,
-        nextAttemptAt: undefined
+        nextAttemptAt: undefined,
       });
     } else {
       // Schedule retry with exponential backoff + jitter
@@ -580,16 +621,17 @@ export class PersistentEventBusImpl implements PersistentEventBus {
       const nextAttemptAt = Date.now() + backoffDelay;
 
       await this.database.eventStore.update(eventRecord.id, {
-        status: 'pending' as const,
+        status: "pending" as const,
         lastError: error.message,
-        nextAttemptAt
+        nextAttemptAt,
       });
     }
   }
 
   private calculateBackoffDelay(attemptCount: number): number {
     // Exponential backoff with jitter: base * 2^attempt + random(0, 1000)
-    const exponentialDelay = this.RETRY_BASE_DELAY * Math.pow(2, attemptCount - 1);
+    const exponentialDelay =
+      this.RETRY_BASE_DELAY * Math.pow(2, attemptCount - 1);
     const jitter = Math.random() * 1000;
     return exponentialDelay + jitter;
   }
@@ -609,51 +651,64 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     return handlers;
   }
 
-  private deserializeEvent(eventRecord: EventStoreRecord, eventData: any): DomainEvent {
+  private deserializeEvent(
+    eventRecord: EventStoreRecord,
+    eventData: any
+  ): DomainEvent {
     // Create a mock domain event for handler execution
     // In a real implementation, you'd have proper event deserialization
     return {
       eventId: eventData.eventId,
       occurredAt: new Date(eventData.occurredAt),
       eventType: eventRecord.eventType as DomainEventType,
-      getEventData: () => eventData
+      getEventData: () => eventData,
     } as DomainEvent;
   }
 
   private extractAggregateId(event: DomainEvent): string {
     const eventData = event.getEventData();
-    return eventData.taskId || eventData.aggregateId || 'unknown';
+    return eventData.taskId || eventData.aggregateId || "unknown";
   }
 
   private extractAggregateType(event: DomainEvent): string {
     const eventData = event.getEventData();
-    if (eventData.taskId) return 'task';
-    return 'unknown';
+    if (eventData.taskId) return "task";
+    return "unknown";
   }
 
-  private async withLock<T>(lockId: string, operation: () => Promise<T>): Promise<T> {
+  private async withLock<T>(
+    lockId: string,
+    operation: () => Promise<T>
+  ): Promise<T> {
     // Try Web Locks API first (modern browsers)
-    if ('locks' in navigator) {
-      return await navigator.locks.request(lockId, { mode: 'exclusive' }, operation);
+    if ("locks" in navigator) {
+      return await navigator.locks.request(
+        lockId,
+        { mode: "exclusive" },
+        operation
+      );
     }
 
     // Fallback to database-based locking
     return await this.withDatabaseLock(lockId, operation);
   }
 
-  private async withDatabaseLock<T>(lockId: string, operation: () => Promise<T>): Promise<T> {
+  private async withDatabaseLock<T>(
+    lockId: string,
+    operation: () => Promise<T>
+  ): Promise<T> {
     const lockRecord: LockRecord = {
       id: lockId,
-      expiresAt: Date.now() + this.LOCK_TIMEOUT
+      expiresAt: Date.now() + this.LOCK_TIMEOUT,
     };
 
     try {
       // Try to acquire lock
       await this.database.locks.add(lockRecord);
-      
+
       // Execute operation
       const result = await operation();
-      
+
       return result;
     } catch (error) {
       // Check if lock already exists and is not expired
@@ -662,20 +717,20 @@ export class PersistentEventBusImpl implements PersistentEventBus {
         // Lock is held by another process
         throw new Error(`Lock ${lockId} is already held`);
       }
-      
+
       // Lock expired, clean it up and try again
       if (existingLock) {
         await this.database.locks.delete(lockId);
         return await this.withDatabaseLock(lockId, operation);
       }
-      
+
       throw error;
     } finally {
       // Release lock
       try {
         await this.database.locks.delete(lockId);
       } catch (error) {
-        console.warn('Failed to release lock:', error);
+        console.warn("Failed to release lock:", error);
       }
     }
   }

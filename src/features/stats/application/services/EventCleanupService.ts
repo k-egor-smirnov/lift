@@ -1,4 +1,4 @@
-import { TodoDatabase } from '../../../../shared/infrastructure/database/TodoDatabase';
+import { TodoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 
 export interface CleanupResult {
   eventsDeleted: number;
@@ -24,26 +24,28 @@ export class EventCleanupService {
   /**
    * Clean up processed events older than specified days
    */
-  async cleanupProcessedEvents(options: Partial<CleanupOptions> = {}): Promise<CleanupResult> {
+  async cleanupProcessedEvents(
+    options: Partial<CleanupOptions> = {}
+  ): Promise<CleanupResult> {
     const config: CleanupOptions = {
       retentionDays: 30,
       batchSize: 100,
       preserveDeadLetters: true,
       dryRun: false,
-      ...options
+      ...options,
     };
 
-    const cutoffDate = Date.now() - (config.retentionDays * 24 * 60 * 60 * 1000);
-    
+    const cutoffDate = Date.now() - config.retentionDays * 24 * 60 * 60 * 1000;
+
     let totalEventsDeleted = 0;
     let totalHandledEventsDeleted = 0;
     let totalLocksDeleted = 0;
 
     // Clean up done events
     const doneEventsDeleted = await this.cleanupEventsByStatus(
-      'done', 
-      cutoffDate, 
-      config.batchSize, 
+      "done",
+      cutoffDate,
+      config.batchSize,
       config.dryRun
     );
     totalEventsDeleted += doneEventsDeleted;
@@ -51,9 +53,9 @@ export class EventCleanupService {
     // Clean up dead letter events if not preserving them
     if (!config.preserveDeadLetters) {
       const deadEventsDeleted = await this.cleanupEventsByStatus(
-        'dead', 
-        cutoffDate, 
-        config.batchSize, 
+        "dead",
+        cutoffDate,
+        config.batchSize,
         config.dryRun
       );
       totalEventsDeleted += deadEventsDeleted;
@@ -61,7 +63,7 @@ export class EventCleanupService {
 
     // Clean up handled events for deleted events
     totalHandledEventsDeleted = await this.cleanupOrphanedHandledEvents(
-      config.batchSize, 
+      config.batchSize,
       config.dryRun
     );
 
@@ -70,8 +72,8 @@ export class EventCleanupService {
 
     // Estimate space freed (rough calculation)
     const estimatedSpaceFreed = this.estimateSpaceFreed(
-      totalEventsDeleted, 
-      totalHandledEventsDeleted, 
+      totalEventsDeleted,
+      totalHandledEventsDeleted,
       totalLocksDeleted
     );
 
@@ -79,7 +81,7 @@ export class EventCleanupService {
       eventsDeleted: totalEventsDeleted,
       handledEventsDeleted: totalHandledEventsDeleted,
       locksDeleted: totalLocksDeleted,
-      totalSpaceFreed: estimatedSpaceFreed
+      totalSpaceFreed: estimatedSpaceFreed,
     };
   }
 
@@ -87,7 +89,7 @@ export class EventCleanupService {
    * Clean up events by status and age
    */
   private async cleanupEventsByStatus(
-    status: 'done' | 'dead',
+    status: "done" | "dead",
     cutoffDate: number,
     batchSize: number,
     dryRun: boolean
@@ -97,9 +99,9 @@ export class EventCleanupService {
 
     while (hasMore) {
       const eventsToDelete = await this.database.eventStore
-        .where('status')
+        .where("status")
         .equals(status)
-        .and(event => event.createdAt < cutoffDate)
+        .and((event) => event.createdAt < cutoffDate)
         .limit(batchSize)
         .toArray();
 
@@ -110,20 +112,24 @@ export class EventCleanupService {
 
       if (!dryRun) {
         // Delete in transaction for consistency
-        await this.database.transaction('rw', [this.database.eventStore, this.database.handledEvents], async () => {
-          const eventIds = eventsToDelete.map(e => e.id);
-          
-          // Delete the events
-          await this.database.eventStore.bulkDelete(eventIds);
-          
-          // Delete related handled events
-          for (const eventId of eventIds) {
-            await this.database.handledEvents
-              .where('eventId')
-              .equals(eventId)
-              .delete();
+        await this.database.transaction(
+          "rw",
+          [this.database.eventStore, this.database.handledEvents],
+          async () => {
+            const eventIds = eventsToDelete.map((e) => e.id);
+
+            // Delete the events
+            await this.database.eventStore.bulkDelete(eventIds);
+
+            // Delete related handled events
+            for (const eventId of eventIds) {
+              await this.database.handledEvents
+                .where("eventId")
+                .equals(eventId)
+                .delete();
+            }
           }
-        });
+        );
       }
 
       totalDeleted += eventsToDelete.length;
@@ -140,7 +146,10 @@ export class EventCleanupService {
   /**
    * Clean up handled events that no longer have corresponding events
    */
-  private async cleanupOrphanedHandledEvents(batchSize: number, dryRun: boolean): Promise<number> {
+  private async cleanupOrphanedHandledEvents(
+    batchSize: number,
+    dryRun: boolean
+  ): Promise<number> {
     let totalDeleted = 0;
     let hasMore = true;
 
@@ -158,14 +167,19 @@ export class EventCleanupService {
 
       // Check which handled events are orphaned
       for (const handledEvent of handledEvents) {
-        const eventExists = await this.database.eventStore.get(handledEvent.eventId);
+        const eventExists = await this.database.eventStore.get(
+          handledEvent.eventId
+        );
         if (!eventExists) {
           orphanedEvents.push(handledEvent);
         }
       }
 
       if (orphanedEvents.length > 0 && !dryRun) {
-        const keysToDelete = orphanedEvents.map(he => [he.eventId, he.handlerId]);
+        const keysToDelete = orphanedEvents.map((he) => [
+          he.eventId,
+          he.handlerId,
+        ]);
         await this.database.handledEvents.bulkDelete(keysToDelete);
       }
 
@@ -185,14 +199,14 @@ export class EventCleanupService {
    */
   private async cleanupExpiredLocks(dryRun: boolean): Promise<number> {
     const now = Date.now();
-    
+
     const expiredLocks = await this.database.locks
-      .where('expiresAt')
+      .where("expiresAt")
       .below(now)
       .toArray();
 
     if (expiredLocks.length > 0 && !dryRun) {
-      const lockIds = expiredLocks.map(lock => lock.id);
+      const lockIds = expiredLocks.map((lock) => lock.id);
       await this.database.locks.bulkDelete(lockIds);
     }
 
@@ -209,36 +223,32 @@ export class EventCleanupService {
     expiredLocks: number;
     estimatedSpaceToFree: number;
   }> {
-    const cutoffDate = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+    const cutoffDate = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
     const now = Date.now();
 
-    const [
-      doneEventsToCleanup,
-      deadEventsToCleanup,
-      expiredLocks
-    ] = await Promise.all([
-      this.database.eventStore
-        .where('status')
-        .equals('done')
-        .and(event => event.createdAt < cutoffDate)
-        .count(),
-      this.database.eventStore
-        .where('status')
-        .equals('dead')
-        .and(event => event.createdAt < cutoffDate)
-        .count(),
-      this.database.locks
-        .where('expiresAt')
-        .below(now)
-        .count()
-    ]);
+    const [doneEventsToCleanup, deadEventsToCleanup, expiredLocks] =
+      await Promise.all([
+        this.database.eventStore
+          .where("status")
+          .equals("done")
+          .and((event) => event.createdAt < cutoffDate)
+          .count(),
+        this.database.eventStore
+          .where("status")
+          .equals("dead")
+          .and((event) => event.createdAt < cutoffDate)
+          .count(),
+        this.database.locks.where("expiresAt").below(now).count(),
+      ]);
 
     // Count orphaned handled events (simplified check)
     const allHandledEvents = await this.database.handledEvents.toArray();
     let orphanedHandledEvents = 0;
 
     for (const handledEvent of allHandledEvents) {
-      const eventExists = await this.database.eventStore.get(handledEvent.eventId);
+      const eventExists = await this.database.eventStore.get(
+        handledEvent.eventId
+      );
       if (!eventExists) {
         orphanedHandledEvents++;
       }
@@ -255,7 +265,7 @@ export class EventCleanupService {
       deadEventsToCleanup,
       orphanedHandledEvents,
       expiredLocks,
-      estimatedSpaceToFree
+      estimatedSpaceToFree,
     };
   }
 
@@ -266,35 +276,35 @@ export class EventCleanupService {
     retentionDays: number = 30,
     includeDeadLetters: boolean = true
   ): Promise<{ archiveData: any[]; eventCount: number }> {
-    const cutoffDate = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
-    
+    const cutoffDate = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+
     let eventsToArchive = await this.database.eventStore
-      .where('status')
-      .equals('done')
-      .and(event => event.createdAt < cutoffDate)
+      .where("status")
+      .equals("done")
+      .and((event) => event.createdAt < cutoffDate)
       .toArray();
 
     if (includeDeadLetters) {
       const deadEvents = await this.database.eventStore
-        .where('status')
-        .equals('dead')
-        .and(event => event.createdAt < cutoffDate)
+        .where("status")
+        .equals("dead")
+        .and((event) => event.createdAt < cutoffDate)
         .toArray();
-      
+
       eventsToArchive = [...eventsToArchive, ...deadEvents];
     }
 
     // Sort by creation date
     eventsToArchive.sort((a, b) => a.createdAt - b.createdAt);
 
-    const archiveData = eventsToArchive.map(event => ({
+    const archiveData = eventsToArchive.map((event) => ({
       ...event,
-      archivedAt: new Date().toISOString()
+      archivedAt: new Date().toISOString(),
     }));
 
     return {
       archiveData,
-      eventCount: eventsToArchive.length
+      eventCount: eventsToArchive.length,
     };
   }
 
@@ -308,10 +318,10 @@ export class EventCleanupService {
       await this.database.eventStore.count();
       await this.database.handledEvents.count();
       await this.database.locks.count();
-      
-      console.log('Database optimization completed');
+
+      console.log("Database optimization completed");
     } catch (error) {
-      console.error('Database optimization failed:', error);
+      console.error("Database optimization failed:", error);
     }
   }
 
@@ -323,14 +333,14 @@ export class EventCleanupService {
     options: Partial<CleanupOptions> = {}
   ): () => void {
     const intervalMs = intervalHours * 60 * 60 * 1000;
-    
+
     const cleanup = async () => {
       try {
-        console.log('Starting automatic event cleanup...');
+        console.log("Starting automatic event cleanup...");
         const result = await this.cleanupProcessedEvents(options);
-        console.log('Automatic cleanup completed:', result);
+        console.log("Automatic cleanup completed:", result);
       } catch (error) {
-        console.error('Automatic cleanup failed:', error);
+        console.error("Automatic cleanup failed:", error);
       }
     };
 
@@ -343,7 +353,7 @@ export class EventCleanupService {
     // Return cleanup function
     return () => {
       clearInterval(intervalId);
-      console.log('Automatic cleanup scheduled stopped');
+      console.log("Automatic cleanup scheduled stopped");
     };
   }
 
@@ -359,10 +369,10 @@ export class EventCleanupService {
     const avgHandledEventSize = 50; // Simple record
     const avgLockSize = 30; // Simple record
 
-    const totalBytes = 
-      (eventsDeleted * avgEventSize) +
-      (handledEventsDeleted * avgHandledEventSize) +
-      (locksDeleted * avgLockSize);
+    const totalBytes =
+      eventsDeleted * avgEventSize +
+      handledEventsDeleted * avgHandledEventSize +
+      locksDeleted * avgLockSize;
 
     // Return in KB
     return Math.round(totalBytes / 1024);

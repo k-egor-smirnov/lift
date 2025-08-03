@@ -1,17 +1,17 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DomainEvent } from '../events/DomainEvent';
-import { 
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { DomainEvent } from "../events/DomainEvent";
+import {
   TaskCreatedEvent,
   TaskCompletedEvent,
   TaskCategoryChangedEvent,
-  TaskReviewedEvent
-} from '../events/TaskEvents';
-import { InMemoryEventBus } from '../events/EventBus';
-import { DomainEventType, TaskCategory } from '../types';
-import { TaskId } from '../value-objects/TaskId';
-import { NonEmptyTitle } from '../value-objects/NonEmptyTitle';
+  TaskReviewedEvent,
+} from "../events/TaskEvents";
+import { InMemoryEventBus } from "../events/EventBus";
+import { DomainEventType, TaskCategory } from "../types";
+import { TaskId } from "../value-objects/TaskId";
+import { NonEmptyTitle } from "../value-objects/NonEmptyTitle";
 
-describe('Domain Events System', () => {
+describe("Domain Events System", () => {
   let eventBus: InMemoryEventBus;
   let taskId: TaskId;
   let title: NonEmptyTitle;
@@ -19,10 +19,10 @@ describe('Domain Events System', () => {
   beforeEach(() => {
     eventBus = new InMemoryEventBus();
     taskId = TaskId.generate();
-    title = new NonEmptyTitle('Test Task');
+    title = new NonEmptyTitle("Test Task");
   });
 
-  describe('DomainEvent base class', () => {
+  describe("DomainEvent base class", () => {
     class TestEvent extends DomainEvent {
       constructor(public readonly data: string) {
         super(DomainEventType.TASK_CREATED);
@@ -33,26 +33,28 @@ describe('Domain Events System', () => {
       }
     }
 
-    it('should create event with required properties', () => {
-      const event = new TestEvent('test data');
+    it("should create event with required properties", () => {
+      const event = new TestEvent("test data");
 
       expect(event.eventId).toBeDefined();
-      expect(event.eventId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      expect(event.eventId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+      );
       expect(event.occurredAt).toBeInstanceOf(Date);
       expect(event.eventType).toBe(DomainEventType.TASK_CREATED);
-      expect(event.getEventData()).toEqual({ data: 'test data' });
+      expect(event.getEventData()).toEqual({ data: "test data" });
     });
 
-    it('should generate unique event IDs', () => {
-      const event1 = new TestEvent('data1');
-      const event2 = new TestEvent('data2');
+    it("should generate unique event IDs", () => {
+      const event1 = new TestEvent("data1");
+      const event2 = new TestEvent("data2");
 
       expect(event1.eventId).not.toBe(event2.eventId);
     });
   });
 
-  describe('TaskCreatedEvent', () => {
-    it('should create event with task data', () => {
+  describe("TaskCreatedEvent", () => {
+    it("should create event with task data", () => {
       const event = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
 
       expect(event.eventType).toBe(DomainEventType.TASK_CREATED);
@@ -62,13 +64,13 @@ describe('Domain Events System', () => {
       expect(event.getEventData()).toEqual({
         taskId: taskId.value,
         title: title.value,
-        category: TaskCategory.SIMPLE
+        category: TaskCategory.SIMPLE,
       });
     });
   });
 
-  describe('TaskCompletedEvent', () => {
-    it('should create event with completion data', () => {
+  describe("TaskCompletedEvent", () => {
+    it("should create event with completion data", () => {
       const event = new TaskCompletedEvent(taskId, TaskCategory.FOCUS);
 
       expect(event.eventType).toBe(DomainEventType.TASK_COMPLETED);
@@ -76,13 +78,13 @@ describe('Domain Events System', () => {
       expect(event.categoryAtCompletion).toBe(TaskCategory.FOCUS);
       expect(event.getEventData()).toEqual({
         taskId: taskId.value,
-        categoryAtCompletion: TaskCategory.FOCUS
+        categoryAtCompletion: TaskCategory.FOCUS,
       });
     });
   });
 
-  describe('TaskCategoryChangedEvent', () => {
-    it('should create event with category change data', () => {
+  describe("TaskCategoryChangedEvent", () => {
+    it("should create event with category change data", () => {
       const event = new TaskCategoryChangedEvent(
         taskId,
         TaskCategory.INBOX,
@@ -96,13 +98,13 @@ describe('Domain Events System', () => {
       expect(event.getEventData()).toEqual({
         taskId: taskId.value,
         fromCategory: TaskCategory.INBOX,
-        toCategory: TaskCategory.SIMPLE
+        toCategory: TaskCategory.SIMPLE,
       });
     });
   });
 
-  describe('TaskReviewedEvent', () => {
-    it('should create event with review data', () => {
+  describe("TaskReviewedEvent", () => {
+    it("should create event with review data", () => {
       const reviewedAt = new Date();
       const event = new TaskReviewedEvent(taskId, reviewedAt);
 
@@ -111,14 +113,14 @@ describe('Domain Events System', () => {
       expect(event.reviewedAt).toBe(reviewedAt);
       expect(event.getEventData()).toEqual({
         taskId: taskId.value,
-        reviewedAt: reviewedAt.toISOString()
+        reviewedAt: reviewedAt.toISOString(),
       });
     });
   });
 
-  describe('InMemoryEventBus', () => {
-    describe('publish', () => {
-      it('should publish single event to subscribed handlers', async () => {
+  describe("InMemoryEventBus", () => {
+    describe("publish", () => {
+      it("should publish single event to subscribed handlers", async () => {
         const handler = vi.fn();
         const event = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
 
@@ -129,7 +131,7 @@ describe('Domain Events System', () => {
         expect(handler).toHaveBeenCalledWith(event);
       });
 
-      it('should not call handlers for different event types', async () => {
+      it("should not call handlers for different event types", async () => {
         const handler = vi.fn();
         const event = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
 
@@ -140,14 +142,21 @@ describe('Domain Events System', () => {
       });
     });
 
-    describe('publishAll', () => {
-      it('should publish multiple events to appropriate handlers', async () => {
+    describe("publishAll", () => {
+      it("should publish multiple events to appropriate handlers", async () => {
         const createdHandler = vi.fn();
         const completedHandler = vi.fn();
         const globalHandler = vi.fn();
 
-        const createdEvent = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
-        const completedEvent = new TaskCompletedEvent(taskId, TaskCategory.SIMPLE);
+        const createdEvent = new TaskCreatedEvent(
+          taskId,
+          title,
+          TaskCategory.SIMPLE
+        );
+        const completedEvent = new TaskCompletedEvent(
+          taskId,
+          TaskCategory.SIMPLE
+        );
 
         eventBus.subscribe(DomainEventType.TASK_CREATED, createdHandler);
         eventBus.subscribe(DomainEventType.TASK_COMPLETED, completedHandler);
@@ -164,7 +173,7 @@ describe('Domain Events System', () => {
         expect(globalHandler).toHaveBeenCalledWith(completedEvent);
       });
 
-      it('should handle empty event array', async () => {
+      it("should handle empty event array", async () => {
         const handler = vi.fn();
         eventBus.subscribeToAll(handler);
 
@@ -174,10 +183,13 @@ describe('Domain Events System', () => {
       });
     });
 
-    describe('subscribe', () => {
-      it('should subscribe to specific event type', async () => {
+    describe("subscribe", () => {
+      it("should subscribe to specific event type", async () => {
         const handler = vi.fn();
-        const subscription = eventBus.subscribe(DomainEventType.TASK_CREATED, handler);
+        const subscription = eventBus.subscribe(
+          DomainEventType.TASK_CREATED,
+          handler
+        );
         const event = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
 
         await eventBus.publish(event);
@@ -189,7 +201,7 @@ describe('Domain Events System', () => {
         expect(eventBus.getHandlerCount(DomainEventType.TASK_CREATED)).toBe(0);
       });
 
-      it('should support multiple handlers for same event type', async () => {
+      it("should support multiple handlers for same event type", async () => {
         const handler1 = vi.fn();
         const handler2 = vi.fn();
         const event = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
@@ -204,7 +216,7 @@ describe('Domain Events System', () => {
         expect(eventBus.getHandlerCount(DomainEventType.TASK_CREATED)).toBe(2);
       });
 
-      it('should handle async handlers', async () => {
+      it("should handle async handlers", async () => {
         const asyncHandler = vi.fn().mockResolvedValue(undefined);
         const event = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
 
@@ -214,15 +226,17 @@ describe('Domain Events System', () => {
         expect(asyncHandler).toHaveBeenCalledWith(event);
       });
 
-      it('should handle handler errors gracefully', async () => {
+      it("should handle handler errors gracefully", async () => {
         const errorHandler = vi.fn().mockImplementation(() => {
-          throw new Error('Handler error');
+          throw new Error("Handler error");
         });
         const normalHandler = vi.fn();
         const event = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
 
         // Mock console.error to avoid test output noise
-        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const consoleSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
 
         eventBus.subscribe(DomainEventType.TASK_CREATED, errorHandler);
         eventBus.subscribe(DomainEventType.TASK_CREATED, normalHandler);
@@ -231,19 +245,29 @@ describe('Domain Events System', () => {
 
         expect(errorHandler).toHaveBeenCalled();
         expect(normalHandler).toHaveBeenCalled();
-        expect(consoleSpy).toHaveBeenCalledWith('Error executing event handler:', expect.any(Error));
+        expect(consoleSpy).toHaveBeenCalledWith(
+          "Error executing event handler:",
+          expect.any(Error)
+        );
 
         consoleSpy.mockRestore();
       });
     });
 
-    describe('subscribeToAll', () => {
-      it('should subscribe to all event types', async () => {
+    describe("subscribeToAll", () => {
+      it("should subscribe to all event types", async () => {
         const globalHandler = vi.fn();
         const subscription = eventBus.subscribeToAll(globalHandler);
 
-        const createdEvent = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
-        const completedEvent = new TaskCompletedEvent(taskId, TaskCategory.SIMPLE);
+        const createdEvent = new TaskCreatedEvent(
+          taskId,
+          title,
+          TaskCategory.SIMPLE
+        );
+        const completedEvent = new TaskCompletedEvent(
+          taskId,
+          TaskCategory.SIMPLE
+        );
 
         await eventBus.publish(createdEvent);
         await eventBus.publish(completedEvent);
@@ -258,8 +282,8 @@ describe('Domain Events System', () => {
       });
     });
 
-    describe('clear', () => {
-      it('should clear all subscriptions', async () => {
+    describe("clear", () => {
+      it("should clear all subscriptions", async () => {
         const specificHandler = vi.fn();
         const globalHandler = vi.fn();
 
@@ -282,12 +306,15 @@ describe('Domain Events System', () => {
       });
     });
 
-    describe('unsubscribe', () => {
-      it('should remove specific handler when unsubscribed', async () => {
+    describe("unsubscribe", () => {
+      it("should remove specific handler when unsubscribed", async () => {
         const handler1 = vi.fn();
         const handler2 = vi.fn();
 
-        const subscription1 = eventBus.subscribe(DomainEventType.TASK_CREATED, handler1);
+        const subscription1 = eventBus.subscribe(
+          DomainEventType.TASK_CREATED,
+          handler1
+        );
         eventBus.subscribe(DomainEventType.TASK_CREATED, handler2);
 
         expect(eventBus.getHandlerCount(DomainEventType.TASK_CREATED)).toBe(2);

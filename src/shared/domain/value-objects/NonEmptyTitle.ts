@@ -1,12 +1,14 @@
-import { ValueObject } from './ValueObject';
+import { ValueObject } from "./ValueObject";
 
 /**
  * Domain error for invalid NonEmptyTitle values
  */
 export class InvalidTitleError extends Error {
   constructor(value: string) {
-    super(`Invalid title: "${value}". Title cannot be empty or contain only whitespace.`);
-    this.name = 'InvalidTitleError';
+    super(
+      `Invalid title: "${value}". Title cannot be empty or contain only whitespace.`
+    );
+    this.name = "InvalidTitleError";
   }
 }
 
@@ -16,7 +18,7 @@ export class InvalidTitleError extends Error {
  */
 export class NonEmptyTitle extends ValueObject<string> {
   protected validate(value: string): void {
-    if (typeof value !== 'string') {
+    if (typeof value !== "string") {
       throw new InvalidTitleError(String(value));
     }
 
@@ -28,7 +30,7 @@ export class NonEmptyTitle extends ValueObject<string> {
 
   constructor(value: string) {
     // Trim the value before calling super
-    const trimmed = typeof value === 'string' ? value.trim() : value;
+    const trimmed = typeof value === "string" ? value.trim() : value;
     super(trimmed);
   }
 
@@ -74,6 +76,6 @@ export class NonEmptyTitle extends ValueObject<string> {
     if (this._value.length <= maxLength) {
       return this._value;
     }
-    return this._value.substring(0, maxLength - 3) + '...';
+    return this._value.substring(0, maxLength - 3) + "...";
   }
 }

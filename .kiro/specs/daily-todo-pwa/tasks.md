@@ -1,7 +1,6 @@
 # Implementation Plan
 
 - [x] 1. Set up project structure and core interfaces
-
   - Create directory structure for features (tasks, today, logs, stats, onboarding)
   - Set up Vite + React + TypeScript + PWA plugin configuration
   - Install and configure dependencies (Zustand, Dexie, Supabase, Tailwind)
@@ -9,16 +8,13 @@
   - _Requirements: 9.1, 9.2_
 
 - [x] 2. Implement core domain value objects and entities
-
   - [x] 2.1 Create value objects with validation
-
     - Implement TaskId (ULID), DateOnly, NonEmptyTitle value objects
     - Add validation logic and error handling for invalid values
     - Write unit tests for value object creation and validation
     - _Requirements: 11.1, 11.2_
 
   - [x] 2.2 Implement Task entity with domain logic
-
     - Create Task entity with all required fields and methods
     - Implement changeCategory(), complete(), revertCompletion(), isOverdue() methods
     - Add domain event generation for state changes
@@ -26,7 +22,6 @@
     - _Requirements: 1.3, 2.5, 11.5, 11.6_
 
   - [x] 2.3 Create domain events system
-
     - Implement DomainEvent base class and specific events (TaskCreated, TaskCompleted, etc.)
     - Create EventBus interface with publish/subscribe methods
     - Write unit tests for event creation and bus functionality
@@ -44,9 +39,7 @@
     - _Requirements: 9.4, 10.1, 10.4_
 
 - [x] 3. Set up local storage infrastructure
-
   - [x] 3.1 Configure IndexedDB with Dexie
-
     - Create TodoDatabase class with all required tables and indexes
     - Implement database versioning and migration strategy
     - Add connection management and error handling
@@ -54,7 +47,6 @@
     - _Requirements: 10.1, 10.4_
 
   - [x] 3.2 Implement repository pattern for tasks
-
     - Create TaskRepository interface with all CRUD operations
     - Implement TaskRepositoryImpl with IndexedDB operations
     - Add soft delete functionality with global filtering
@@ -69,9 +61,7 @@
     - _Requirements: 2.1, 2.3, 15.1, 15.3_
 
 - [x] 4. Create application layer use cases
-
   - [x] 4.1 Implement task management use cases
-
     - Create CreateTaskUseCase with validation and transactional event publishing
     - Implement CompleteTaskUseCase with transactional updates (task + syncQueue + events)
     - Add UpdateTaskUseCase for title and category changes with event publishing
@@ -80,7 +70,6 @@
     - _Requirements: 11.1, 11.3, 11.4, 11.5_
 
   - [x] 4.2 Implement daily selection use cases
-
     - Create AddTaskToTodayUseCase with DailySelectionEntry creation
     - Implement RemoveTaskFromTodayUseCase
     - Add GetTodayTasksUseCase with task filtering and status
@@ -95,9 +84,7 @@
     - _Requirements: 3.1, 3.4, 12.1, 12.2, 12.4_
 
 - [-] 5. Build presentation layer with MVVM pattern
-
   - [x] 5.1 Create task management ViewModels
-
     - Implement TaskViewModel using Zustand with task state management
     - Add methods for creating, updating, completing, and deleting tasks
     - Implement category filtering and overdue task detection
@@ -105,7 +92,6 @@
     - _Requirements: 1.1, 1.2, 1.7, 1.8_
 
   - [x] 5.2 Build task UI components
-
     - Create TaskList component with category grouping
     - Implement TaskCard component with category indicators and actions
     - Add CreateTaskModal with category selection
@@ -120,9 +106,7 @@
     - _Requirements: 2.1, 2.2, 2.4_
 
 - [x] 6. Implement logging system UI
-
   - [x] 6.1 Create logging ViewModels and components
-
     - Implement LogViewModel with pagination and filtering
     - Create TaskLogList component with system/user log differentiation
     - Add CreateLogModal for custom user logs
@@ -137,9 +121,7 @@
     - _Requirements: 3.2, 3.3_
 
 - [x] 7. Build statistics and analytics features
-
   - [x] 7.1 Implement statistics calculation
-
     - Create StatisticsService with completion tracking by category
     - Implement inbox review tracking (first move from INBOX)
     - Add daily/weekly/monthly statistics aggregation
@@ -153,7 +135,6 @@
     - _Requirements: 8.5_
 
   - [x] 7.3 Implement event handlers for statistics and logging
-
     - Create TaskLogEventHandler with idempotent UPSERT operations
     - Implement StatsUpdateHandler with existing record checks and timestamp validation
     - Add NotificationHandler for overdue task notifications
@@ -162,7 +143,6 @@
     - _Requirements: 3.1, 8.1, 8.2, 9.4_
 
   - [x] 7.4 Implement event processing monitoring and cleanup
-
     - Create EventMonitor with processing statistics (pending, processing, done, dead)
     - Implement EventCleanupService for processed events cleanup (30+ days old)
     - Add dead letter queue management with reprocessing capabilities
@@ -171,9 +151,7 @@
     - _Requirements: 9.4, 10.1, 10.4_
 
 - [x] 8. Implement onboarding and motivational features
-
   - [x] 8.1 Create daily modal system
-  
     - Implement OnboardingService with morning window detection (6-11 AM)
     - Create DailyModalData aggregation with unfinished and overdue tasks
     - Add motivational message system with random selection
@@ -188,9 +166,7 @@
     - _Requirements: 1.9, 14.1, 14.2, 14.4, 14.5, 14.6_
 
 - [x] 9. Add keyboard shortcuts and accessibility
-
   - [x] 9.1 Implement keyboard shortcut system
-
     - Create KeyboardShortcutService with shortcut registration
     - Add shortcuts for task creation (Ctrl+N), custom logs (Ctrl+L)
     - Implement category navigation (1, 2, 3) and today view (T)
@@ -205,9 +181,7 @@
     - _Requirements: 5.4, 13.1, 13.2, 13.3_
 
 - [ ] 10. Build sync engine and cloud integration
-
   - [ ] 10.1 Implement sync queue and outbox pattern
-
     - Create SyncQueueRepository with outbox pattern implementation
     - Add operation tracking (create/update/delete) with payload hashing
     - Implement retry logic with exponential backoff
@@ -215,7 +189,6 @@
     - _Requirements: 6.3, 10.2, 13.6_
 
   - [ ] 10.2 Create Supabase adapter and conflict resolution
-
     - Implement SupabaseAdapter with authentication and CRUD operations
     - Add Last-Write-Wins conflict resolution with tie-breaker logic
     - Create conflict logging with detailed metadata
@@ -230,9 +203,7 @@
     - _Requirements: 6.2, 6.5, 13.3, 13.4, 13.5_
 
 - [ ] 11. Configure PWA and offline functionality
-
   - [ ] 11.1 Set up PWA configuration
-
     - Configure Vite PWA plugin with service worker
     - Create app manifest with icons and display settings
     - Implement app shell caching strategy
@@ -247,9 +218,7 @@
     - _Requirements: 13.1, 13.5_
 
 - [ ] 12. Testing and quality assurance
-
   - [ ] 12.1 Write comprehensive unit tests
-
     - Test all domain entities, value objects, and use cases
     - Add repository contract tests for all implementations
     - Create ViewModel tests with state management scenarios
@@ -264,9 +233,7 @@
     - _Requirements: 9.6_
 
 - [ ] 13. Final integration and deployment preparation
-
   - [ ] 13.1 Complete feature integration
-
     - Wire all features together in main application shell
     - Test complete user workflows across all features
     - Verify all requirements are implemented and working

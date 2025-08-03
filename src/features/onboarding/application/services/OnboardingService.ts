@@ -107,9 +107,8 @@ export class OnboardingService {
    */
   async getUnfinishedTasksFromYesterday(): Promise<Task[]> {
     const yesterday = DateOnly.yesterday();
-    const yesterdayEntries = await this.dailySelectionRepository.getTasksForDay(
-      yesterday
-    );
+    const yesterdayEntries =
+      await this.dailySelectionRepository.getTasksForDay(yesterday);
 
     const unfinishedTasks: Task[] = [];
 

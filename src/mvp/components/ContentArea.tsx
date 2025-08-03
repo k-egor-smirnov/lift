@@ -13,19 +13,19 @@ import { ViewContainer } from "./ViewContainer";
 interface ContentAreaProps {
   activeView: "today" | "logs" | "settings" | TaskCategory;
   loading: boolean;
-  
+
   // Today view props
   todayDependencies: TodayViewModelDependencies;
-  
+
   // Logs view props
   logDependencies: LogViewModelDependencies;
-  
+
   // Task list props
   tasks: Task[];
   currentCategory: TaskCategory;
   todayTaskIds: string[];
   lastLogs: Record<string, LogEntry>;
-  
+
   // Event handlers
   onCreateTask: (title: string, category: TaskCategory) => Promise<void>;
   onCompleteTask: (taskId: string) => Promise<void>;

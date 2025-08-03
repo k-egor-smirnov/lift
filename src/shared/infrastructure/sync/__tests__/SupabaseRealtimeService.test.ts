@@ -18,10 +18,10 @@ const mockSupabaseClient = {
   removeAllChannels: vi.fn().mockResolvedValue({ error: null }),
   auth: {
     getUser: vi.fn().mockResolvedValue({
-      data: { user: { id: 'test-user-id' } },
-      error: null
-    })
-  }
+      data: { user: { id: "test-user-id" } },
+      error: null,
+    }),
+  },
 };
 
 const mockSupabaseClientFactory = {
@@ -99,7 +99,7 @@ describe("SupabaseRealtimeService", () => {
       // Arrange
       const userId = "user123";
       realtimeService.setUserId(userId);
-      
+
       mockChannel.subscribe.mockImplementation((callback) => {
         callback("SUBSCRIBED", null);
         return mockChannel;
@@ -131,7 +131,7 @@ describe("SupabaseRealtimeService", () => {
       const userId = "user123";
       const mockError = { message: "Subscription failed" };
       realtimeService.setUserId(userId);
-      
+
       mockChannel.subscribe.mockImplementation((callback) => {
         callback("CHANNEL_ERROR", mockError);
         return mockChannel;
@@ -145,7 +145,7 @@ describe("SupabaseRealtimeService", () => {
       // Arrange
       const userId = "user123";
       realtimeService.setUserId(userId);
-      
+
       mockChannel.subscribe.mockImplementation((callback) => {
         callback("SUBSCRIBED", null);
         return mockChannel;
@@ -153,10 +153,10 @@ describe("SupabaseRealtimeService", () => {
 
       // Act - первая подписка
       await realtimeService.subscribeToTaskChanges();
-      
+
       // Сбрасываем моки
       vi.clearAllMocks();
-      
+
       // Act - вторая подписка
       await realtimeService.subscribeToTaskChanges();
 
@@ -170,7 +170,7 @@ describe("SupabaseRealtimeService", () => {
       // Arrange
       const userId = "user123";
       realtimeService.setUserId(userId);
-      
+
       mockChannel.subscribe.mockImplementation((callback) => {
         callback("SUBSCRIBED", null);
         return mockChannel;
@@ -201,7 +201,7 @@ describe("SupabaseRealtimeService", () => {
       // Arrange
       const userId = "user123";
       realtimeService.setUserId(userId);
-      
+
       mockChannel.subscribe.mockImplementation((callback) => {
         callback("SUBSCRIBED", null);
         return mockChannel;
@@ -209,10 +209,10 @@ describe("SupabaseRealtimeService", () => {
 
       // Act - первая подписка
       await realtimeService.subscribeToDailySelectionChanges();
-      
+
       // Сбрасываем моки
       vi.clearAllMocks();
-      
+
       // Act - вторая подписка
       await realtimeService.subscribeToDailySelectionChanges();
 
@@ -226,7 +226,7 @@ describe("SupabaseRealtimeService", () => {
       // Arrange
       const userId = "user123";
       realtimeService.setUserId(userId);
-      
+
       mockChannel.subscribe.mockImplementation((callback) => {
         callback("SUBSCRIBED", null);
         return mockChannel;
@@ -237,8 +237,12 @@ describe("SupabaseRealtimeService", () => {
 
       // Assert
       expect(mockSupabaseClient.channel).toHaveBeenCalledTimes(2);
-      expect(mockSupabaseClient.channel).toHaveBeenCalledWith(`tasks_${userId}`);
-      expect(mockSupabaseClient.channel).toHaveBeenCalledWith(`daily_selection_${userId}`);
+      expect(mockSupabaseClient.channel).toHaveBeenCalledWith(
+        `tasks_${userId}`
+      );
+      expect(mockSupabaseClient.channel).toHaveBeenCalledWith(
+        `daily_selection_${userId}`
+      );
       expect(realtimeService.isTasksConnected()).toBe(true);
       expect(realtimeService.isDailySelectionConnected()).toBe(true);
       expect(realtimeService.isConnected()).toBe(true);
@@ -306,25 +310,25 @@ describe("SupabaseRealtimeService", () => {
   describe("handleDailySelectionChange", () => {
     beforeEach(() => {
       // Подписываемся на события
-      realtimeService.on('daily_selection_changed', mockCallback);
+      realtimeService.on("daily_selection_changed", mockCallback);
     });
 
     it("should handle INSERT event for current date", () => {
       // Arrange
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const payload = {
-        eventType: 'INSERT' as const,
+        eventType: "INSERT" as const,
         new: {
-          id: '1',
+          id: "1",
           date: today,
-          task_id: 'task-1',
+          task_id: "task-1",
           completed_flag: false,
-          user_id: 'user-1',
+          user_id: "user-1",
           created_at: new Date().toISOString(),
-          deleted_at: null
+          deleted_at: null,
         },
         old: {},
-        errors: null
+        errors: null,
       };
 
       // Act
@@ -332,36 +336,36 @@ describe("SupabaseRealtimeService", () => {
 
       // Assert
       expect(mockCallback).toHaveBeenCalledWith({
-        eventType: 'INSERT',
+        eventType: "INSERT",
         data: payload.new,
-        date: today
+        date: today,
       });
     });
 
     it("should handle UPDATE event for current date", () => {
       // Arrange
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const payload = {
-        eventType: 'UPDATE' as const,
+        eventType: "UPDATE" as const,
         new: {
-          id: '1',
+          id: "1",
           date: today,
-          task_id: 'task-1',
+          task_id: "task-1",
           completed_flag: true,
-          user_id: 'user-1',
+          user_id: "user-1",
           created_at: new Date().toISOString(),
-          deleted_at: null
+          deleted_at: null,
         },
         old: {
-          id: '1',
+          id: "1",
           date: today,
-          task_id: 'task-1',
+          task_id: "task-1",
           completed_flag: false,
-          user_id: 'user-1',
+          user_id: "user-1",
           created_at: new Date().toISOString(),
-          deleted_at: null
+          deleted_at: null,
         },
-        errors: null
+        errors: null,
       };
 
       // Act
@@ -369,36 +373,36 @@ describe("SupabaseRealtimeService", () => {
 
       // Assert
       expect(mockCallback).toHaveBeenCalledWith({
-        eventType: 'UPDATE',
+        eventType: "UPDATE",
         data: payload.new,
-        date: today
+        date: today,
       });
     });
 
     it("should handle soft delete (UPDATE with deleted_at) as DELETE event", () => {
       // Arrange
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const payload = {
-        eventType: 'UPDATE' as const,
+        eventType: "UPDATE" as const,
         new: {
-          id: '1',
+          id: "1",
           date: today,
-          task_id: 'task-1',
+          task_id: "task-1",
           completed_flag: false,
-          user_id: 'user-1',
+          user_id: "user-1",
           created_at: new Date().toISOString(),
-          deleted_at: new Date().toISOString()
+          deleted_at: new Date().toISOString(),
         },
         old: {
-          id: '1',
+          id: "1",
           date: today,
-          task_id: 'task-1',
+          task_id: "task-1",
           completed_flag: false,
-          user_id: 'user-1',
+          user_id: "user-1",
           created_at: new Date().toISOString(),
-          deleted_at: null
+          deleted_at: null,
         },
-        errors: null
+        errors: null,
       };
 
       // Act
@@ -406,28 +410,28 @@ describe("SupabaseRealtimeService", () => {
 
       // Assert
       expect(mockCallback).toHaveBeenCalledWith({
-        eventType: 'DELETE',
+        eventType: "DELETE",
         data: payload.new,
-        date: today
+        date: today,
       });
     });
 
     it("should ignore soft-deleted records for INSERT events", () => {
       // Arrange
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const payload = {
-        eventType: 'INSERT' as const,
+        eventType: "INSERT" as const,
         new: {
-          id: '1',
+          id: "1",
           date: today,
-          task_id: 'task-1',
+          task_id: "task-1",
           completed_flag: false,
-          user_id: 'user-1',
+          user_id: "user-1",
           created_at: new Date().toISOString(),
-          deleted_at: new Date().toISOString() // Уже удалена
+          deleted_at: new Date().toISOString(), // Уже удалена
         },
         old: {},
-        errors: null
+        errors: null,
       };
 
       // Act
@@ -439,20 +443,22 @@ describe("SupabaseRealtimeService", () => {
 
     it("should ignore events for different dates", () => {
       // Arrange
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
       const payload = {
-        eventType: 'INSERT' as const,
+        eventType: "INSERT" as const,
         new: {
-          id: '1',
+          id: "1",
           date: yesterday,
-          task_id: 'task-1',
+          task_id: "task-1",
           completed_flag: false,
-          user_id: 'user-1',
+          user_id: "user-1",
           created_at: new Date().toISOString(),
-          deleted_at: null
+          deleted_at: null,
         },
         old: {},
-        errors: null
+        errors: null,
       };
 
       // Act
@@ -464,20 +470,20 @@ describe("SupabaseRealtimeService", () => {
 
     it("should handle DELETE event for current date", () => {
       // Arrange
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const payload = {
-        eventType: 'DELETE' as const,
+        eventType: "DELETE" as const,
         new: {},
         old: {
-          id: '1',
+          id: "1",
           date: today,
-          task_id: 'task-1',
+          task_id: "task-1",
           completed_flag: false,
-          user_id: 'user-1',
+          user_id: "user-1",
           created_at: new Date().toISOString(),
-          deleted_at: null
+          deleted_at: null,
         },
-        errors: null
+        errors: null,
       };
 
       // Act
@@ -485,9 +491,9 @@ describe("SupabaseRealtimeService", () => {
 
       // Assert
       expect(mockCallback).toHaveBeenCalledWith({
-        eventType: 'DELETE',
+        eventType: "DELETE",
         data: payload.old,
-        date: today
+        date: today,
       });
     });
   });
@@ -497,7 +503,7 @@ describe("SupabaseRealtimeService", () => {
       // Arrange
       const userId = "user123";
       realtimeService.setUserId(userId);
-      
+
       mockChannel.subscribe.mockImplementation((callback) => {
         callback("SUBSCRIBED", null);
         return mockChannel;

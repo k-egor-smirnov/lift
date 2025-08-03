@@ -1,42 +1,40 @@
-import React from 'react';
-import { Loader2 } from 'lucide-react';
+import React from "react";
+import { Loader2 } from "lucide-react";
 
 interface LoadingProps {
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
   text?: string;
   className?: string;
   centered?: boolean;
 }
 
 const sizeClasses = {
-  sm: 'h-4 w-4',
-  md: 'h-6 w-6',
-  lg: 'h-8 w-8'
+  sm: "h-4 w-4",
+  md: "h-6 w-6",
+  lg: "h-8 w-8",
 };
 
 /**
  * Reusable loading spinner component
  */
 export const Loading: React.FC<LoadingProps> = ({
-  size = 'md',
+  size = "md",
   text,
-  className = '',
-  centered = false
+  className = "",
+  centered = false,
 }) => {
   const content = (
-    <div className={`flex items-center ${text ? 'space-x-2' : ''} ${className}`}>
+    <div
+      className={`flex items-center ${text ? "space-x-2" : ""} ${className}`}
+    >
       <Loader2 className={`${sizeClasses[size]} animate-spin text-blue-600`} />
-      {text && (
-        <span className="text-sm text-gray-600">{text}</span>
-      )}
+      {text && <span className="text-sm text-gray-600">{text}</span>}
     </div>
   );
 
   if (centered) {
     return (
-      <div className="flex items-center justify-center p-4">
-        {content}
-      </div>
+      <div className="flex items-center justify-center p-4">{content}</div>
     );
   }
 
@@ -52,8 +50,8 @@ interface LoadingOverlayProps {
 }
 
 export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
-  text = 'Loading...',
-  isVisible
+  text = "Loading...",
+  isVisible,
 }) => {
   if (!isVisible) return null;
 
@@ -74,13 +72,16 @@ interface SkeletonProps {
   lines?: number;
 }
 
-export const Skeleton: React.FC<SkeletonProps> = ({ className = '', lines = 1 }) => {
+export const Skeleton: React.FC<SkeletonProps> = ({
+  className = "",
+  lines = 1,
+}) => {
   return (
     <div className={`animate-pulse ${className}`}>
       {Array.from({ length: lines }).map((_, index) => (
         <div
           key={index}
-          className={`bg-gray-200 rounded ${index > 0 ? 'mt-2' : ''} h-4`}
+          className={`bg-gray-200 rounded ${index > 0 ? "mt-2" : ""} h-4`}
           style={{ width: `${Math.random() * 40 + 60}%` }}
         />
       ))}

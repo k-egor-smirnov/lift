@@ -1,8 +1,8 @@
-import { DomainEvent } from './DomainEvent';
-import { DomainEventType, TaskCategory } from '../types';
-import { TaskId } from '../value-objects/TaskId';
-import { NonEmptyTitle } from '../value-objects/NonEmptyTitle';
-import { DateOnly } from '../value-objects/DateOnly';
+import { DomainEvent } from "./DomainEvent";
+import { DomainEventType, TaskCategory } from "../types";
+import { TaskId } from "../value-objects/TaskId";
+import { NonEmptyTitle } from "../value-objects/NonEmptyTitle";
+import { DateOnly } from "../value-objects/DateOnly";
 
 /**
  * Event emitted when a task is created
@@ -20,7 +20,7 @@ export class TaskCreatedEvent extends DomainEvent {
     return {
       taskId: this.taskId.value,
       title: this.title.value,
-      category: this.category
+      category: this.category,
     };
   }
 }
@@ -39,7 +39,7 @@ export class TaskCompletedEvent extends DomainEvent {
   getEventData(): Record<string, any> {
     return {
       taskId: this.taskId.value,
-      categoryAtCompletion: this.categoryAtCompletion
+      categoryAtCompletion: this.categoryAtCompletion,
     };
   }
 }
@@ -58,7 +58,7 @@ export class TaskCompletionRevertedEvent extends DomainEvent {
   getEventData(): Record<string, any> {
     return {
       taskId: this.taskId.value,
-      currentCategory: this.currentCategory
+      currentCategory: this.currentCategory,
     };
   }
 }
@@ -79,7 +79,7 @@ export class TaskCategoryChangedEvent extends DomainEvent {
     return {
       taskId: this.taskId.value,
       fromCategory: this.fromCategory,
-      toCategory: this.toCategory
+      toCategory: this.toCategory,
     };
   }
 }
@@ -98,7 +98,7 @@ export class TaskReviewedEvent extends DomainEvent {
   getEventData(): Record<string, any> {
     return {
       taskId: this.taskId.value,
-      reviewedAt: this.reviewedAt.toISOString()
+      reviewedAt: this.reviewedAt.toISOString(),
     };
   }
 }
@@ -119,7 +119,7 @@ export class TaskTitleChangedEvent extends DomainEvent {
     return {
       taskId: this.taskId.value,
       fromTitle: this.fromTitle.value,
-      toTitle: this.toTitle.value
+      toTitle: this.toTitle.value,
     };
   }
 }
@@ -138,7 +138,7 @@ export class TaskSoftDeletedEvent extends DomainEvent {
   getEventData(): Record<string, any> {
     return {
       taskId: this.taskId.value,
-      deletedAt: this.deletedAt.toISOString()
+      deletedAt: this.deletedAt.toISOString(),
     };
   }
 }
@@ -157,7 +157,7 @@ export class TaskAddedToTodayEvent extends DomainEvent {
   getEventData(): Record<string, any> {
     return {
       taskId: this.taskId.value,
-      date: this.date.value
+      date: this.date.value,
     };
   }
 }
@@ -176,7 +176,7 @@ export class TaskRemovedFromTodayEvent extends DomainEvent {
   getEventData(): Record<string, any> {
     return {
       taskId: this.taskId.value,
-      date: this.date.value
+      date: this.date.value,
     };
   }
 }
@@ -197,7 +197,7 @@ export class TaskDeferredEvent extends DomainEvent {
     return {
       taskId: this.taskId.value,
       deferredUntil: this.deferredUntil.toISOString(),
-      originalCategory: this.originalCategory
+      originalCategory: this.originalCategory,
     };
   }
 }
@@ -216,7 +216,7 @@ export class TaskUndeferredEvent extends DomainEvent {
   getEventData(): Record<string, any> {
     return {
       taskId: this.taskId.value,
-      restoredCategory: this.restoredCategory
+      restoredCategory: this.restoredCategory,
     };
   }
 }

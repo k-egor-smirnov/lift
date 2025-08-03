@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
-import { DailyModal } from './DailyModal';
-import { useDailyModal } from '../hooks/useDailyModal';
-import { useOnboardingViewModel } from '../view-models/OnboardingViewModel';
+import React, { useEffect } from "react";
+import { DailyModal } from "./DailyModal";
+import { useDailyModal } from "../hooks/useDailyModal";
+import { useOnboardingViewModel } from "../view-models/OnboardingViewModel";
 
 interface DailyModalContainerProps {
   overdueDays?: number;
@@ -12,17 +12,13 @@ interface DailyModalContainerProps {
  * This should be included in the main app component
  */
 export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
-  overdueDays
+  overdueDays,
 }) => {
-  const {
-    dailyModalData,
-    isModalVisible,
-    isLoading,
-    error,
-    hideDailyModal
-  } = useDailyModal(overdueDays);
-  
-  const { toggleTaskToday, todayTaskIds, loadTodayTaskIds } = useOnboardingViewModel();
+  const { dailyModalData, isModalVisible, isLoading, error, hideDailyModal } =
+    useDailyModal(overdueDays);
+
+  const { toggleTaskToday, todayTaskIds, loadTodayTaskIds } =
+    useOnboardingViewModel();
 
   // Load today's task IDs when component mounts
   useEffect(() => {

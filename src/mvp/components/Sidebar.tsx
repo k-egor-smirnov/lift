@@ -1,5 +1,13 @@
 import React from "react";
-import { Sun, Zap, Target, Inbox, Clock, FileText, Settings } from "lucide-react";
+import {
+  Sun,
+  Zap,
+  Target,
+  Inbox,
+  Clock,
+  FileText,
+  Settings,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
@@ -68,7 +76,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     count: null,
   };
 
-  const handleItemClick = (viewId: "today" | "logs" | "settings" | TaskCategory) => {
+  const handleItemClick = (
+    viewId: "today" | "logs" | "settings" | TaskCategory
+  ) => {
     onViewChange(viewId);
     onMobileMenuClose();
   };
@@ -140,8 +150,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     activeView === item.id
                       ? "bg-primary/20 text-primary"
                       : item.id === TaskCategory.INBOX && hasOverdueTasks
-                      ? "text-muted-foreground bg-red-300/20"
-                      : "bg-muted text-muted-foreground"
+                        ? "text-muted-foreground bg-red-300/20"
+                        : "bg-muted text-muted-foreground"
                   )}
                   aria-label={`${item.count} tasks`}
                 >
@@ -151,7 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </Button>
           ))}
         </div>
-        
+
         {/* Settings at the bottom */}
         <div className="mt-auto pt-4 border-t">
           <Button

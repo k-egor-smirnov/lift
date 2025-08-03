@@ -63,7 +63,10 @@ const createOnboardingService = () => {
   const createUserLogUseCase = container.resolve<CreateUserLogUseCase>(
     tokens.CREATE_USER_LOG_USE_CASE_TOKEN
   );
-  const logService = new TaskLogService(getTaskLogsUseCase, createUserLogUseCase);
+  const logService = new TaskLogService(
+    getTaskLogsUseCase,
+    createUserLogUseCase
+  );
 
   // UserSettings repository is not in DI container, create manually
   const userSettingsRepository = new UserSettingsRepositoryImpl(todoDatabase);
@@ -121,9 +124,8 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
       set({ isLoading: true, error: null });
 
       try {
-        const data = await onboardingService.aggregateDailyModalData(
-          overdueDays
-        );
+        const data =
+          await onboardingService.aggregateDailyModalData(overdueDays);
         set({
           dailyModalData: data,
           isLoading: false,
@@ -166,9 +168,8 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
       }
 
       try {
-        const shouldShow = await onboardingService.shouldShowDailyModal(
-          overdueDays
-        );
+        const shouldShow =
+          await onboardingService.shouldShowDailyModal(overdueDays);
         return shouldShow;
       } catch (error) {
         console.error("Error checking if modal should show:", error);

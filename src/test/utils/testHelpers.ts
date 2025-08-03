@@ -1,5 +1,6 @@
-import { beforeEach, afterEach, vi, expect } from 'vitest';
-import { container } from '../../shared/infrastructure/di';
+import { beforeEach, afterEach, vi, expect } from "vitest";
+import { container } from "../../shared/infrastructure/di";
+import { ResultUtils } from "@/shared/domain/Result";
 
 /**
  * Common test setup utilities
@@ -8,7 +9,7 @@ export class TestHelpers {
   /**
    * Setup fake timers with a consistent date
    */
-  static setupFakeTimers(mockDate = '2023-12-01T00:00:00.000Z') {
+  static setupFakeTimers(mockDate = "2023-12-01T00:00:00.000Z") {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(mockDate));
   }
@@ -32,21 +33,22 @@ export class TestHelpers {
    */
   static setupDOMEnvironment() {
     // Mock navigator
-    Object.defineProperty(global, 'navigator', {
+    Object.defineProperty(global, "navigator", {
       value: {
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        userAgent:
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
       },
-      writable: true
+      writable: true,
     });
 
     // Mock window if needed
-    if (typeof window === 'undefined') {
-      Object.defineProperty(global, 'window', {
+    if (typeof window === "undefined") {
+      Object.defineProperty(global, "window", {
         value: {
           addEventListener: vi.fn(),
-          removeEventListener: vi.fn()
+          removeEventListener: vi.fn(),
         },
-        writable: true
+        writable: true,
       });
     }
   }
@@ -83,10 +85,10 @@ export const createDatabaseTransactionMock = () => {
   const mockTransaction = vi.fn().mockImplementation(async (callback) => {
     return await callback();
   });
-  
+
   return {
     transaction: mockTransaction,
-    mockTransaction
+    mockTransaction,
   };
 };
 
@@ -110,7 +112,7 @@ export const createDexieCollectionMock = () => ({
   filter: vi.fn().mockReturnThis(),
   orderBy: vi.fn().mockReturnThis(),
   desc: vi.fn().mockReturnThis(),
-  asc: vi.fn().mockReturnThis()
+  asc: vi.fn().mockReturnThis(),
 });
 
 /**
@@ -135,7 +137,7 @@ export class AssertionHelpers {
    * Assert that a result is successful
    */
   static expectSuccess(result: any) {
-    expect(result.isSuccess()).toBe(true);
+    expect(ResultUtils.isSuccess(result)).toBe(true);
     return result.getValue();
   }
 
@@ -170,7 +172,7 @@ export class AssertionHelpers {
  * Date utilities for tests
  */
 export class TestDateUtils {
-  static readonly MOCK_DATE = '2023-12-01T00:00:00.000Z';
+  static readonly MOCK_DATE = "2023-12-01T00:00:00.000Z";
   static readonly MOCK_DATE_OBJECT = new Date(TestDateUtils.MOCK_DATE);
 
   /**
@@ -187,6 +189,6 @@ export class TestDateUtils {
    */
   static createDateOnly(daysOffset = 0): string {
     const date = TestDateUtils.createRelativeDate(daysOffset);
-    return date.toISOString().split('T')[0];
+    return date.toISOString().split("T")[0];
   }
 }

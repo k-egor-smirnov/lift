@@ -1,22 +1,22 @@
-import React, { ReactNode } from 'react';
-import { X } from 'lucide-react';
+import React, { ReactNode } from "react";
+import { X } from "lucide-react";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
   children: ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: "sm" | "md" | "lg" | "xl";
   showCloseButton?: boolean;
   closeOnBackdropClick?: boolean;
   className?: string;
 }
 
 const sizeClasses = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-lg',
-  xl: 'max-w-xl'
+  sm: "max-w-sm",
+  md: "max-w-md",
+  lg: "max-w-lg",
+  xl: "max-w-xl",
 };
 
 /**
@@ -27,10 +27,10 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   title,
   children,
-  size = 'md',
+  size = "md",
   showCloseButton = true,
   closeOnBackdropClick = true,
-  className = ''
+  className = "",
 }) => {
   if (!isOpen) return null;
 
@@ -41,14 +41,14 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-50 overflow-y-auto" 
-      role="dialog" 
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto"
+      role="dialog"
       aria-modal="true"
       aria-labelledby={title ? "modal-title" : undefined}
     >
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
         onClick={handleBackdropClick}
         aria-hidden="true"
@@ -56,13 +56,18 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className={`relative bg-white rounded-lg shadow-xl ${sizeClasses[size]} w-full mx-auto ${className}`}>
+        <div
+          className={`relative bg-white rounded-lg shadow-xl ${sizeClasses[size]} w-full mx-auto ${className}`}
+        >
           {/* Header */}
           {(title || showCloseButton) && (
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 {title && (
-                  <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
+                  <h2
+                    id="modal-title"
+                    className="text-lg font-semibold text-gray-900"
+                  >
                     {title}
                   </h2>
                 )}
@@ -80,7 +85,7 @@ export const Modal: React.FC<ModalProps> = ({
           )}
 
           {/* Content */}
-          <div className={title || showCloseButton ? '' : 'p-6'}>
+          <div className={title || showCloseButton ? "" : "p-6"}>
             {children}
           </div>
         </div>
@@ -97,8 +102,13 @@ interface ModalFooterProps {
   className?: string;
 }
 
-export const ModalFooter: React.FC<ModalFooterProps> = ({ children, className = '' }) => (
-  <div className={`p-6 border-t border-gray-200 bg-gray-50 flex justify-between ${className}`}>
+export const ModalFooter: React.FC<ModalFooterProps> = ({
+  children,
+  className = "",
+}) => (
+  <div
+    className={`p-6 border-t border-gray-200 bg-gray-50 flex justify-between ${className}`}
+  >
     {children}
   </div>
 );
@@ -111,8 +121,7 @@ interface ModalBodyProps {
   className?: string;
 }
 
-export const ModalBody: React.FC<ModalBodyProps> = ({ children, className = '' }) => (
-  <div className={`p-6 ${className}`}>
-    {children}
-  </div>
-);
+export const ModalBody: React.FC<ModalBodyProps> = ({
+  children,
+  className = "",
+}) => <div className={`p-6 ${className}`}>{children}</div>;

@@ -1,8 +1,8 @@
-import { TaskId } from '../value-objects/TaskId';
-import { NonEmptyTitle } from '../value-objects/NonEmptyTitle';
-import { DateOnly } from '../value-objects/DateOnly';
-import { TaskCategory, TaskStatus } from '../types';
-import { DomainEvent } from '../events/DomainEvent';
+import { TaskId } from "../value-objects/TaskId";
+import { NonEmptyTitle } from "../value-objects/NonEmptyTitle";
+import { DateOnly } from "../value-objects/DateOnly";
+import { TaskCategory, TaskStatus } from "../types";
+import { DomainEvent } from "../events/DomainEvent";
 import {
   TaskCreatedEvent,
   TaskCompletedEvent,
@@ -12,8 +12,8 @@ import {
   TaskTitleChangedEvent,
   TaskSoftDeletedEvent,
   TaskDeferredEvent,
-  TaskUndeferredEvent
-} from '../events/TaskEvents';
+  TaskUndeferredEvent,
+} from "../events/TaskEvents";
 
 /**
  * Domain error for invalid task operations
@@ -21,7 +21,7 @@ import {
 export class InvalidTaskOperationError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'InvalidTaskOperationError';
+    this.name = "InvalidTaskOperationError";
   }
 }
 
@@ -61,10 +61,12 @@ export class Task {
     this._deletedAt = deletedAt;
     this._deferredUntil = deferredUntil;
     this._originalCategory = originalCategory;
-    
+
     // Set inboxEnteredAt if not provided and category is INBOX
-    this.inboxEnteredAt = inboxEnteredAt ?? (category === TaskCategory.INBOX ? this.createdAt : undefined);
-    
+    this.inboxEnteredAt =
+      inboxEnteredAt ??
+      (category === TaskCategory.INBOX ? this.createdAt : undefined);
+
     // Track if task was ever reviewed (moved from INBOX)
     this._wasEverReviewed = category !== TaskCategory.INBOX;
   }
@@ -119,7 +121,10 @@ export class Task {
   }
 
   get isDeferred(): boolean {
-    return this._category === TaskCategory.DEFERRED && this._deferredUntil !== undefined;
+    return (
+      this._category === TaskCategory.DEFERRED &&
+      this._deferredUntil !== undefined
+    );
   }
 
   get isDeferredAndDue(): boolean {
@@ -155,7 +160,7 @@ export class Task {
     );
 
     const events = [new TaskCreatedEvent(id, title, category)];
-    
+
     return { task, events };
   }
 
@@ -164,7 +169,9 @@ export class Task {
    */
   changeCategory(newCategory: TaskCategory): DomainEvent[] {
     if (this.isDeleted) {
-      throw new InvalidTaskOperationError('Cannot change category of deleted task');
+      throw new InvalidTaskOperationError(
+        "Cannot change category of deleted task"
+      );
     }
 
     if (this._category === newCategory) {
@@ -183,7 +190,9 @@ export class Task {
     this._category = newCategory;
     this._updatedAt = new Date();
 
-    events.push(new TaskCategoryChangedEvent(this.id, oldCategory, newCategory));
+    events.push(
+      new TaskCategoryChangedEvent(this.id, oldCategory, newCategory)
+    );
 
     return events;
   }
@@ -193,7 +202,7 @@ export class Task {
    */
   complete(): DomainEvent[] {
     if (this.isDeleted) {
-      throw new InvalidTaskOperationError('Cannot complete deleted task');
+      throw new InvalidTaskOperationError("Cannot complete deleted task");
     }
 
     if (this._status === TaskStatus.COMPLETED) {
@@ -211,7 +220,9 @@ export class Task {
    */
   revertCompletion(): DomainEvent[] {
     if (this.isDeleted) {
-      throw new InvalidTaskOperationError('Cannot revert completion of deleted task');
+      throw new InvalidTaskOperationError(
+        "Cannot revert completion of deleted task"
+      );
     }
 
     if (this._status === TaskStatus.ACTIVE) {
@@ -229,7 +240,9 @@ export class Task {
    */
   changeTitle(newTitle: NonEmptyTitle): DomainEvent[] {
     if (this.isDeleted) {
-      throw new InvalidTaskOperationError('Cannot change title of deleted task');
+      throw new InvalidTaskOperationError(
+        "Cannot change title of deleted task"
+      );
     }
 
     if (this._title.equals(newTitle)) {
@@ -248,7 +261,9 @@ export class Task {
    */
   changeOrder(newOrder: number): DomainEvent[] {
     if (this.isDeleted) {
-      throw new InvalidTaskOperationError('Cannot change order of deleted task');
+      throw new InvalidTaskOperationError(
+        "Cannot change order of deleted task"
+      );
     }
 
     if (this._order === newOrder) {
@@ -265,7 +280,11 @@ export class Task {
    * Check if task is overdue (only applies to INBOX tasks)
    */
   isOverdue(overdueDays: number): boolean {
-    if (this._category !== TaskCategory.INBOX || !this.inboxEnteredAt || this.isCompleted) {
+    if (
+      this._category !== TaskCategory.INBOX ||
+      !this.inboxEnteredAt ||
+      this.isCompleted
+    ) {
       return false;
     }
 
@@ -281,14 +300,20 @@ export class Task {
    */
   defer(deferredUntil: Date): DomainEvent[] {
     if (this.isDeleted) {
-      throw new InvalidTaskOperationError('Cannot defer deleted task');
+      throw new InvalidTaskOperationError("Cannot defer deleted task");
     }
 
     if (this._category === TaskCategory.DEFERRED) {
       // Already deferred, just update the date
       this._deferredUntil = deferredUntil;
       this._updatedAt = new Date();
-      return [new TaskDeferredEvent(this.id, deferredUntil, this._originalCategory || TaskCategory.INBOX)];
+      return [
+        new TaskDeferredEvent(
+          this.id,
+          deferredUntil,
+          this._originalCategory || TaskCategory.INBOX
+        ),
+      ];
     }
 
     // Store original category before deferring
@@ -297,7 +322,9 @@ export class Task {
     this._deferredUntil = deferredUntil;
     this._updatedAt = new Date();
 
-    return [new TaskDeferredEvent(this.id, deferredUntil, this._originalCategory)];
+    return [
+      new TaskDeferredEvent(this.id, deferredUntil, this._originalCategory),
+    ];
   }
 
   /**
@@ -305,7 +332,7 @@ export class Task {
    */
   undefer(): DomainEvent[] {
     if (this.isDeleted) {
-      throw new InvalidTaskOperationError('Cannot undefer deleted task');
+      throw new InvalidTaskOperationError("Cannot undefer deleted task");
     }
 
     if (this._category !== TaskCategory.DEFERRED) {

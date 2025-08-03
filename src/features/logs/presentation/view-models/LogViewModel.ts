@@ -1,15 +1,24 @@
-import { create } from 'zustand';
-import { LogEntry, GetTaskLogsResponse } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
-import { GetTaskLogsUseCase, GetTaskLogsRequest } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
-import { CreateUserLogUseCase, CreateUserLogRequest } from '../../../../shared/application/use-cases/CreateUserLogUseCase';
+import { create } from "zustand";
+import {
+  LogEntry,
+  GetTaskLogsResponse,
+} from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import {
+  GetTaskLogsUseCase,
+  GetTaskLogsRequest,
+} from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import {
+  CreateUserLogUseCase,
+  CreateUserLogRequest,
+} from "../../../../shared/application/use-cases/CreateUserLogUseCase";
 
 /**
  * Log filter options
  */
 export interface LogFilter {
   taskId?: string;
-  logType?: 'SYSTEM' | 'USER' | 'CONFLICT';
-  sortOrder?: 'asc' | 'desc';
+  logType?: "SYSTEM" | "USER" | "CONFLICT";
+  sortOrder?: "asc" | "desc";
 }
 
 /**
@@ -65,7 +74,7 @@ export const createLogViewModel = (dependencies: LogViewModelDependencies) => {
     loading: false,
     error: null,
     filter: {
-      sortOrder: 'desc'
+      sortOrder: "desc",
     },
     pagination: {
       page: 1,
@@ -73,7 +82,7 @@ export const createLogViewModel = (dependencies: LogViewModelDependencies) => {
       totalCount: 0,
       totalPages: 0,
       hasNextPage: false,
-      hasPreviousPage: false
+      hasPreviousPage: false,
     },
 
     // Computed properties as functions
@@ -82,11 +91,11 @@ export const createLogViewModel = (dependencies: LogViewModelDependencies) => {
       let filtered = [...logs];
 
       if (filter.taskId) {
-        filtered = filtered.filter(log => log.taskId === filter.taskId);
+        filtered = filtered.filter((log) => log.taskId === filter.taskId);
       }
 
       if (filter.logType) {
-        filtered = filtered.filter(log => log.type === filter.logType);
+        filtered = filtered.filter((log) => log.type === filter.logType);
       }
 
       return filtered;
@@ -94,13 +103,16 @@ export const createLogViewModel = (dependencies: LogViewModelDependencies) => {
 
     getLogsByType: () => {
       const { logs } = get();
-      return logs.reduce((acc, log) => {
-        if (!acc[log.type]) {
-          acc[log.type] = [];
-        }
-        acc[log.type].push(log);
-        return acc;
-      }, {} as Record<string, LogEntry[]>);
+      return logs.reduce(
+        (acc, log) => {
+          if (!acc[log.type]) {
+            acc[log.type] = [];
+          }
+          acc[log.type].push(log);
+          return acc;
+        },
+        {} as Record<string, LogEntry[]>
+      );
     },
 
     hasLogs: () => {
@@ -111,37 +123,37 @@ export const createLogViewModel = (dependencies: LogViewModelDependencies) => {
     // Actions
     loadLogs: async (request?: GetTaskLogsRequest) => {
       set({ loading: true, error: null });
-      
+
       try {
         const { filter, pagination } = get();
-        
+
         const loadRequest: GetTaskLogsRequest = {
           taskId: request?.taskId || filter.taskId,
           logType: request?.logType || filter.logType,
           page: request?.page || pagination.page,
           pageSize: request?.pageSize || pagination.pageSize,
-          sortOrder: request?.sortOrder || filter.sortOrder || 'desc'
+          sortOrder: request?.sortOrder || filter.sortOrder || "desc",
         };
 
         const result = await getTaskLogsUseCase.execute(loadRequest);
-        
+
         if (result.success) {
           const response = result.data as GetTaskLogsResponse;
-          set({ 
+          set({
             logs: response.logs,
             pagination: response.pagination,
-            loading: false 
+            loading: false,
           });
         } else {
-          set({ 
+          set({
             error: (result as any).error.message,
-            loading: false 
+            loading: false,
           });
         }
       } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to load logs',
-          loading: false 
+        set({
+          error: error instanceof Error ? error.message : "Failed to load logs",
+          loading: false,
         });
       }
     },
@@ -162,10 +174,10 @@ export const createLogViewModel = (dependencies: LogViewModelDependencies) => {
 
     createUserLog: async (request: CreateUserLogRequest) => {
       set({ error: null });
-      
+
       try {
         const result = await createUserLogUseCase.execute(request);
-        
+
         if (result.success) {
           // Refresh logs to show the new entry
           await get().refreshLogs();
@@ -175,7 +187,10 @@ export const createLogViewModel = (dependencies: LogViewModelDependencies) => {
           return false;
         }
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : 'Failed to create log' });
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to create log",
+        });
         return false;
       }
     },

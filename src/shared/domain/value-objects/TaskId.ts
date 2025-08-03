@@ -1,5 +1,5 @@
-import { ulid } from 'ulid';
-import { ValueObject } from './ValueObject';
+import { ulid } from "ulid";
+import { ValueObject } from "./ValueObject";
 
 /**
  * Domain error for invalid TaskId values
@@ -7,7 +7,7 @@ import { ValueObject } from './ValueObject';
 export class InvalidTaskIdError extends Error {
   constructor(value: string) {
     super(`Invalid TaskId: ${value}. Must be a valid ULID.`);
-    this.name = 'InvalidTaskIdError';
+    this.name = "InvalidTaskIdError";
   }
 }
 
@@ -19,10 +19,10 @@ export class TaskId extends ValueObject<string> {
   private static readonly ULID_REGEX = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 
   protected validate(value: string): void {
-    if (!value || typeof value !== 'string') {
+    if (!value || typeof value !== "string") {
       throw new InvalidTaskIdError(value);
     }
-    
+
     if (!TaskId.ULID_REGEX.test(value)) {
       throw new InvalidTaskIdError(value);
     }
@@ -48,11 +48,11 @@ export class TaskId extends ValueObject<string> {
   getTimestamp(): Date {
     // ULID first 10 characters represent timestamp in Crockford's Base32
     const timestampPart = this._value.substring(0, 10);
-    
+
     // Convert from Crockford's Base32 to decimal
-    const base32Chars = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+    const base32Chars = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
     let timestamp = 0;
-    
+
     for (let i = 0; i < timestampPart.length; i++) {
       const char = timestampPart[i];
       const value = base32Chars.indexOf(char);
@@ -61,7 +61,7 @@ export class TaskId extends ValueObject<string> {
       }
       timestamp = timestamp * 32 + value;
     }
-    
+
     return new Date(timestamp);
   }
 }

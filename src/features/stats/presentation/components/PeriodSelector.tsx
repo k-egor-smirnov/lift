@@ -1,7 +1,7 @@
-import React from 'react';
-import { Calendar, BarChart3, TrendingUp } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { StatsPeriod } from '../view-models/StatsViewModel';
+import React from "react";
+import { Calendar, BarChart3, TrendingUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { StatsPeriod } from "../view-models/StatsViewModel";
 
 interface PeriodSelectorProps {
   selectedPeriod: StatsPeriod;
@@ -10,14 +10,18 @@ interface PeriodSelectorProps {
 
 export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
   selectedPeriod,
-  onPeriodChange
+  onPeriodChange,
 }) => {
   const { t } = useTranslation();
-  
-  const periods: { value: StatsPeriod; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { value: 'day', label: t('periods.day'), icon: Calendar },
-    { value: 'week', label: t('periods.week'), icon: BarChart3 },
-    { value: 'month', label: t('periods.month'), icon: TrendingUp }
+
+  const periods: {
+    value: StatsPeriod;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }[] = [
+    { value: "day", label: t("periods.day"), icon: Calendar },
+    { value: "week", label: t("periods.week"), icon: BarChart3 },
+    { value: "month", label: t("periods.month"), icon: TrendingUp },
   ];
 
   return (
@@ -29,9 +33,10 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
             onClick={() => onPeriodChange(period.value)}
             className={`
               flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200
-              ${selectedPeriod === period.value
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              ${
+                selectedPeriod === period.value
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               }
             `}
           >

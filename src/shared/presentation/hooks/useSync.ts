@@ -1,8 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { getSyncService, getRealtimeService } from '../../infrastructure/di/syncContainer';
-import { SyncService } from '../../application/services/SyncService';
-import { SupabaseRealtimeService } from '../../infrastructure/services/SupabaseRealtimeService';
-import { SyncResult, SyncError } from '../../domain/repositories/SyncRepository';
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  getSyncService,
+  getRealtimeService,
+} from "../../infrastructure/di/syncContainer";
+import { SyncService } from "../../application/services/SyncService";
+import { SupabaseRealtimeService } from "../../infrastructure/services/SupabaseRealtimeService";
+import {
+  SyncResult,
+  SyncError,
+} from "../../domain/repositories/SyncRepository";
 
 export interface SyncStatus {
   isOnline: boolean;
@@ -15,17 +21,17 @@ export interface SyncStatus {
 export interface UseSyncReturn {
   // Состояние
   isOnline: boolean;
-  syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+  syncStatus: "idle" | "syncing" | "synced" | "error";
   lastSyncAt: Date | null;
   error: SyncError | null;
-  realtimeStatus: 'connected' | 'disconnected' | 'connecting';
-  
+  realtimeStatus: "connected" | "disconnected" | "connecting";
+
   // Методы
   performSync: () => Promise<void>;
   forcePushLocalChanges: () => Promise<void>;
   enableAutoSync: (enabled: boolean) => Promise<void>;
   enableRealtime: (enabled: boolean) => Promise<void>;
-  
+
   // Внутреннее состояние для совместимости
   status: SyncStatus;
   sync: () => Promise<SyncResult>;
@@ -42,7 +48,7 @@ export function useSync(): UseSyncReturn {
     isSyncing: false,
     lastSyncAt: null,
     error: null,
-    isRealtimeConnected: false
+    isRealtimeConnected: false,
   });
 
   const syncServiceRef = useRef<SyncService | null>(null);
@@ -56,14 +62,14 @@ export function useSync(): UseSyncReturn {
       syncServiceRef.current = getSyncService();
       realtimeServiceRef.current = getRealtimeService();
     } catch (error) {
-      console.error('Failed to initialize sync services:', error);
-      setStatus(prev => ({
+      console.error("Failed to initialize sync services:", error);
+      setStatus((prev) => ({
         ...prev,
         error: {
-          code: 'INITIALIZATION_ERROR',
-          message: 'Не удалось инициализировать сервисы синхронизации',
-          details: error
-        }
+          code: "INITIALIZATION_ERROR",
+          message: "Не удалось инициализировать сервисы синхронизации",
+          details: error,
+        },
       }));
     }
   }, []);
@@ -71,19 +77,19 @@ export function useSync(): UseSyncReturn {
   // Обновление статуса подключения к интернету
   useEffect(() => {
     const handleOnline = () => {
-      setStatus(prev => ({ ...prev, isOnline: true, error: null }));
+      setStatus((prev) => ({ ...prev, isOnline: true, error: null }));
     };
 
     const handleOffline = () => {
-      setStatus(prev => ({ ...prev, isOnline: false }));
+      setStatus((prev) => ({ ...prev, isOnline: false }));
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
@@ -96,20 +102,20 @@ export function useSync(): UseSyncReturn {
         const syncStatus = await syncServiceRef.current.getSyncStatus();
         const isRealtimeConnected = realtimeServiceRef.current.isConnected();
 
-        setStatus(prev => ({
+        setStatus((prev) => ({
           ...prev,
           lastSyncAt: syncStatus.lastSyncAt,
           isRealtimeConnected,
-          error: syncStatus.error || null
+          error: syncStatus.error || null,
         }));
       } catch (error) {
-        console.error('Error checking sync status:', error);
+        console.error("Error checking sync status:", error);
       }
     };
 
     // Проверяем статус каждые 30 секунд
     statusCheckIntervalRef.current = setInterval(checkStatus, 30000);
-    
+
     // Первоначальная проверка
     checkStatus();
 
@@ -123,33 +129,33 @@ export function useSync(): UseSyncReturn {
   // Ручная синхронизация
   const sync = useCallback(async (): Promise<SyncResult> => {
     if (!syncServiceRef.current) {
-      throw new Error('Sync service not initialized');
+      throw new Error("Sync service not initialized");
     }
 
-    setStatus(prev => ({ ...prev, isSyncing: true, error: null }));
+    setStatus((prev) => ({ ...prev, isSyncing: true, error: null }));
 
     try {
       const result = await syncServiceRef.current.performSync();
-      
-      setStatus(prev => ({
+
+      setStatus((prev) => ({
         ...prev,
         isSyncing: false,
         lastSyncAt: new Date(),
-        error: result.error || null
+        error: result.error || null,
       }));
 
       return result;
     } catch (error) {
       const syncError: SyncError = {
-        code: 'SYNC_ERROR',
-        message: 'Ошибка синхронизации',
-        details: error
+        code: "SYNC_ERROR",
+        message: "Ошибка синхронизации",
+        details: error,
       };
 
-      setStatus(prev => ({
+      setStatus((prev) => ({
         ...prev,
         isSyncing: false,
-        error: syncError
+        error: syncError,
       }));
 
       return {
@@ -157,7 +163,7 @@ export function useSync(): UseSyncReturn {
         error: syncError,
         pushedCount: 0,
         pulledCount: 0,
-        conflictsResolved: 0
+        conflictsResolved: 0,
       };
     }
   }, []);
@@ -165,33 +171,33 @@ export function useSync(): UseSyncReturn {
   // Принудительная отправка локальных изменений
   const forcePush = useCallback(async (): Promise<SyncResult> => {
     if (!syncServiceRef.current) {
-      throw new Error('Sync service not initialized');
+      throw new Error("Sync service not initialized");
     }
 
-    setStatus(prev => ({ ...prev, isSyncing: true, error: null }));
+    setStatus((prev) => ({ ...prev, isSyncing: true, error: null }));
 
     try {
       const result = await syncServiceRef.current.forcePushLocalChanges();
-      
-      setStatus(prev => ({
+
+      setStatus((prev) => ({
         ...prev,
         isSyncing: false,
         lastSyncAt: new Date(),
-        error: result.error || null
+        error: result.error || null,
       }));
 
       return result;
     } catch (error) {
       const syncError: SyncError = {
-        code: 'PUSH_ERROR',
-        message: 'Ошибка отправки данных',
-        details: error
+        code: "PUSH_ERROR",
+        message: "Ошибка отправки данных",
+        details: error,
       };
 
-      setStatus(prev => ({
+      setStatus((prev) => ({
         ...prev,
         isSyncing: false,
-        error: syncError
+        error: syncError,
       }));
 
       return {
@@ -199,7 +205,7 @@ export function useSync(): UseSyncReturn {
         error: syncError,
         pushedCount: 0,
         pulledCount: 0,
-        conflictsResolved: 0
+        conflictsResolved: 0,
       };
     }
   }, []);
@@ -211,15 +217,18 @@ export function useSync(): UseSyncReturn {
     }
 
     // Автосинхронизация каждые 5 минут
-    autoSyncIntervalRef.current = setInterval(async () => {
-      if (status.isOnline && !status.isSyncing && syncServiceRef.current) {
-        try {
-          await syncServiceRef.current.performBackgroundSync();
-        } catch (error) {
-          console.error('Background sync error:', error);
+    autoSyncIntervalRef.current = setInterval(
+      async () => {
+        if (status.isOnline && !status.isSyncing && syncServiceRef.current) {
+          try {
+            await syncServiceRef.current.performBackgroundSync();
+          } catch (error) {
+            console.error("Background sync error:", error);
+          }
         }
-      }
-    }, 5 * 60 * 1000);
+      },
+      5 * 60 * 1000
+    );
   }, [status.isOnline, status.isSyncing]);
 
   // Отключение автоматической синхронизации
@@ -236,32 +245,34 @@ export function useSync(): UseSyncReturn {
 
     try {
       await realtimeServiceRef.current.subscribeToTaskChanges();
-      setStatus(prev => ({ ...prev, isRealtimeConnected: true }));
+      setStatus((prev) => ({ ...prev, isRealtimeConnected: true }));
     } catch (error) {
-      console.error('Failed to enable realtime:', error);
-      
-      let errorMessage = 'Не удалось включить real-time обновления';
-      let errorCode = 'REALTIME_ERROR';
-      
+      console.error("Failed to enable realtime:", error);
+
+      let errorMessage = "Не удалось включить real-time обновления";
+      let errorCode = "REALTIME_ERROR";
+
       // Проверяем специфичные ошибки
-      if (error && typeof error === 'object' && 'message' in error) {
+      if (error && typeof error === "object" && "message" in error) {
         const errorStr = String(error.message);
-        if (errorStr.includes('Unable to subscribe to changes')) {
-          errorMessage = 'Realtime не включен для таблицы в Supabase. Выполните миграцию 002_enable_realtime.sql';
-          errorCode = 'REALTIME_NOT_ENABLED';
-        } else if (errorStr.includes('postgres_changes')) {
-          errorMessage = 'Ошибка подписки на изменения PostgreSQL. Проверьте настройки Realtime в Supabase';
-          errorCode = 'POSTGRES_CHANGES_ERROR';
+        if (errorStr.includes("Unable to subscribe to changes")) {
+          errorMessage =
+            "Realtime не включен для таблицы в Supabase. Выполните миграцию 002_enable_realtime.sql";
+          errorCode = "REALTIME_NOT_ENABLED";
+        } else if (errorStr.includes("postgres_changes")) {
+          errorMessage =
+            "Ошибка подписки на изменения PostgreSQL. Проверьте настройки Realtime в Supabase";
+          errorCode = "POSTGRES_CHANGES_ERROR";
         }
       }
-      
-      setStatus(prev => ({
+
+      setStatus((prev) => ({
         ...prev,
         error: {
           code: errorCode,
           message: errorMessage,
-          details: error
-        }
+          details: error,
+        },
       }));
     }
   }, []);
@@ -272,9 +283,9 @@ export function useSync(): UseSyncReturn {
 
     try {
       await realtimeServiceRef.current.unsubscribeFromTaskChanges();
-      setStatus(prev => ({ ...prev, isRealtimeConnected: false }));
+      setStatus((prev) => ({ ...prev, isRealtimeConnected: false }));
     } catch (error) {
-      console.error('Failed to disable realtime:', error);
+      console.error("Failed to disable realtime:", error);
     }
   }, []);
 
@@ -291,16 +302,16 @@ export function useSync(): UseSyncReturn {
   }, []);
 
   // Определяем syncStatus на основе состояния
-  const getSyncStatus = (): 'idle' | 'syncing' | 'synced' | 'error' => {
-    if (status.isSyncing) return 'syncing';
-    if (status.error) return 'error';
-    if (status.lastSyncAt) return 'synced';
-    return 'idle';
+  const getSyncStatus = (): "idle" | "syncing" | "synced" | "error" => {
+    if (status.isSyncing) return "syncing";
+    if (status.error) return "error";
+    if (status.lastSyncAt) return "synced";
+    return "idle";
   };
 
   // Определяем realtimeStatus
-  const getRealtimeStatus = (): 'connected' | 'disconnected' | 'connecting' => {
-    return status.isRealtimeConnected ? 'connected' : 'disconnected';
+  const getRealtimeStatus = (): "connected" | "disconnected" | "connecting" => {
+    return status.isRealtimeConnected ? "connected" : "disconnected";
   };
 
   // Обертки для методов с правильными сигнатурами
@@ -312,21 +323,27 @@ export function useSync(): UseSyncReturn {
     await forcePush();
   }, [forcePush]);
 
-  const enableAutoSyncWrapper = useCallback(async (enabled: boolean) => {
-    if (enabled) {
-      enableAutoSync();
-    } else {
-      disableAutoSync();
-    }
-  }, [enableAutoSync, disableAutoSync]);
+  const enableAutoSyncWrapper = useCallback(
+    async (enabled: boolean) => {
+      if (enabled) {
+        enableAutoSync();
+      } else {
+        disableAutoSync();
+      }
+    },
+    [enableAutoSync, disableAutoSync]
+  );
 
-  const enableRealtimeWrapper = useCallback(async (enabled: boolean) => {
-    if (enabled) {
-      await enableRealtime();
-    } else {
-      await disableRealtime();
-    }
-  }, [enableRealtime, disableRealtime]);
+  const enableRealtimeWrapper = useCallback(
+    async (enabled: boolean) => {
+      if (enabled) {
+        await enableRealtime();
+      } else {
+        await disableRealtime();
+      }
+    },
+    [enableRealtime, disableRealtime]
+  );
 
   return {
     // Отдельные поля для совместимости
@@ -335,16 +352,16 @@ export function useSync(): UseSyncReturn {
     lastSyncAt: status.lastSyncAt,
     error: status.error,
     realtimeStatus: getRealtimeStatus(),
-    
+
     // Методы с правильными сигнатурами
     performSync,
     forcePushLocalChanges,
     enableAutoSync: enableAutoSyncWrapper,
     enableRealtime: enableRealtimeWrapper,
-    
+
     // Внутреннее состояние для совместимости
     status,
     sync,
-    forcePush
+    forcePush,
   };
 }

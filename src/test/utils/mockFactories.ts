@@ -1,39 +1,43 @@
-import { vi, expect } from 'vitest';
-import { Task } from '../../shared/domain/entities/Task';
-import { TaskId } from '../../shared/domain/value-objects/TaskId';
-import { NonEmptyTitle } from '../../shared/domain/value-objects/NonEmptyTitle';
-import { TaskCategory, TaskStatus } from '../../shared/domain/types';
-import { TaskRepository } from '../../shared/domain/repositories/TaskRepository';
-import { EventBus } from '../../shared/domain/events/EventBus';
-import { TodoDatabase } from '../../shared/infrastructure/database/TodoDatabase';
-import { DailySelectionRepository } from '../../shared/domain/repositories/DailySelectionRepository';
-import { UserSettingsRepository } from '../../shared/domain/repositories/UserSettingsRepository';
+import { vi, expect } from "vitest";
+import { Task } from "../../shared/domain/entities/Task";
+import { TaskId } from "../../shared/domain/value-objects/TaskId";
+import { NonEmptyTitle } from "../../shared/domain/value-objects/NonEmptyTitle";
+import { TaskCategory, TaskStatus } from "../../shared/domain/types";
+import { TaskRepository } from "../../shared/domain/repositories/TaskRepository";
+import { EventBus } from "../../shared/domain/events/EventBus";
+import { TodoDatabase } from "../../shared/infrastructure/database/TodoDatabase";
+import { DailySelectionRepository } from "../../shared/domain/repositories/DailySelectionRepository";
+import { UserSettingsRepository } from "../../shared/domain/repositories/UserSettingsRepository";
 
 // Type for mocked objects
 type MockedObject<T> = {
-  [K in keyof T]: T[K] extends (...args: any[]) => any ? ReturnType<typeof vi.fn> : T[K];
+  [K in keyof T]: T[K] extends (...args: any[]) => any
+    ? ReturnType<typeof vi.fn>
+    : T[K];
 };
 
 /**
  * Factory for creating mock Task entities
  */
-export const createMockTask = (overrides: Partial<{
-  id: TaskId;
-  title: NonEmptyTitle;
-  category: TaskCategory;
-  status: TaskStatus;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-  inboxEnteredAt?: Date;
-}> = {}): Task => {
+export const createMockTask = (
+  overrides: Partial<{
+    id: TaskId;
+    title: NonEmptyTitle;
+    category: TaskCategory;
+    status: TaskStatus;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date;
+    inboxEnteredAt?: Date;
+  }> = {}
+): Task => {
   const defaults = {
     id: TaskId.generate(),
-    title: NonEmptyTitle.fromString('Test Task'),
+    title: NonEmptyTitle.fromString("Test Task"),
     category: TaskCategory.SIMPLE,
     status: TaskStatus.ACTIVE,
-    createdAt: new Date('2023-01-01'),
-    updatedAt: new Date('2023-01-01'),
+    createdAt: new Date("2023-01-01"),
+    updatedAt: new Date("2023-01-01"),
     deletedAt: undefined,
     inboxEnteredAt: undefined,
   };
@@ -127,9 +131,11 @@ export const createMockDatabase = (): MockedObject<TodoDatabase> => {
   } as any;
 
   // Mock transaction to execute callback immediately
-  mockDb.transaction.mockImplementation(async (mode: any, tables: any, callback: any) => {
-    return await callback();
-  });
+  mockDb.transaction.mockImplementation(
+    async (mode: any, tables: any, callback: any) => {
+      return await callback();
+    }
+  );
 
   return mockDb;
 };
@@ -137,33 +143,35 @@ export const createMockDatabase = (): MockedObject<TodoDatabase> => {
 /**
  * Factory for creating mock DailySelectionRepository
  */
-export const createMockDailySelectionRepository = (): MockedObject<DailySelectionRepository> => ({
-  addTaskToDay: vi.fn(),
-  removeTaskFromDay: vi.fn(),
-  getTasksForDay: vi.fn(),
-  getTaskIdsForDay: vi.fn(),
-  isTaskSelectedForDay: vi.fn(),
-  markTaskCompleted: vi.fn(),
-  getTaskCompletionStatus: vi.fn(),
-  getDailySelectionsForRange: vi.fn(),
-  clearDay: vi.fn(),
-  countTasksForDay: vi.fn(),
-  getLastSelectionDateForTask: vi.fn(),
-});
+export const createMockDailySelectionRepository =
+  (): MockedObject<DailySelectionRepository> => ({
+    addTaskToDay: vi.fn(),
+    removeTaskFromDay: vi.fn(),
+    getTasksForDay: vi.fn(),
+    getTaskIdsForDay: vi.fn(),
+    isTaskSelectedForDay: vi.fn(),
+    markTaskCompleted: vi.fn(),
+    getTaskCompletionStatus: vi.fn(),
+    getDailySelectionsForRange: vi.fn(),
+    clearDay: vi.fn(),
+    countTasksForDay: vi.fn(),
+    getLastSelectionDateForTask: vi.fn(),
+  });
 
 /**
  * Factory for creating mock UserSettingsRepository
  */
-export const createMockUserSettingsRepository = (): MockedObject<UserSettingsRepository> => ({
-  get: vi.fn(),
-  set: vi.fn(),
-  getMany: vi.fn(),
-  setMany: vi.fn(),
-  has: vi.fn(),
-  remove: vi.fn(),
-  getAll: vi.fn(),
-  clear: vi.fn(),
-});
+export const createMockUserSettingsRepository =
+  (): MockedObject<UserSettingsRepository> => ({
+    get: vi.fn(),
+    set: vi.fn(),
+    getMany: vi.fn(),
+    setMany: vi.fn(),
+    has: vi.fn(),
+    remove: vi.fn(),
+    getAll: vi.fn(),
+    clear: vi.fn(),
+  });
 
 /**
  * Common test data generators
@@ -177,18 +185,21 @@ export const testData = {
   /**
    * Generate a valid task title
    */
-  taskTitle: (title = 'Test Task') => NonEmptyTitle.fromString(title),
+  taskTitle: (title = "Test Task") => NonEmptyTitle.fromString(title),
 
   /**
    * Generate a date for testing
    */
-  date: (dateString = '2023-01-01') => new Date(dateString),
+  date: (dateString = "2023-01-01") => new Date(dateString),
 
   /**
    * Generate multiple mock tasks
    */
-  tasks: (count: number, overrides: Partial<Parameters<typeof createMockTask>[0]> = {}) => {
-    return Array.from({ length: count }, (_, index) => 
+  tasks: (
+    count: number,
+    overrides: Partial<Parameters<typeof createMockTask>[0]> = {}
+  ) => {
+    return Array.from({ length: count }, (_, index) =>
       createMockTask({
         title: NonEmptyTitle.fromString(`Test Task ${index + 1}`),
         ...overrides,
@@ -219,7 +230,7 @@ export const testUtils = {
    * Reset all mocks in an object
    */
   resetMocks: (mockObject: Record<string, any>) => {
-    Object.values(mockObject).forEach(mock => {
+    Object.values(mockObject).forEach((mock) => {
       if (vi.isMockFunction(mock)) {
         mock.mockReset();
       }

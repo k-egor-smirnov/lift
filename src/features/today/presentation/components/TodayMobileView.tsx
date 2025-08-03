@@ -1,16 +1,16 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Plus } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { TaskList } from '../../../tasks/presentation/components/TaskList';
-import { LogEntry } from '../../../../shared/application/use-cases/GetTaskLogsUseCase';
-import { TodayViewModelDependencies } from '../view-models/TodayViewModel';
-import { useTodayViewModelStore } from '../view-models/TodayViewModelStore';
-import { Task } from '../../../../shared/domain/entities/Task';
-import { toast } from 'sonner';
-import { getService, tokens } from '../../../../shared/infrastructure/di';
-import { ResultUtils } from '../../../../shared/domain/Result';
-import { RevertTaskCompletionUseCase } from '../../../../shared/application/use-cases/RevertTaskCompletionUseCase';
-import { TaskId } from '../../../../shared/domain/value-objects/TaskId';
+import React, { useEffect, useState, useRef } from "react";
+import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { TaskList } from "../../../tasks/presentation/components/TaskList";
+import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import { TodayViewModelDependencies } from "../view-models/TodayViewModel";
+import { useTodayViewModelStore } from "../view-models/TodayViewModelStore";
+import { Task } from "../../../../shared/domain/entities/Task";
+import { toast } from "sonner";
+import { getService, tokens } from "../../../../shared/infrastructure/di";
+import { ResultUtils } from "../../../../shared/domain/Result";
+import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-cases/RevertTaskCompletionUseCase";
+import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 
 interface TodayMobileViewProps {
   dependencies: TodayViewModelDependencies;
@@ -38,7 +38,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   onCreateTask,
 }) => {
   const { t } = useTranslation();
-  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskTitle, setNewTaskTitle] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -72,15 +72,17 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   const handleCompleteTask = async (taskId: string) => {
     try {
       // Find task to get its title for the notification
-      const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(t => t.task.id.value === taskId);
-      const taskTitle = taskInfo?.task.title.value || 'Задача';
-      
+      const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(
+        (t) => t.task.id.value === taskId
+      );
+      const taskTitle = taskInfo?.task.title.value || "Задача";
+
       await completeTask(taskId);
-      
+
       // Show success toast with undo option
       toast.success(`${taskTitle} выполнена`, {
         action: {
-          label: 'Отменить',
+          label: "Отменить",
           onClick: async () => {
             await handleRevertCompletion(taskId);
           },
@@ -88,26 +90,28 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
         duration: 5000, // 5 seconds to allow undo
       });
     } catch (error) {
-      console.error('Error completing task:', error);
-      toast.error('Не удалось выполнить задачу');
+      console.error("Error completing task:", error);
+      toast.error("Не удалось выполнить задачу");
     }
   };
 
   const handleRevertCompletion = async (taskId: string) => {
     try {
-      const revertUseCase = getService<RevertTaskCompletionUseCase>(tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN);
+      const revertUseCase = getService<RevertTaskCompletionUseCase>(
+        tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN
+      );
       const result = await revertUseCase.execute({ taskId });
-      
+
       if (ResultUtils.isSuccess(result)) {
-        toast.success('Выполнение задачи отменено');
+        toast.success("Выполнение задачи отменено");
         // Reload today's tasks to reflect changes (silent refresh)
         await loadTodayTasks(undefined, true);
       } else {
-        toast.error('Не удалось отменить выполнение задачи');
+        toast.error("Не удалось отменить выполнение задачи");
       }
     } catch (error) {
-      console.error('Error reverting task completion:', error);
-      toast.error('Произошла ошибка при отмене');
+      console.error("Error reverting task completion:", error);
+      toast.error("Произошла ошибка при отмене");
     }
   };
 
@@ -129,7 +133,9 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     if (onDeleteTask) {
       onDeleteTask(taskId);
     } else {
-      console.warn('onDeleteTask prop not provided to TodayMobileView - task deletion not available');
+      console.warn(
+        "onDeleteTask prop not provided to TodayMobileView - task deletion not available"
+      );
     }
   };
 
@@ -137,12 +143,12 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     e.preventDefault();
     if (newTaskTitle.trim() && onCreateTask) {
       await onCreateTask(newTaskTitle.trim());
-      setNewTaskTitle('');
+      setNewTaskTitle("");
       // Scroll back to center after creating task
       if (containerRef.current) {
         containerRef.current.scrollTo({
           top: containerRef.current.clientHeight,
-          behavior: 'smooth'
+          behavior: "smooth",
         });
       }
     }
@@ -155,24 +161,24 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   return (
     <div className="h-screen w-full overflow-hidden bg-gray-50">
       {/* Scroll container with snap points */}
-      <div 
+      <div
         ref={containerRef}
         className="h-full overflow-y-auto"
         style={{
-          scrollSnapType: 'y mandatory',
-          scrollBehavior: 'smooth'
+          scrollSnapType: "y mandatory",
+          scrollBehavior: "smooth",
         }}
       >
         {/* Empty top section for scroll snap */}
-        <div 
+        <div
           className="h-screen flex-shrink-0"
-          style={{ scrollSnapAlign: 'start' }}
+          style={{ scrollSnapAlign: "start" }}
         />
-        
+
         {/* Center section - Input field */}
-        <div 
+        <div
           className="h-screen flex-shrink-0 flex items-center justify-center px-6"
-          style={{ scrollSnapAlign: 'start' }}
+          style={{ scrollSnapAlign: "start" }}
         >
           <div className="w-full max-w-md">
             <form onSubmit={handleCreateTask} className="relative">
@@ -181,7 +187,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                 type="text"
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder={t('todayView.addNewTask') || 'Add a new task...'}
+                placeholder={t("todayView.addNewTask") || "Add a new task..."}
                 className="w-full px-6 py-4 text-lg bg-white border-2 border-gray-200 rounded-2xl shadow-lg focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
                 autoComplete="off"
               />
@@ -194,18 +200,20 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                 </button>
               )}
             </form>
-            
+
             {/* Subtle hint text */}
             <p className="text-center text-gray-400 text-sm mt-4">
-              {allTasks.length > 0 ? 'Swipe down to see your tasks' : 'Start by adding your first task'}
+              {allTasks.length > 0
+                ? "Swipe down to see your tasks"
+                : "Start by adding your first task"}
             </p>
           </div>
         </div>
 
         {/* Bottom section - Task list */}
-        <div 
+        <div
           className="min-h-screen flex-shrink-0 bg-white"
-          style={{ scrollSnapAlign: 'start' }}
+          style={{ scrollSnapAlign: "start" }}
         >
           <div className="px-4 py-6">
             {/* Header */}
@@ -218,7 +226,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                   {activeTasks.length} active, {completedTasks.length} completed
                 </p>
               )}
-              
+
               {/* Refreshing indicator */}
               {refreshing && (
                 <div className="flex items-center justify-center mt-3">
@@ -239,8 +247,16 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                     onClick={clearError}
                     className="text-red-400 hover:text-red-600 ml-2"
                   >
-                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    <svg
+                      className="h-4 w-4"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -262,8 +278,18 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                 {allTasks.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="text-gray-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      <svg
+                        className="w-16 h-16 mx-auto"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1}
+                          d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        />
                       </svg>
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -283,7 +309,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                           Active ({activeTasks.length})
                         </h3>
                         <TaskList
-                          tasks={activeTasks.map(taskInfo => taskInfo.task)}
+                          tasks={activeTasks.map((taskInfo) => taskInfo.task)}
                           onComplete={handleCompleteTask}
                           onRevertCompletion={handleRevertCompletion}
                           onEdit={handleEditTask}
@@ -305,13 +331,15 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
 
                     {/* Completed Tasks */}
                     {completedTasks.length > 0 && (
-                      <div className={activeTasks.length > 0 ? 'mt-8' : ''}>
+                      <div className={activeTasks.length > 0 ? "mt-8" : ""}>
                         <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                           <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                           Completed ({completedTasks.length})
                         </h3>
                         <TaskList
-                          tasks={completedTasks.map(taskInfo => taskInfo.task)}
+                          tasks={completedTasks.map(
+                            (taskInfo) => taskInfo.task
+                          )}
                           onComplete={undefined}
                           onRevertCompletion={handleRevertCompletion}
                           onEdit={handleEditTask}

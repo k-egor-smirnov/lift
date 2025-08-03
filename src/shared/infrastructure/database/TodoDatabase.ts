@@ -1,4 +1,4 @@
-import { injectable } from 'tsyringe';
+import { injectable } from "tsyringe";
 import Dexie, { Table } from "dexie";
 import { TaskCategory, TaskStatus } from "../../domain/types";
 
@@ -164,12 +164,14 @@ export class TodoDatabase extends Dexie {
           "Upgrading database to version 3 - adding order field to tasks"
         );
         // Initialize order field for existing tasks
-        const tasks = await trans.table('tasks').toArray();
+        const tasks = await trans.table("tasks").toArray();
         for (let i = 0; i < tasks.length; i++) {
           const task = tasks[i];
           if (task.order === undefined) {
-            await trans.table('tasks').update(task.id, {
-              order: task.createdAt ? new Date(task.createdAt).getTime() : Date.now() + i
+            await trans.table("tasks").update(task.id, {
+              order: task.createdAt
+                ? new Date(task.createdAt).getTime()
+                : Date.now() + i,
             });
           }
         }
@@ -248,20 +250,22 @@ export class TodoDatabase extends Dexie {
           "Upgrading database to version 6 - changing daily selection entries ID to ULID"
         );
         // Migrate existing entries to use ULID
-        const { ulid } = await import('ulid');
-        const existingEntries = await trans.table('dailySelectionEntries').toArray();
-        
+        const { ulid } = await import("ulid");
+        const existingEntries = await trans
+          .table("dailySelectionEntries")
+          .toArray();
+
         // Clear the table and re-add with ULID
-        await trans.table('dailySelectionEntries').clear();
-        
+        await trans.table("dailySelectionEntries").clear();
+
         for (const entry of existingEntries) {
-          await trans.table('dailySelectionEntries').add({
+          await trans.table("dailySelectionEntries").add({
             id: ulid(),
             date: entry.date,
             taskId: entry.taskId,
             completedFlag: entry.completedFlag,
             createdAt: entry.createdAt,
-            deletedAt: entry.deletedAt
+            deletedAt: entry.deletedAt,
           });
         }
       });
@@ -289,12 +293,14 @@ export class TodoDatabase extends Dexie {
           "Upgrading database to version 7 - adding updatedAt field to daily selection entries"
         );
         // Add updatedAt field to existing entries
-        const existingEntries = await trans.table('dailySelectionEntries').toArray();
-        
+        const existingEntries = await trans
+          .table("dailySelectionEntries")
+          .toArray();
+
         for (const entry of existingEntries) {
           if (!entry.updatedAt) {
-            await trans.table('dailySelectionEntries').update(entry.id, {
-              updatedAt: entry.createdAt || new Date()
+            await trans.table("dailySelectionEntries").update(entry.id, {
+              updatedAt: entry.createdAt || new Date(),
             });
           }
         }
@@ -315,9 +321,12 @@ export class TodoDatabase extends Dexie {
       obj.updatedAt = new Date();
     });
 
-    this.dailySelectionEntries.hook("updating", (modifications, _primKey, _obj, _trans) => {
-      (modifications as any).updatedAt = new Date();
-    });
+    this.dailySelectionEntries.hook(
+      "updating",
+      (modifications, _primKey, _obj, _trans) => {
+        (modifications as any).updatedAt = new Date();
+      }
+    );
 
     this.taskLogs.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
@@ -400,7 +409,10 @@ export class TodoDatabase extends Dexie {
 
 // Custom error classes
 export class DatabaseConnectionError extends Error {
-  constructor(message: string, public readonly cause?: Error) {
+  constructor(
+    message: string,
+    public readonly cause?: Error
+  ) {
     super(message);
     this.name = "DatabaseConnectionError";
   }

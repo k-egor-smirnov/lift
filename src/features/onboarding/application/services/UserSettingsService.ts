@@ -1,11 +1,11 @@
-import { UserSettingsRepository } from '../../../../shared/domain/repositories/UserSettingsRepository';
+import { UserSettingsRepository } from "../../../../shared/domain/repositories/UserSettingsRepository";
 
 /**
  * User settings keys
  */
 export const USER_SETTINGS_KEYS = {
-  INBOX_OVERDUE_DAYS: 'inboxOverdueDays',
-  KEYBOARD_SHORTCUTS_ENABLED: 'keyboardShortcutsEnabled',
+  INBOX_OVERDUE_DAYS: "inboxOverdueDays",
+  KEYBOARD_SHORTCUTS_ENABLED: "keyboardShortcutsEnabled",
 } as const;
 
 /**
@@ -28,18 +28,24 @@ export interface UserSettings {
  * Service for managing user settings
  */
 export class UserSettingsService {
-  constructor(private readonly userSettingsRepository: UserSettingsRepository) {}
+  constructor(
+    private readonly userSettingsRepository: UserSettingsRepository
+  ) {}
 
   /**
    * Get all user settings with defaults
    */
   async getUserSettings(): Promise<UserSettings> {
     const settings = await this.userSettingsRepository.getAll();
-    
+
     // Apply defaults for missing settings
     const result: UserSettings = {
-      inboxOverdueDays: settings[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS] ?? DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
-      keyboardShortcutsEnabled: settings[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] ?? this.getDefaultKeyboardShortcutsEnabled(),
+      inboxOverdueDays:
+        settings[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS] ??
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
+      keyboardShortcutsEnabled:
+        settings[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] ??
+        this.getDefaultKeyboardShortcutsEnabled(),
     };
 
     return result;
@@ -52,11 +58,13 @@ export class UserSettingsService {
     const settingsToUpdate: Record<string, any> = {};
 
     if (settings.inboxOverdueDays !== undefined) {
-      settingsToUpdate[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS] = settings.inboxOverdueDays;
+      settingsToUpdate[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS] =
+        settings.inboxOverdueDays;
     }
 
     if (settings.keyboardShortcutsEnabled !== undefined) {
-      settingsToUpdate[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] = settings.keyboardShortcutsEnabled;
+      settingsToUpdate[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] =
+        settings.keyboardShortcutsEnabled;
     }
 
     await this.userSettingsRepository.setMany(settingsToUpdate);
@@ -66,8 +74,12 @@ export class UserSettingsService {
    * Get inbox overdue days setting
    */
   async getInboxOverdueDays(): Promise<number> {
-    const value = await this.userSettingsRepository.get<number>(USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS);
-    return value ?? DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS];
+    const value = await this.userSettingsRepository.get<number>(
+      USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS
+    );
+    return (
+      value ?? DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]
+    );
   }
 
   /**
@@ -75,16 +87,21 @@ export class UserSettingsService {
    */
   async setInboxOverdueDays(days: number): Promise<void> {
     if (days < 1 || days > 30) {
-      throw new Error('Inbox overdue days must be between 1 and 30');
+      throw new Error("Inbox overdue days must be between 1 and 30");
     }
-    await this.userSettingsRepository.set(USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS, days);
+    await this.userSettingsRepository.set(
+      USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS,
+      days
+    );
   }
 
   /**
    * Get keyboard shortcuts enabled setting
    */
   async getKeyboardShortcutsEnabled(): Promise<boolean> {
-    const value = await this.userSettingsRepository.get<boolean>(USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED);
+    const value = await this.userSettingsRepository.get<boolean>(
+      USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED
+    );
     return value ?? this.getDefaultKeyboardShortcutsEnabled();
   }
 
@@ -92,7 +109,10 @@ export class UserSettingsService {
    * Set keyboard shortcuts enabled setting
    */
   async setKeyboardShortcutsEnabled(enabled: boolean): Promise<void> {
-    await this.userSettingsRepository.set(USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED, enabled);
+    await this.userSettingsRepository.set(
+      USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED,
+      enabled
+    );
   }
 
   /**
@@ -100,11 +120,13 @@ export class UserSettingsService {
    */
   async resetToDefaults(): Promise<void> {
     await this.userSettingsRepository.clear();
-    
+
     // Set defaults explicitly
     await this.userSettingsRepository.setMany({
-      [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]: DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
-      [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: this.getDefaultKeyboardShortcutsEnabled(),
+      [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]:
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
+      [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]:
+        this.getDefaultKeyboardShortcutsEnabled(),
     });
   }
 
@@ -117,11 +139,13 @@ export class UserSettingsService {
 
     // Only set defaults for missing settings
     if (!(USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS in existingSettings)) {
-      settingsToSet[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS] = DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS];
+      settingsToSet[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS] =
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS];
     }
 
     if (!(USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED in existingSettings)) {
-      settingsToSet[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] = this.getDefaultKeyboardShortcutsEnabled();
+      settingsToSet[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] =
+        this.getDefaultKeyboardShortcutsEnabled();
     }
 
     if (Object.keys(settingsToSet).length > 0) {
@@ -134,8 +158,11 @@ export class UserSettingsService {
    */
   private getDefaultKeyboardShortcutsEnabled(): boolean {
     // Disable on mobile devices by default
-    if (typeof window !== 'undefined') {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (typeof window !== "undefined") {
+      const isMobile =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent
+        );
       return !isMobile;
     }
     return true; // Default to enabled on server/unknown environments

@@ -86,13 +86,17 @@ export class SupabaseRealtimeService {
               resolve();
             } else if (status === "CHANNEL_ERROR") {
               this.handleConnectionError(error);
-              reject(new Error(`Subscription failed: ${error?.message || 'Unknown error'}`));
+              reject(
+                new Error(
+                  `Subscription failed: ${error?.message || "Unknown error"}`
+                )
+              );
             } else if (status === "TIMED_OUT") {
               this.handleTimeout();
-              reject(new Error('Subscription timed out'));
+              reject(new Error("Subscription timed out"));
             } else if (status === "CLOSED") {
               this.handleConnectionClosed();
-              reject(new Error('Connection closed'));
+              reject(new Error("Connection closed"));
             }
           });
       } catch (error) {
@@ -149,7 +153,7 @@ export class SupabaseRealtimeService {
   async subscribeToAllChanges(): Promise<void> {
     await Promise.all([
       this.subscribeToTaskChanges(),
-      this.subscribeToDailySelectionChanges()
+      this.subscribeToDailySelectionChanges(),
     ]);
   }
 
@@ -181,7 +185,7 @@ export class SupabaseRealtimeService {
   async unsubscribeFromAllChanges(): Promise<void> {
     await Promise.all([
       this.unsubscribeFromTaskChanges(),
-      this.unsubscribeFromDailySelectionChanges()
+      this.unsubscribeFromDailySelectionChanges(),
     ]);
   }
 
@@ -196,7 +200,9 @@ export class SupabaseRealtimeService {
    * Проверяет статус подписки на ежедневный выбор
    */
   isDailySelectionConnected(): boolean {
-    return this.isDailySelectionSubscribed && this.dailySelectionChannel !== null;
+    return (
+      this.isDailySelectionSubscribed && this.dailySelectionChannel !== null
+    );
   }
 
   /**
@@ -260,40 +266,44 @@ export class SupabaseRealtimeService {
     try {
       let { eventType, new: newRecord, old: oldRecord } = payload;
       const record = newRecord || oldRecord;
-      
+
       if (!record) {
-        console.warn('No record found in daily selection change payload');
+        console.warn("No record found in daily selection change payload");
         return;
       }
 
       // Игнорируем soft-удаленные записи (кроме случая, когда это само событие soft delete)
-      if (record.deleted_at && eventType !== 'UPDATE') {
+      if (record.deleted_at && eventType !== "UPDATE") {
         return;
       }
 
       // Для UPDATE событий проверяем, не является ли это soft delete
-      if (eventType === 'UPDATE' && newRecord?.deleted_at && !oldRecord?.deleted_at) {
+      if (
+        eventType === "UPDATE" &&
+        newRecord?.deleted_at &&
+        !oldRecord?.deleted_at
+      ) {
         // Это soft delete - обрабатываем как удаление
-        eventType = 'DELETE';
+        eventType = "DELETE";
       }
 
       // Получаем текущую дату для проверки актуальности изменения
       const today = DateOnly.today();
       const recordDate = DateOnly.fromString(record.date);
-      
+
       // Обрабатываем только изменения для сегодняшней даты
       if (recordDate.equals(today)) {
         // Эмитируем событие для обновления списка задач на сегодня
-        taskEventBus.emit('daily_selection_changed', {
+        taskEventBus.emit("daily_selection_changed", {
           type: eventType.toLowerCase(),
           entry: record,
-          date: recordDate
+          date: recordDate,
         });
-        
+
         console.log(`Daily selection ${eventType} for today:`, record);
       }
     } catch (error) {
-      console.error('Error handling daily selection change:', error);
+      console.error("Error handling daily selection change:", error);
     }
   }
 

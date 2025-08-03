@@ -1,6 +1,6 @@
-import { DomainEvent } from '../../../../shared/domain/events/DomainEvent';
-import { TodoDatabase } from '../../../../shared/infrastructure/database/TodoDatabase';
-import { EventHandler } from './TaskLogEventHandler';
+import { DomainEvent } from "../../../../shared/domain/events/DomainEvent";
+import { TodoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
+import { EventHandler } from "./TaskLogEventHandler";
 
 // Define a custom event for overdue tasks
 export class TaskOverdueEvent extends DomainEvent {
@@ -9,14 +9,14 @@ export class TaskOverdueEvent extends DomainEvent {
     public readonly taskTitle: string,
     public readonly daysSinceInbox: number
   ) {
-    super('TASK_OVERDUE');
+    super("TASK_OVERDUE");
   }
 
   getEventData(): Record<string, any> {
     return {
       taskId: this.taskId,
       taskTitle: this.taskTitle,
-      daysSinceInbox: this.daysSinceInbox
+      daysSinceInbox: this.daysSinceInbox,
     };
   }
 }
@@ -26,12 +26,12 @@ export class TaskOverdueEvent extends DomainEvent {
  * Handles notifications when tasks become overdue in the inbox
  */
 export class NotificationHandler implements EventHandler {
-  id = 'notification-handler';
+  id = "notification-handler";
 
   constructor(private database: TodoDatabase) {}
 
   async handle(event: DomainEvent): Promise<void> {
-    if (event.eventType === 'TASK_OVERDUE') {
+    if (event.eventType === "TASK_OVERDUE") {
       await this.handleTaskOverdue(event as TaskOverdueEvent);
     }
   }
@@ -40,55 +40,56 @@ export class NotificationHandler implements EventHandler {
     try {
       // Create a system log for the overdue notification
       const logId = `task-overdue-${event.taskId}-${event.createdAt}`;
-      
+
       await this.database.taskLogs.put({
         id: logId,
         taskId: event.taskId,
-        type: 'SYSTEM',
+        type: "SYSTEM",
         message: `Task is overdue in inbox (${event.daysSinceInbox} days)`,
         metadata: {
           eventType: event.eventType,
           daysSinceInbox: event.daysSinceInbox,
-          notificationSent: true
+          notificationSent: true,
         },
-        createdAt: new Date(event.createdAt)
+        createdAt: new Date(event.createdAt),
       });
 
       // Send browser notification if supported and permitted
       await this.sendBrowserNotification(event);
-      
     } catch (error) {
-      console.error('Failed to handle overdue task notification:', error);
+      console.error("Failed to handle overdue task notification:", error);
       // Don't throw - notification failures shouldn't break event processing
     }
   }
 
-  private async sendBrowserNotification(event: TaskOverdueEvent): Promise<void> {
+  private async sendBrowserNotification(
+    event: TaskOverdueEvent
+  ): Promise<void> {
     // Check if notifications are supported
-    if (!('Notification' in window)) {
-      console.log('Browser notifications not supported');
+    if (!("Notification" in window)) {
+      console.log("Browser notifications not supported");
       return;
     }
 
     // Check permission status
-    if (Notification.permission === 'granted') {
-      new Notification('Task Overdue', {
+    if (Notification.permission === "granted") {
+      new Notification("Task Overdue", {
         body: `"${event.taskTitle}" has been in your inbox for ${event.daysSinceInbox} days`,
-        icon: '/favicon.ico',
+        icon: "/favicon.ico",
         tag: `overdue-${event.taskId}`, // Prevent duplicate notifications
         requireInteraction: false,
-        silent: false
+        silent: false,
       });
-    } else if (Notification.permission === 'default') {
+    } else if (Notification.permission === "default") {
       // Request permission
       const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        new Notification('Task Overdue', {
+      if (permission === "granted") {
+        new Notification("Task Overdue", {
           body: `"${event.taskTitle}" has been in your inbox for ${event.daysSinceInbox} days`,
-          icon: '/favicon.ico',
+          icon: "/favicon.ico",
           tag: `overdue-${event.taskId}`,
           requireInteraction: false,
-          silent: false
+          silent: false,
         });
       }
     }
@@ -103,18 +104,21 @@ export class NotificationHandler implements EventHandler {
 export class OverdueTaskChecker {
   constructor(private database: TodoDatabase) {}
 
-  async checkForOverdueTasks(overdueDays: number = 3): Promise<TaskOverdueEvent[]> {
+  async checkForOverdueTasks(
+    overdueDays: number = 3
+  ): Promise<TaskOverdueEvent[]> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - overdueDays);
 
     // Find tasks in INBOX that are older than the cutoff
     const overdueTasks = await this.database.tasks
-      .where('category')
-      .equals('INBOX')
-      .and(task => 
-        task.status === 'ACTIVE' && 
-        task.inboxEnteredAt && 
-        new Date(task.inboxEnteredAt) <= cutoffDate
+      .where("category")
+      .equals("INBOX")
+      .and(
+        (task) =>
+          task.status === "ACTIVE" &&
+          task.inboxEnteredAt &&
+          new Date(task.inboxEnteredAt) <= cutoffDate
       )
       .toArray();
 
@@ -123,22 +127,26 @@ export class OverdueTaskChecker {
     for (const task of overdueTasks) {
       if (task.inboxEnteredAt) {
         const daysSinceInbox = Math.floor(
-          (Date.now() - new Date(task.inboxEnteredAt).getTime()) / (1000 * 60 * 60 * 24)
+          (Date.now() - new Date(task.inboxEnteredAt).getTime()) /
+            (1000 * 60 * 60 * 24)
         );
 
         // Check if we've already sent a notification for this task recently
         const recentNotification = await this.database.taskLogs
-          .where('taskId')
+          .where("taskId")
           .equals(task.id)
-          .and(log => 
-            log.type === 'SYSTEM' && 
-            log.message.includes('overdue') &&
-            log.createdAt > new Date(Date.now() - 24 * 60 * 60 * 1000) // Within last 24 hours
+          .and(
+            (log) =>
+              log.type === "SYSTEM" &&
+              log.message.includes("overdue") &&
+              log.createdAt > new Date(Date.now() - 24 * 60 * 60 * 1000) // Within last 24 hours
           )
           .first();
 
         if (!recentNotification) {
-          events.push(new TaskOverdueEvent(task.id, task.title, daysSinceInbox));
+          events.push(
+            new TaskOverdueEvent(task.id, task.title, daysSinceInbox)
+          );
         }
       }
     }

@@ -57,7 +57,9 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
   const [realtimeEnabled, setRealtimeEnabled] = useState(true);
   const [debugMode, setDebugMode] = useState(false);
-  const [connectionTestResult, setConnectionTestResult] = useState<string | null>(null);
+  const [connectionTestResult, setConnectionTestResult] = useState<
+    string | null
+  >(null);
 
   // Get Supabase client
   const supabaseClientFactory = container.resolve<SupabaseClientFactory>(
@@ -146,64 +148,77 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const handleTestConnection = async () => {
     setIsLoading(true);
     setConnectionTestResult(null);
-    
+
     const testResults: string[] = [];
-    
+
     try {
       // Тест 1: Проверка статуса браузера
-      testResults.push(`✓ Статус браузера: ${navigator.onLine ? 'Онлайн' : 'Оффлайн'}`);
-      
+      testResults.push(
+        `✓ Статус браузера: ${navigator.onLine ? "Онлайн" : "Оффлайн"}`
+      );
+
       // Тест 2: Проверка конфигурации Supabase
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
+
       if (!supabaseUrl || !supabaseKey) {
-        testResults.push('✗ Отсутствуют переменные окружения Supabase');
+        testResults.push("✗ Отсутствуют переменные окружения Supabase");
       } else {
-        testResults.push('✓ Переменные окружения Supabase настроены');
-        
+        testResults.push("✓ Переменные окружения Supabase настроены");
+
         // Тест 3: Проверка подключения к Supabase
         try {
-          const { data, error } = await supabase.from('tasks').select('count').limit(1);
+          const { data, error } = await supabase
+            .from("tasks")
+            .select("count")
+            .limit(1);
           if (error) {
-            testResults.push(`✗ Ошибка подключения к Supabase: ${error.message}`);
+            testResults.push(
+              `✗ Ошибка подключения к Supabase: ${error.message}`
+            );
           } else {
-            testResults.push('✓ Подключение к Supabase работает');
+            testResults.push("✓ Подключение к Supabase работает");
           }
         } catch (err) {
           testResults.push(`✗ Ошибка запроса к Supabase: ${err}`);
         }
-        
+
         // Тест 4: Проверка аутентификации
         try {
-          const { data: { user } } = await supabase.auth.getUser();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
           if (user) {
-            testResults.push('✓ Пользователь аутентифицирован');
+            testResults.push("✓ Пользователь аутентифицирован");
           } else {
-            testResults.push('⚠ Пользователь не аутентифицирован');
+            testResults.push("⚠ Пользователь не аутентифицирован");
           }
         } catch (err) {
           testResults.push(`✗ Ошибка проверки аутентификации: ${err}`);
         }
-        
+
         // Тест 5: Проверка таблицы sync_metadata
         try {
-          const { data, error } = await supabase.from('sync_metadata').select('*').limit(1);
+          const { data, error } = await supabase
+            .from("sync_metadata")
+            .select("*")
+            .limit(1);
           if (error) {
-            testResults.push(`✗ Ошибка доступа к sync_metadata: ${error.message}`);
+            testResults.push(
+              `✗ Ошибка доступа к sync_metadata: ${error.message}`
+            );
           } else {
-            testResults.push('✓ Таблица sync_metadata доступна');
+            testResults.push("✓ Таблица sync_metadata доступна");
           }
         } catch (err) {
           testResults.push(`✗ Ошибка запроса к sync_metadata: ${err}`);
         }
       }
-      
     } catch (err) {
       testResults.push(`✗ Общая ошибка тестирования: ${err}`);
     }
-    
-    setConnectionTestResult(testResults.join('\n'));
+
+    setConnectionTestResult(testResults.join("\n"));
     setIsLoading(false);
   };
 
@@ -371,37 +386,56 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                     <div className="space-y-2">
                       <div className="font-medium">{error.message}</div>
                       {error.code && (
-                        <div className="text-xs opacity-75">Код ошибки: {error.code}</div>
+                        <div className="text-xs opacity-75">
+                          Код ошибки: {error.code}
+                        </div>
                       )}
-                      
+
                       {/* Специальные рекомендации для ошибок Realtime */}
-                      {error.code === 'REALTIME_NOT_ENABLED' && (
+                      {error.code === "REALTIME_NOT_ENABLED" && (
                         <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                          <div className="font-medium text-yellow-800">Решение:</div>
+                          <div className="font-medium text-yellow-800">
+                            Решение:
+                          </div>
                           <div className="text-sm text-yellow-700 mt-1">
-                            1. Откройте Supabase Dashboard<br/>
-                            2. Перейдите в раздел Database → Replication<br/>
-                            3. Включите Realtime для таблицы 'tasks'<br/>
-                            4. Или выполните миграцию: <code className="bg-yellow-100 px-1 rounded">002_enable_realtime.sql</code>
+                            1. Откройте Supabase Dashboard
+                            <br />
+                            2. Перейдите в раздел Database → Replication
+                            <br />
+                            3. Включите Realtime для таблицы 'tasks'
+                            <br />
+                            4. Или выполните миграцию:{" "}
+                            <code className="bg-yellow-100 px-1 rounded">
+                              002_enable_realtime.sql
+                            </code>
                           </div>
                         </div>
                       )}
-                      
-                      {error.code === 'POSTGRES_CHANGES_ERROR' && (
+
+                      {error.code === "POSTGRES_CHANGES_ERROR" && (
                         <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                          <div className="font-medium text-blue-800">Решение:</div>
+                          <div className="font-medium text-blue-800">
+                            Решение:
+                          </div>
                           <div className="text-sm text-blue-700 mt-1">
-                            1. Проверьте настройки Realtime в Supabase<br/>
-                            2. Убедитесь, что таблица 'tasks' добавлена в публикацию<br/>
+                            1. Проверьте настройки Realtime в Supabase
+                            <br />
+                            2. Убедитесь, что таблица 'tasks' добавлена в
+                            публикацию
+                            <br />
                             3. Проверьте RLS политики для таблицы
                           </div>
                         </div>
                       )}
-                      
+
                       {error.details && (
                         <details className="text-xs">
-                          <summary className="cursor-pointer hover:opacity-75">Подробности</summary>
-                          <pre className="mt-1 whitespace-pre-wrap">{JSON.stringify(error.details, null, 2)}</pre>
+                          <summary className="cursor-pointer hover:opacity-75">
+                            Подробности
+                          </summary>
+                          <pre className="mt-1 whitespace-pre-wrap">
+                            {JSON.stringify(error.details, null, 2)}
+                          </pre>
                         </details>
                       )}
                     </div>
@@ -416,7 +450,8 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                     <div className="space-y-2">
                       <div className="font-medium">Проблема с подключением</div>
                       <div className="text-sm">
-                        Приложение находится в оффлайн режиме. Возможные причины:
+                        Приложение находится в оффлайн режиме. Возможные
+                        причины:
                       </div>
                       <ul className="text-xs space-y-1 ml-4 list-disc">
                         <li>Отсутствует подключение к интернету</li>
@@ -425,7 +460,8 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                         <li>Неправильная конфигурация Supabase</li>
                       </ul>
                       <div className="text-xs mt-2">
-                        Статус браузера: {navigator.onLine ? 'Онлайн' : 'Оффлайн'}
+                        Статус браузера:{" "}
+                        {navigator.onLine ? "Онлайн" : "Оффлайн"}
                       </div>
                     </div>
                   </AlertDescription>
@@ -470,32 +506,34 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                   >
                     {t("settings.sync.manualSync")}
                   </Button>
-                  
+
                   <Button
                     onClick={handleTestConnection}
                     variant="outline"
                     className="w-full"
                     disabled={isLoading}
                   >
-                    {isLoading ? 'Тестирование...' : 'Тестировать подключение'}
+                    {isLoading ? "Тестирование..." : "Тестировать подключение"}
                   </Button>
-                 </div>
-                 
-                 {/* Результаты тестирования подключения */}
-                 {connectionTestResult && (
-                   <Alert className="mt-4">
-                     <AlertDescription>
-                       <div className="space-y-2">
-                         <div className="font-medium">Результаты диагностики:</div>
-                         <pre className="text-xs whitespace-pre-wrap font-mono bg-muted p-2 rounded">
-                           {connectionTestResult}
-                         </pre>
-                       </div>
-                     </AlertDescription>
-                   </Alert>
-                 )}
-               </div>
-             </CardContent>
+                </div>
+
+                {/* Результаты тестирования подключения */}
+                {connectionTestResult && (
+                  <Alert className="mt-4">
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <div className="font-medium">
+                          Результаты диагностики:
+                        </div>
+                        <pre className="text-xs whitespace-pre-wrap font-mono bg-muted p-2 rounded">
+                          {connectionTestResult}
+                        </pre>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            </CardContent>
           </Card>
         </TabsContent>
 

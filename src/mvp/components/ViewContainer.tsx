@@ -14,9 +14,5 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
   children,
   className = "",
 }) => {
-  return (
-    <div className={`view-container ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`view-container ${className}`}>{children}</div>;
 };

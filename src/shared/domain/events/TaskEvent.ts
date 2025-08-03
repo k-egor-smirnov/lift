@@ -2,12 +2,12 @@
  * Task events that can be emitted when tasks change
  */
 export enum TaskEventType {
-  TASK_CREATED = 'TASK_CREATED',
-  TASK_UPDATED = 'TASK_UPDATED',
-  TASK_COMPLETED = 'TASK_COMPLETED',
-  TASK_DELETED = 'TASK_DELETED',
-  TASK_ADDED_TO_TODAY = 'TASK_ADDED_TO_TODAY',
-  TASK_REMOVED_FROM_TODAY = 'TASK_REMOVED_FROM_TODAY'
+  TASK_CREATED = "TASK_CREATED",
+  TASK_UPDATED = "TASK_UPDATED",
+  TASK_COMPLETED = "TASK_COMPLETED",
+  TASK_DELETED = "TASK_DELETED",
+  TASK_ADDED_TO_TODAY = "TASK_ADDED_TO_TODAY",
+  TASK_REMOVED_FROM_TODAY = "TASK_REMOVED_FROM_TODAY",
 }
 
 /**
@@ -79,10 +79,10 @@ export interface TaskRemovedFromTodayEvent extends TaskEvent {
 /**
  * Union type for all task events
  */
-export type AnyTaskEvent = 
-  | TaskCreatedEvent 
-  | TaskUpdatedEvent 
-  | TaskCompletedEvent 
-  | TaskDeletedEvent 
-  | TaskAddedToTodayEvent 
+export type AnyTaskEvent =
+  | TaskCreatedEvent
+  | TaskUpdatedEvent
+  | TaskCompletedEvent
+  | TaskDeletedEvent
+  | TaskAddedToTodayEvent
   | TaskRemovedFromTodayEvent;

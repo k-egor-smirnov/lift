@@ -1,6 +1,9 @@
-import { useEffect } from 'react';
-import { keyboardShortcutService, KeyboardShortcut } from './KeyboardShortcutService';
-import { useUserSettingsViewModel } from '../../../features/onboarding/presentation/view-models/UserSettingsViewModel';
+import { useEffect } from "react";
+import {
+  keyboardShortcutService,
+  KeyboardShortcut,
+} from "./KeyboardShortcutService";
+import { useUserSettingsViewModel } from "../../../features/onboarding/presentation/view-models/UserSettingsViewModel";
 
 /**
  * Hook for managing keyboard shortcuts with user settings integration
@@ -43,6 +46,6 @@ export const useKeyboardShortcuts = () => {
     registerShortcut,
     unregisterShortcut,
     isEnabled,
-    settings
+    settings,
   };
 };

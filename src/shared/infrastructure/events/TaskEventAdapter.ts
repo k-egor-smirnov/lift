@@ -1,10 +1,10 @@
-import { injectable, inject } from 'tsyringe';
-import { DomainEvent } from '../../domain/events/DomainEvent';
-import { DomainEventType } from '../../domain/types';
-import { EventBus } from '../../domain/events/EventBus';
-import { taskEventBus } from './TaskEventBus';
-import { TaskEventType } from '../../domain/events/TaskEvent';
-import * as tokens from '../di/tokens';
+import { injectable, inject } from "tsyringe";
+import { DomainEvent } from "../../domain/events/DomainEvent";
+import { DomainEventType } from "../../domain/types";
+import { EventBus } from "../../domain/events/EventBus";
+import { taskEventBus } from "./TaskEventBus";
+import { TaskEventType } from "../../domain/events/TaskEvent";
+import * as tokens from "../di/tokens";
 import {
   TaskCreatedEvent,
   TaskCompletedEvent,
@@ -16,8 +16,8 @@ import {
   TaskRemovedFromTodayEvent,
   TaskReviewedEvent,
   TaskDeferredEvent,
-  TaskUndeferredEvent
-} from '../../domain/events/TaskEvents';
+  TaskUndeferredEvent,
+} from "../../domain/events/TaskEvents";
 
 /**
  * Adapter that bridges domain events to task events
@@ -25,9 +25,7 @@ import {
  */
 @injectable()
 export class TaskEventAdapter {
-  constructor(
-    @inject(tokens.EVENT_BUS_TOKEN) private eventBus: EventBus
-  ) {}
+  constructor(@inject(tokens.EVENT_BUS_TOKEN) private eventBus: EventBus) {}
 
   /**
    * Initialize the adapter by subscribing to domain events
@@ -50,10 +48,14 @@ export class TaskEventAdapter {
           await this.handleTaskCompleted(event as TaskCompletedEvent);
           break;
         case DomainEventType.TASK_COMPLETION_REVERTED:
-          await this.handleTaskCompletionReverted(event as TaskCompletionRevertedEvent);
+          await this.handleTaskCompletionReverted(
+            event as TaskCompletionRevertedEvent
+          );
           break;
         case DomainEventType.TASK_CATEGORY_CHANGED:
-          await this.handleTaskCategoryChanged(event as TaskCategoryChangedEvent);
+          await this.handleTaskCategoryChanged(
+            event as TaskCategoryChangedEvent
+          );
           break;
         case DomainEventType.TASK_TITLE_CHANGED:
           await this.handleTaskTitleChanged(event as TaskTitleChangedEvent);
@@ -65,7 +67,9 @@ export class TaskEventAdapter {
           await this.handleTaskAddedToToday(event as TaskAddedToTodayEvent);
           break;
         case DomainEventType.TASK_REMOVED_FROM_TODAY:
-          await this.handleTaskRemovedFromToday(event as TaskRemovedFromTodayEvent);
+          await this.handleTaskRemovedFromToday(
+            event as TaskRemovedFromTodayEvent
+          );
           break;
         case DomainEventType.TASK_REVIEWED:
           await this.handleTaskReviewed(event as TaskReviewedEvent);
@@ -81,7 +85,7 @@ export class TaskEventAdapter {
           break;
       }
     } catch (error) {
-      console.error('Error handling domain event in TaskEventAdapter:', error);
+      console.error("Error handling domain event in TaskEventAdapter:", error);
     }
   }
 
@@ -92,8 +96,8 @@ export class TaskEventAdapter {
       timestamp: event.occurredAt,
       data: {
         title: event.title.value,
-        category: event.category
-      }
+        category: event.category,
+      },
     });
   }
 
@@ -103,24 +107,28 @@ export class TaskEventAdapter {
       taskId: event.taskId.value,
       timestamp: event.occurredAt,
       data: {
-        categoryAtCompletion: event.categoryAtCompletion
-      }
+        categoryAtCompletion: event.categoryAtCompletion,
+      },
     });
   }
 
-  private async handleTaskCompletionReverted(event: TaskCompletionRevertedEvent): Promise<void> {
+  private async handleTaskCompletionReverted(
+    event: TaskCompletionRevertedEvent
+  ): Promise<void> {
     await taskEventBus.emit({
       type: TaskEventType.TASK_UPDATED,
       taskId: event.taskId.value,
       timestamp: event.occurredAt,
       data: {
         currentCategory: event.currentCategory,
-        action: 'completion_reverted'
-      } as any
+        action: "completion_reverted",
+      } as any,
     });
   }
 
-  private async handleTaskCategoryChanged(event: TaskCategoryChangedEvent): Promise<void> {
+  private async handleTaskCategoryChanged(
+    event: TaskCategoryChangedEvent
+  ): Promise<void> {
     await taskEventBus.emit({
       type: TaskEventType.TASK_UPDATED,
       taskId: event.taskId.value,
@@ -129,12 +137,14 @@ export class TaskEventAdapter {
         category: event.toCategory,
         fromCategory: event.fromCategory,
         toCategory: event.toCategory,
-        action: 'category_changed'
-      } as any
+        action: "category_changed",
+      } as any,
     });
   }
 
-  private async handleTaskTitleChanged(event: TaskTitleChangedEvent): Promise<void> {
+  private async handleTaskTitleChanged(
+    event: TaskTitleChangedEvent
+  ): Promise<void> {
     await taskEventBus.emit({
       type: TaskEventType.TASK_UPDATED,
       taskId: event.taskId.value,
@@ -143,41 +153,47 @@ export class TaskEventAdapter {
         title: event.toTitle.value,
         fromTitle: event.fromTitle.value,
         toTitle: event.toTitle.value,
-        action: 'title_changed'
-      } as any
+        action: "title_changed",
+      } as any,
     });
   }
 
-  private async handleTaskSoftDeleted(event: TaskSoftDeletedEvent): Promise<void> {
+  private async handleTaskSoftDeleted(
+    event: TaskSoftDeletedEvent
+  ): Promise<void> {
     await taskEventBus.emit({
       type: TaskEventType.TASK_DELETED,
       taskId: event.taskId.value,
       timestamp: event.occurredAt,
       data: {
-        deletedAt: event.deletedAt
-      }
+        deletedAt: event.deletedAt,
+      },
     });
   }
 
-  private async handleTaskAddedToToday(event: TaskAddedToTodayEvent): Promise<void> {
+  private async handleTaskAddedToToday(
+    event: TaskAddedToTodayEvent
+  ): Promise<void> {
     await taskEventBus.emit({
       type: TaskEventType.TASK_ADDED_TO_TODAY,
       taskId: event.taskId.value,
       timestamp: event.occurredAt,
       data: {
-        date: event.date.value
-      }
+        date: event.date.value,
+      },
     });
   }
 
-  private async handleTaskRemovedFromToday(event: TaskRemovedFromTodayEvent): Promise<void> {
+  private async handleTaskRemovedFromToday(
+    event: TaskRemovedFromTodayEvent
+  ): Promise<void> {
     await taskEventBus.emit({
       type: TaskEventType.TASK_REMOVED_FROM_TODAY,
       taskId: event.taskId.value,
       timestamp: event.occurredAt,
       data: {
-        date: event.date.value
-      }
+        date: event.date.value,
+      },
     });
   }
 
@@ -188,8 +204,8 @@ export class TaskEventAdapter {
       timestamp: event.occurredAt,
       data: {
         reviewedAt: event.reviewedAt,
-        action: 'reviewed'
-      } as any
+        action: "reviewed",
+      } as any,
     });
   }
 
@@ -200,19 +216,21 @@ export class TaskEventAdapter {
       timestamp: event.occurredAt,
       data: {
         deferredUntil: event.deferredUntil.toISOString(),
-        action: 'deferred'
-      } as any
+        action: "deferred",
+      } as any,
     });
   }
 
-  private async handleTaskUndeferred(event: TaskUndeferredEvent): Promise<void> {
+  private async handleTaskUndeferred(
+    event: TaskUndeferredEvent
+  ): Promise<void> {
     await taskEventBus.emit({
       type: TaskEventType.TASK_UPDATED,
       taskId: event.taskId.value,
       timestamp: event.occurredAt,
       data: {
-        action: 'undeferred'
-      } as any
+        action: "undeferred",
+      } as any,
     });
   }
 }

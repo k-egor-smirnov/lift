@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { DailySelectionRepositoryImpl } from '../DailySelectionRepositoryImpl';
-import { TodoDatabase } from '../../database/TodoDatabase';
-import { TaskId } from '../../../domain/value-objects/TaskId';
-import { DateOnly } from '../../../domain/value-objects/DateOnly';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { DailySelectionRepositoryImpl } from "../DailySelectionRepositoryImpl";
+import { TodoDatabase } from "../../database/TodoDatabase";
+import { TaskId } from "../../../domain/value-objects/TaskId";
+import { DateOnly } from "../../../domain/value-objects/DateOnly";
 
-describe('DailySelectionRepositoryImpl', () => {
+describe("DailySelectionRepositoryImpl", () => {
   let db: TodoDatabase;
   let repository: DailySelectionRepositoryImpl;
 
@@ -19,9 +19,9 @@ describe('DailySelectionRepositoryImpl', () => {
     await db.close();
   });
 
-  describe('addTaskToDay and isTaskSelectedForDay', () => {
-    it('should add a task to daily selection', async () => {
-      const date = new DateOnly('2024-01-15');
+  describe("addTaskToDay and isTaskSelectedForDay", () => {
+    it("should add a task to daily selection", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       await repository.addTaskToDay(date, taskId);
@@ -30,8 +30,8 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(isSelected).toBe(true);
     });
 
-    it('should be idempotent - adding same task twice should not create duplicates', async () => {
-      const date = new DateOnly('2024-01-15');
+    it("should be idempotent - adding same task twice should not create duplicates", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       await repository.addTaskToDay(date, taskId);
@@ -41,8 +41,8 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(count).toBe(1);
     });
 
-    it('should return false for non-selected task', async () => {
-      const date = new DateOnly('2024-01-15');
+    it("should return false for non-selected task", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       const isSelected = await repository.isTaskSelectedForDay(date, taskId);
@@ -50,9 +50,9 @@ describe('DailySelectionRepositoryImpl', () => {
     });
   });
 
-  describe('removeTaskFromDay', () => {
-    it('should remove a task from daily selection', async () => {
-      const date = new DateOnly('2024-01-15');
+  describe("removeTaskFromDay", () => {
+    it("should remove a task from daily selection", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       await repository.addTaskToDay(date, taskId);
@@ -62,41 +62,43 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(await repository.isTaskSelectedForDay(date, taskId)).toBe(false);
     });
 
-    it('should not throw error when removing non-existent task', async () => {
-      const date = new DateOnly('2024-01-15');
+    it("should not throw error when removing non-existent task", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
-      await expect(repository.removeTaskFromDay(date, taskId)).resolves.not.toThrow();
+      await expect(
+        repository.removeTaskFromDay(date, taskId)
+      ).resolves.not.toThrow();
     });
   });
 
-  describe('getTasksForDay and getTaskIdsForDay', () => {
-    it('should return all tasks selected for a specific day', async () => {
-      const date = new DateOnly('2024-01-15');
+  describe("getTasksForDay and getTaskIdsForDay", () => {
+    it("should return all tasks selected for a specific day", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
       const taskId3 = TaskId.generate();
 
       await repository.addTaskToDay(date, taskId1);
       await repository.addTaskToDay(date, taskId2);
-      
+
       // Add task for different day
-      await repository.addTaskToDay(new DateOnly('2024-01-16'), taskId3);
+      await repository.addTaskToDay(new DateOnly("2024-01-16"), taskId3);
 
       const tasks = await repository.getTasksForDay(date);
       const taskIds = await repository.getTaskIdsForDay(date);
 
       expect(tasks).toHaveLength(2);
       expect(taskIds).toHaveLength(2);
-      
-      const taskIdValues = taskIds.map(id => id.value);
+
+      const taskIdValues = taskIds.map((id) => id.value);
       expect(taskIdValues).toContain(taskId1.value);
       expect(taskIdValues).toContain(taskId2.value);
       expect(taskIdValues).not.toContain(taskId3.value);
     });
 
-    it('should return empty array for day with no selections', async () => {
-      const date = new DateOnly('2024-01-15');
+    it("should return empty array for day with no selections", async () => {
+      const date = new DateOnly("2024-01-15");
 
       const tasks = await repository.getTasksForDay(date);
       const taskIds = await repository.getTaskIdsForDay(date);
@@ -106,13 +108,13 @@ describe('DailySelectionRepositoryImpl', () => {
     });
   });
 
-  describe('markTaskCompleted and getTaskCompletionStatus', () => {
-    it('should mark task as completed and retrieve completion status', async () => {
-      const date = new DateOnly('2024-01-15');
+  describe("markTaskCompleted and getTaskCompletionStatus", () => {
+    it("should mark task as completed and retrieve completion status", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       await repository.addTaskToDay(date, taskId);
-      
+
       // Initially should not be completed
       let status = await repository.getTaskCompletionStatus(date, taskId);
       expect(status).toBe(false);
@@ -128,8 +130,8 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(status).toBe(false);
     });
 
-    it('should return null for completion status of non-selected task', async () => {
-      const date = new DateOnly('2024-01-15');
+    it("should return null for completion status of non-selected task", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       const status = await repository.getTaskCompletionStatus(date, taskId);
@@ -137,13 +139,13 @@ describe('DailySelectionRepositoryImpl', () => {
     });
   });
 
-  describe('getDailySelectionsForRange', () => {
-    it('should return selections within date range', async () => {
-      const date1 = new DateOnly('2024-01-15');
-      const date2 = new DateOnly('2024-01-16');
-      const date3 = new DateOnly('2024-01-17');
-      const date4 = new DateOnly('2024-01-18');
-      
+  describe("getDailySelectionsForRange", () => {
+    it("should return selections within date range", async () => {
+      const date1 = new DateOnly("2024-01-15");
+      const date2 = new DateOnly("2024-01-16");
+      const date3 = new DateOnly("2024-01-17");
+      const date4 = new DateOnly("2024-01-18");
+
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
       const taskId3 = TaskId.generate();
@@ -154,29 +156,35 @@ describe('DailySelectionRepositoryImpl', () => {
       await repository.addTaskToDay(date3, taskId3);
       await repository.addTaskToDay(date4, taskId4);
 
-      const selections = await repository.getDailySelectionsForRange(date2, date3);
+      const selections = await repository.getDailySelectionsForRange(
+        date2,
+        date3
+      );
 
       expect(selections).toHaveLength(2);
-      const dates = selections.map(s => s.date.value);
-      expect(dates).toContain('2024-01-16');
-      expect(dates).toContain('2024-01-17');
-      expect(dates).not.toContain('2024-01-15');
-      expect(dates).not.toContain('2024-01-18');
+      const dates = selections.map((s) => s.date.value);
+      expect(dates).toContain("2024-01-16");
+      expect(dates).toContain("2024-01-17");
+      expect(dates).not.toContain("2024-01-15");
+      expect(dates).not.toContain("2024-01-18");
     });
 
-    it('should return empty array for range with no selections', async () => {
-      const startDate = new DateOnly('2024-01-15');
-      const endDate = new DateOnly('2024-01-17');
+    it("should return empty array for range with no selections", async () => {
+      const startDate = new DateOnly("2024-01-15");
+      const endDate = new DateOnly("2024-01-17");
 
-      const selections = await repository.getDailySelectionsForRange(startDate, endDate);
+      const selections = await repository.getDailySelectionsForRange(
+        startDate,
+        endDate
+      );
       expect(selections).toHaveLength(0);
     });
   });
 
-  describe('clearDay', () => {
-    it('should clear all selections for a specific day', async () => {
-      const date = new DateOnly('2024-01-15');
-      const otherDate = new DateOnly('2024-01-16');
+  describe("clearDay", () => {
+    it("should clear all selections for a specific day", async () => {
+      const date = new DateOnly("2024-01-15");
+      const otherDate = new DateOnly("2024-01-16");
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
       const taskId3 = TaskId.generate();
@@ -195,9 +203,9 @@ describe('DailySelectionRepositoryImpl', () => {
     });
   });
 
-  describe('countTasksForDay', () => {
-    it('should count tasks selected for a specific day', async () => {
-      const date = new DateOnly('2024-01-15');
+  describe("countTasksForDay", () => {
+    it("should count tasks selected for a specific day", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
       const taskId3 = TaskId.generate();
@@ -218,12 +226,12 @@ describe('DailySelectionRepositoryImpl', () => {
     });
   });
 
-  describe('getLastSelectionDateForTask', () => {
-    it('should return the most recent selection date for a task', async () => {
+  describe("getLastSelectionDateForTask", () => {
+    it("should return the most recent selection date for a task", async () => {
       const taskId = TaskId.generate();
-      const date1 = new DateOnly('2024-01-15');
-      const date2 = new DateOnly('2024-01-16');
-      const date3 = new DateOnly('2024-01-17');
+      const date1 = new DateOnly("2024-01-15");
+      const date2 = new DateOnly("2024-01-16");
+      const date3 = new DateOnly("2024-01-17");
 
       await repository.addTaskToDay(date1, taskId);
       await repository.addTaskToDay(date2, taskId);
@@ -231,10 +239,10 @@ describe('DailySelectionRepositoryImpl', () => {
 
       const lastDate = await repository.getLastSelectionDateForTask(taskId);
       expect(lastDate).toBeDefined();
-      expect(lastDate!.value).toBe('2024-01-17');
+      expect(lastDate!.value).toBe("2024-01-17");
     });
 
-    it('should return null for task that was never selected', async () => {
+    it("should return null for task that was never selected", async () => {
       const taskId = TaskId.generate();
 
       const lastDate = await repository.getLastSelectionDateForTask(taskId);
@@ -242,9 +250,9 @@ describe('DailySelectionRepositoryImpl', () => {
     });
   });
 
-  describe('unique constraint handling', () => {
-    it('should handle UNIQUE(date, taskId) constraint properly', async () => {
-      const date = new DateOnly('2024-01-15');
+  describe("unique constraint handling", () => {
+    it("should handle UNIQUE(date, taskId) constraint properly", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       // Add task multiple times - should be idempotent
@@ -261,10 +269,10 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(tasks[0].date.equals(date)).toBe(true);
     });
 
-    it('should allow same task on different dates', async () => {
+    it("should allow same task on different dates", async () => {
       const taskId = TaskId.generate();
-      const date1 = new DateOnly('2024-01-15');
-      const date2 = new DateOnly('2024-01-16');
+      const date1 = new DateOnly("2024-01-15");
+      const date2 = new DateOnly("2024-01-16");
 
       await repository.addTaskToDay(date1, taskId);
       await repository.addTaskToDay(date2, taskId);
@@ -275,8 +283,8 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(await repository.countTasksForDay(date2)).toBe(1);
     });
 
-    it('should allow different tasks on same date', async () => {
-      const date = new DateOnly('2024-01-15');
+    it("should allow different tasks on same date", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
 
@@ -289,9 +297,9 @@ describe('DailySelectionRepositoryImpl', () => {
     });
   });
 
-  describe('completion flag behavior', () => {
-    it('should initialize completion flag as false when adding task', async () => {
-      const date = new DateOnly('2024-01-15');
+  describe("completion flag behavior", () => {
+    it("should initialize completion flag as false when adding task", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       await repository.addTaskToDay(date, taskId);
@@ -304,8 +312,8 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(status).toBe(false);
     });
 
-    it('should preserve completion flag when task is re-added', async () => {
-      const date = new DateOnly('2024-01-15');
+    it("should preserve completion flag when task is re-added", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       await repository.addTaskToDay(date, taskId);
@@ -319,9 +327,9 @@ describe('DailySelectionRepositoryImpl', () => {
     });
   });
 
-  describe('soft delete behavior', () => {
-    it('should exclude soft-deleted entries from getTasksForDay', async () => {
-      const date = new DateOnly('2024-01-15');
+  describe("soft delete behavior", () => {
+    it("should exclude soft-deleted entries from getTasksForDay", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
 
@@ -338,8 +346,8 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(tasks[0].taskId.equals(taskId2)).toBe(true);
     });
 
-    it('should exclude soft-deleted entries from isTaskSelectedForDay', async () => {
-      const date = new DateOnly('2024-01-15');
+    it("should exclude soft-deleted entries from isTaskSelectedForDay", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       await repository.addTaskToDay(date, taskId);
@@ -349,8 +357,8 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(await repository.isTaskSelectedForDay(date, taskId)).toBe(false);
     });
 
-    it('should exclude soft-deleted entries from countTasksForDay', async () => {
-      const date = new DateOnly('2024-01-15');
+    it("should exclude soft-deleted entries from countTasksForDay", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
       const taskId3 = TaskId.generate();
@@ -368,9 +376,9 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(await repository.countTasksForDay(date)).toBe(1);
     });
 
-    it('should exclude soft-deleted entries from getDailySelectionsForRange', async () => {
-      const date1 = new DateOnly('2024-01-15');
-      const date2 = new DateOnly('2024-01-16');
+    it("should exclude soft-deleted entries from getDailySelectionsForRange", async () => {
+      const date1 = new DateOnly("2024-01-15");
+      const date2 = new DateOnly("2024-01-16");
       const taskId1 = TaskId.generate();
       const taskId2 = TaskId.generate();
       const taskId3 = TaskId.generate();
@@ -379,7 +387,10 @@ describe('DailySelectionRepositoryImpl', () => {
       await repository.addTaskToDay(date1, taskId2);
       await repository.addTaskToDay(date2, taskId3);
 
-      let selections = await repository.getDailySelectionsForRange(date1, date2);
+      let selections = await repository.getDailySelectionsForRange(
+        date1,
+        date2
+      );
       expect(selections).toHaveLength(3);
 
       // Soft delete one entry
@@ -387,31 +398,31 @@ describe('DailySelectionRepositoryImpl', () => {
 
       selections = await repository.getDailySelectionsForRange(date1, date2);
       expect(selections).toHaveLength(2);
-      
-      const taskIds = selections.map(s => s.taskId.value);
+
+      const taskIds = selections.map((s) => s.taskId.value);
       expect(taskIds).toContain(taskId2.value);
       expect(taskIds).toContain(taskId3.value);
       expect(taskIds).not.toContain(taskId1.value);
     });
 
-    it('should exclude soft-deleted entries from getLastSelectionDateForTask', async () => {
+    it("should exclude soft-deleted entries from getLastSelectionDateForTask", async () => {
       const taskId = TaskId.generate();
-      const date1 = new DateOnly('2024-01-15');
-      const date2 = new DateOnly('2024-01-16');
-      const date3 = new DateOnly('2024-01-17');
+      const date1 = new DateOnly("2024-01-15");
+      const date2 = new DateOnly("2024-01-16");
+      const date3 = new DateOnly("2024-01-17");
 
       await repository.addTaskToDay(date1, taskId);
       await repository.addTaskToDay(date2, taskId);
       await repository.addTaskToDay(date3, taskId);
 
       let lastDate = await repository.getLastSelectionDateForTask(taskId);
-      expect(lastDate!.value).toBe('2024-01-17');
+      expect(lastDate!.value).toBe("2024-01-17");
 
       // Soft delete the latest entry
       await repository.removeTaskFromDay(date3, taskId);
 
       lastDate = await repository.getLastSelectionDateForTask(taskId);
-      expect(lastDate!.value).toBe('2024-01-16');
+      expect(lastDate!.value).toBe("2024-01-16");
 
       // Soft delete all entries
       await repository.removeTaskFromDay(date1, taskId);
@@ -421,8 +432,8 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(lastDate).toBeNull();
     });
 
-    it('should allow re-adding task after soft delete', async () => {
-      const date = new DateOnly('2024-01-15');
+    it("should allow re-adding task after soft delete", async () => {
+      const date = new DateOnly("2024-01-15");
       const taskId = TaskId.generate();
 
       // Add task
@@ -439,91 +450,101 @@ describe('DailySelectionRepositoryImpl', () => {
       expect(await repository.countTasksForDay(date)).toBe(1);
     });
 
-    it('should soft delete all entries when clearing day', async () => {
-       const date = new DateOnly('2024-01-15');
-       const otherDate = new DateOnly('2024-01-16');
-       const taskId1 = TaskId.generate();
-       const taskId2 = TaskId.generate();
-       const taskId3 = TaskId.generate();
+    it("should soft delete all entries when clearing day", async () => {
+      const date = new DateOnly("2024-01-15");
+      const otherDate = new DateOnly("2024-01-16");
+      const taskId1 = TaskId.generate();
+      const taskId2 = TaskId.generate();
+      const taskId3 = TaskId.generate();
 
-       await repository.addTaskToDay(date, taskId1);
-       await repository.addTaskToDay(date, taskId2);
-       await repository.addTaskToDay(otherDate, taskId3);
+      await repository.addTaskToDay(date, taskId1);
+      await repository.addTaskToDay(date, taskId2);
+      await repository.addTaskToDay(otherDate, taskId3);
 
-       expect(await repository.countTasksForDay(date)).toBe(2);
-       expect(await repository.countTasksForDay(otherDate)).toBe(1);
+      expect(await repository.countTasksForDay(date)).toBe(2);
+      expect(await repository.countTasksForDay(otherDate)).toBe(1);
 
-       await repository.clearDay(date);
+      await repository.clearDay(date);
 
-       expect(await repository.countTasksForDay(date)).toBe(0);
-       expect(await repository.countTasksForDay(otherDate)).toBe(1);
-       expect(await repository.isTaskSelectedForDay(date, taskId1)).toBe(false);
-       expect(await repository.isTaskSelectedForDay(date, taskId2)).toBe(false);
-       expect(await repository.isTaskSelectedForDay(otherDate, taskId3)).toBe(true);
-     });
-   });
+      expect(await repository.countTasksForDay(date)).toBe(0);
+      expect(await repository.countTasksForDay(otherDate)).toBe(1);
+      expect(await repository.isTaskSelectedForDay(date, taskId1)).toBe(false);
+      expect(await repository.isTaskSelectedForDay(date, taskId2)).toBe(false);
+      expect(await repository.isTaskSelectedForDay(otherDate, taskId3)).toBe(
+        true
+      );
+    });
+  });
 
-   describe('removeTaskFromAllDays', () => {
-     it('should soft delete task from all daily selections', async () => {
-       const taskId = TaskId.generate();
-       const otherTaskId = TaskId.generate();
-       const date1 = new DateOnly('2024-01-15');
-       const date2 = new DateOnly('2024-01-16');
-       const date3 = new DateOnly('2024-01-17');
+  describe("removeTaskFromAllDays", () => {
+    it("should soft delete task from all daily selections", async () => {
+      const taskId = TaskId.generate();
+      const otherTaskId = TaskId.generate();
+      const date1 = new DateOnly("2024-01-15");
+      const date2 = new DateOnly("2024-01-16");
+      const date3 = new DateOnly("2024-01-17");
 
-       // Add task to multiple days
-       await repository.addTaskToDay(date1, taskId);
-       await repository.addTaskToDay(date2, taskId);
-       await repository.addTaskToDay(date3, taskId);
-       
-       // Add other task to one day
-       await repository.addTaskToDay(date1, otherTaskId);
+      // Add task to multiple days
+      await repository.addTaskToDay(date1, taskId);
+      await repository.addTaskToDay(date2, taskId);
+      await repository.addTaskToDay(date3, taskId);
 
-       // Verify initial state
-       expect(await repository.isTaskSelectedForDay(date1, taskId)).toBe(true);
-       expect(await repository.isTaskSelectedForDay(date2, taskId)).toBe(true);
-       expect(await repository.isTaskSelectedForDay(date3, taskId)).toBe(true);
-       expect(await repository.isTaskSelectedForDay(date1, otherTaskId)).toBe(true);
+      // Add other task to one day
+      await repository.addTaskToDay(date1, otherTaskId);
 
-       // Remove task from all days
-       await repository.removeTaskFromAllDays(taskId);
+      // Verify initial state
+      expect(await repository.isTaskSelectedForDay(date1, taskId)).toBe(true);
+      expect(await repository.isTaskSelectedForDay(date2, taskId)).toBe(true);
+      expect(await repository.isTaskSelectedForDay(date3, taskId)).toBe(true);
+      expect(await repository.isTaskSelectedForDay(date1, otherTaskId)).toBe(
+        true
+      );
 
-       // Verify task is removed from all days
-       expect(await repository.isTaskSelectedForDay(date1, taskId)).toBe(false);
-       expect(await repository.isTaskSelectedForDay(date2, taskId)).toBe(false);
-       expect(await repository.isTaskSelectedForDay(date3, taskId)).toBe(false);
-       
-       // Verify other task is not affected
-       expect(await repository.isTaskSelectedForDay(date1, otherTaskId)).toBe(true);
+      // Remove task from all days
+      await repository.removeTaskFromAllDays(taskId);
 
-       // Verify counts are updated
-       expect(await repository.countTasksForDay(date1)).toBe(1); // Only otherTaskId
-       expect(await repository.countTasksForDay(date2)).toBe(0);
-       expect(await repository.countTasksForDay(date3)).toBe(0);
+      // Verify task is removed from all days
+      expect(await repository.isTaskSelectedForDay(date1, taskId)).toBe(false);
+      expect(await repository.isTaskSelectedForDay(date2, taskId)).toBe(false);
+      expect(await repository.isTaskSelectedForDay(date3, taskId)).toBe(false);
 
-       // Verify getLastSelectionDateForTask returns null
-       expect(await repository.getLastSelectionDateForTask(taskId)).toBeNull();
-     });
+      // Verify other task is not affected
+      expect(await repository.isTaskSelectedForDay(date1, otherTaskId)).toBe(
+        true
+      );
 
-     it('should handle removeTaskFromAllDays for non-existent task', async () => {
-       const taskId = TaskId.generate();
+      // Verify counts are updated
+      expect(await repository.countTasksForDay(date1)).toBe(1); // Only otherTaskId
+      expect(await repository.countTasksForDay(date2)).toBe(0);
+      expect(await repository.countTasksForDay(date3)).toBe(0);
 
-       // Should not throw error
-       await expect(repository.removeTaskFromAllDays(taskId)).resolves.not.toThrow();
-     });
+      // Verify getLastSelectionDateForTask returns null
+      expect(await repository.getLastSelectionDateForTask(taskId)).toBeNull();
+    });
 
-     it('should handle removeTaskFromAllDays for already soft-deleted task', async () => {
-       const taskId = TaskId.generate();
-       const date = new DateOnly('2024-01-15');
+    it("should handle removeTaskFromAllDays for non-existent task", async () => {
+      const taskId = TaskId.generate();
 
-       await repository.addTaskToDay(date, taskId);
-       await repository.removeTaskFromDay(date, taskId); // Soft delete
+      // Should not throw error
+      await expect(
+        repository.removeTaskFromAllDays(taskId)
+      ).resolves.not.toThrow();
+    });
 
-       // Should not throw error when removing already deleted task
-       await expect(repository.removeTaskFromAllDays(taskId)).resolves.not.toThrow();
-       
-       // Should still be false
-       expect(await repository.isTaskSelectedForDay(date, taskId)).toBe(false);
-     });
+    it("should handle removeTaskFromAllDays for already soft-deleted task", async () => {
+      const taskId = TaskId.generate();
+      const date = new DateOnly("2024-01-15");
+
+      await repository.addTaskToDay(date, taskId);
+      await repository.removeTaskFromDay(date, taskId); // Soft delete
+
+      // Should not throw error when removing already deleted task
+      await expect(
+        repository.removeTaskFromAllDays(taskId)
+      ).resolves.not.toThrow();
+
+      // Should still be false
+      expect(await repository.isTaskSelectedForDay(date, taskId)).toBe(false);
+    });
   });
 });

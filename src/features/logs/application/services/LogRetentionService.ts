@@ -1,4 +1,7 @@
-import { TodoDatabase, TaskLogRecord } from '../../../../shared/infrastructure/database/TodoDatabase';
+import {
+  TodoDatabase,
+  TaskLogRecord,
+} from "../../../../shared/infrastructure/database/TodoDatabase";
 
 /**
  * Configuration for log retention policy
@@ -48,18 +51,18 @@ export class LogRetentionService {
     }
 
     // Run initial cleanup
-    this.runCleanup().catch(error => {
-      console.error('Initial log cleanup failed:', error);
+    this.runCleanup().catch((error) => {
+      console.error("Initial log cleanup failed:", error);
     });
 
     // Schedule periodic cleanup
     this.cleanupTimer = setInterval(() => {
-      this.runCleanup().catch(error => {
-        console.error('Scheduled log cleanup failed:', error);
+      this.runCleanup().catch((error) => {
+        console.error("Scheduled log cleanup failed:", error);
       });
     }, this.config.cleanupIntervalMs);
 
-    console.log('Log retention background cleanup started');
+    console.log("Log retention background cleanup started");
   }
 
   /**
@@ -70,7 +73,7 @@ export class LogRetentionService {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = undefined;
     }
-    console.log('Log retention background cleanup stopped');
+    console.log("Log retention background cleanup stopped");
   }
 
   /**
@@ -78,7 +81,7 @@ export class LogRetentionService {
    */
   async runCleanup(): Promise<LogCleanupStats> {
     if (this.isRunning) {
-      console.log('Log cleanup already running, skipping...');
+      console.log("Log cleanup already running, skipping...");
       return {
         totalLogsProcessed: 0,
         userLogsDeleted: 0,
@@ -93,7 +96,7 @@ export class LogRetentionService {
     const startTime = Date.now();
 
     try {
-      console.log('Starting log retention cleanup...');
+      console.log("Starting log retention cleanup...");
 
       const stats: LogCleanupStats = {
         totalLogsProcessed: 0,
@@ -112,7 +115,7 @@ export class LogRetentionService {
 
       stats.cleanupDurationMs = Date.now() - startTime;
 
-      console.log('Log retention cleanup completed:', stats);
+      console.log("Log retention cleanup completed:", stats);
       return stats;
     } finally {
       this.isRunning = false;
@@ -127,29 +130,35 @@ export class LogRetentionService {
     cutoffDate.setDate(cutoffDate.getDate() - this.config.maxDaysForUserLogs);
 
     const oldUserLogs = await this.database.taskLogs
-      .where('type')
-      .equals('USER')
-      .and(log => log.createdAt < cutoffDate)
+      .where("type")
+      .equals("USER")
+      .and((log) => log.createdAt < cutoffDate)
       .toArray();
 
     stats.totalLogsProcessed += oldUserLogs.length;
 
     if (oldUserLogs.length > 0) {
-      const logIds = oldUserLogs.map(log => log.id!);
+      const logIds = oldUserLogs.map((log) => log.id!);
       await this.database.taskLogs.bulkDelete(logIds);
       stats.userLogsDeleted += oldUserLogs.length;
 
-      console.log(`Deleted ${oldUserLogs.length} old USER logs (older than ${this.config.maxDaysForUserLogs} days)`);
+      console.log(
+        `Deleted ${oldUserLogs.length} old USER logs (older than ${this.config.maxDaysForUserLogs} days)`
+      );
     }
   }
 
   /**
    * Clean up excess logs per task, keeping only the most recent ones
    */
-  private async cleanupExcessLogsPerTask(stats: LogCleanupStats): Promise<void> {
+  private async cleanupExcessLogsPerTask(
+    stats: LogCleanupStats
+  ): Promise<void> {
     // Get all unique task IDs that have logs
     const allLogs = await this.database.taskLogs.toArray();
-    const taskIds = [...new Set(allLogs.map(log => log.taskId).filter(Boolean))];
+    const taskIds = [
+      ...new Set(allLogs.map((log) => log.taskId).filter(Boolean)),
+    ];
 
     stats.tasksProcessed = taskIds.length;
 
@@ -164,65 +173,78 @@ export class LogRetentionService {
   /**
    * Clean up logs for a specific task
    */
-  private async cleanupLogsForTask(taskId: string, stats: LogCleanupStats): Promise<void> {
+  private async cleanupLogsForTask(
+    taskId: string,
+    stats: LogCleanupStats
+  ): Promise<void> {
     const taskLogs = await this.database.taskLogs
-      .where('taskId')
+      .where("taskId")
       .equals(taskId)
       .reverse() // Most recent first
-      .sortBy('createdAt');
+      .sortBy("createdAt");
 
     if (taskLogs.length <= this.config.maxLogsPerTask) {
       return; // No cleanup needed
     }
 
     // Separate logs by type for prioritized deletion
-    const userLogs = taskLogs.filter(log => log.type === 'USER');
-    const systemLogs = taskLogs.filter(log => log.type === 'SYSTEM');
-    const conflictLogs = taskLogs.filter(log => log.type === 'CONFLICT');
+    const userLogs = taskLogs.filter((log) => log.type === "USER");
+    const systemLogs = taskLogs.filter((log) => log.type === "SYSTEM");
+    const conflictLogs = taskLogs.filter((log) => log.type === "CONFLICT");
 
     const logsToDelete: TaskLogRecord[] = [];
 
     // Priority 1: Delete excess USER logs first (keep most recent)
     if (userLogs.length > Math.floor(this.config.maxLogsPerTask * 0.6)) {
-      const excessUserLogs = userLogs.slice(Math.floor(this.config.maxLogsPerTask * 0.6));
+      const excessUserLogs = userLogs.slice(
+        Math.floor(this.config.maxLogsPerTask * 0.6)
+      );
       logsToDelete.push(...excessUserLogs);
     }
 
     // Priority 2: Delete excess SYSTEM logs if still over limit
-    const remainingCapacity = this.config.maxLogsPerTask - (taskLogs.length - logsToDelete.length);
+    const remainingCapacity =
+      this.config.maxLogsPerTask - (taskLogs.length - logsToDelete.length);
     if (remainingCapacity < 0) {
-      const systemLogsToDelete = systemLogs.slice(Math.max(0, systemLogs.length + remainingCapacity));
+      const systemLogsToDelete = systemLogs.slice(
+        Math.max(0, systemLogs.length + remainingCapacity)
+      );
       logsToDelete.push(...systemLogsToDelete);
     }
 
     // Priority 3: Keep CONFLICT logs as they're important for debugging
     // Only delete if absolutely necessary
-    const finalRemainingCapacity = this.config.maxLogsPerTask - (taskLogs.length - logsToDelete.length);
+    const finalRemainingCapacity =
+      this.config.maxLogsPerTask - (taskLogs.length - logsToDelete.length);
     if (finalRemainingCapacity < 0) {
-      const conflictLogsToDelete = conflictLogs.slice(Math.max(0, conflictLogs.length + finalRemainingCapacity));
+      const conflictLogsToDelete = conflictLogs.slice(
+        Math.max(0, conflictLogs.length + finalRemainingCapacity)
+      );
       logsToDelete.push(...conflictLogsToDelete);
     }
 
     if (logsToDelete.length > 0) {
-      const logIds = logsToDelete.map(log => log.id!);
+      const logIds = logsToDelete.map((log) => log.id!);
       await this.database.taskLogs.bulkDelete(logIds);
 
       // Update stats
-      logsToDelete.forEach(log => {
+      logsToDelete.forEach((log) => {
         switch (log.type) {
-          case 'USER':
+          case "USER":
             stats.userLogsDeleted++;
             break;
-          case 'SYSTEM':
+          case "SYSTEM":
             stats.systemLogsDeleted++;
             break;
-          case 'CONFLICT':
+          case "CONFLICT":
             stats.conflictLogsDeleted++;
             break;
         }
       });
 
-      console.log(`Deleted ${logsToDelete.length} excess logs for task ${taskId}`);
+      console.log(
+        `Deleted ${logsToDelete.length} excess logs for task ${taskId}`
+      );
     }
   }
 
@@ -231,31 +253,31 @@ export class LogRetentionService {
    */
   private async cleanupCustomLogs(stats: LogCleanupStats): Promise<void> {
     const customLogs = await this.database.taskLogs
-      .where('taskId')
+      .where("taskId")
       .equals(undefined)
       .reverse()
-      .sortBy('createdAt');
+      .sortBy("createdAt");
 
     if (customLogs.length <= this.config.maxLogsPerTask) {
       return; // No cleanup needed
     }
 
     const logsToDelete = customLogs.slice(this.config.maxLogsPerTask);
-    
+
     if (logsToDelete.length > 0) {
-      const logIds = logsToDelete.map(log => log.id!);
+      const logIds = logsToDelete.map((log) => log.id!);
       await this.database.taskLogs.bulkDelete(logIds);
 
       // Update stats
-      logsToDelete.forEach(log => {
+      logsToDelete.forEach((log) => {
         switch (log.type) {
-          case 'USER':
+          case "USER":
             stats.userLogsDeleted++;
             break;
-          case 'SYSTEM':
+          case "SYSTEM":
             stats.systemLogsDeleted++;
             break;
-          case 'CONFLICT':
+          case "CONFLICT":
             stats.conflictLogsDeleted++;
             break;
         }
@@ -278,14 +300,16 @@ export class LogRetentionService {
   }> {
     const [totalLogs, userLogs, systemLogs, conflictLogs] = await Promise.all([
       this.database.taskLogs.count(),
-      this.database.taskLogs.where('type').equals('USER').count(),
-      this.database.taskLogs.where('type').equals('SYSTEM').count(),
-      this.database.taskLogs.where('type').equals('CONFLICT').count(),
+      this.database.taskLogs.where("type").equals("USER").count(),
+      this.database.taskLogs.where("type").equals("SYSTEM").count(),
+      this.database.taskLogs.where("type").equals("CONFLICT").count(),
     ]);
 
     const allLogs = await this.database.taskLogs.toArray();
-    const tasksWithLogs = new Set(allLogs.map(log => log.taskId).filter(Boolean)).size;
-    const customLogs = allLogs.filter(log => !log.taskId).length;
+    const tasksWithLogs = new Set(
+      allLogs.map((log) => log.taskId).filter(Boolean)
+    ).size;
+    const customLogs = allLogs.filter((log) => !log.taskId).length;
 
     return {
       totalLogs,
@@ -316,7 +340,7 @@ export class LogRetentionService {
    */
   updateConfig(newConfig: Partial<LogRetentionConfig>): void {
     Object.assign(this.config, newConfig);
-    
+
     // Restart background cleanup with new config
     if (this.cleanupTimer) {
       this.stopBackgroundCleanup();

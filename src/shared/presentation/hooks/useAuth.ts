@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { User } from '@supabase/supabase-js';
-import { container } from 'tsyringe';
-import { SupabaseClientFactory } from '@/shared/infrastructure/database/SupabaseClient';
-import { SUPABASE_CLIENT_FACTORY_TOKEN } from '@/shared/infrastructure/di/tokens';
+import { useState, useEffect } from "react";
+import { User } from "@supabase/supabase-js";
+import { container } from "tsyringe";
+import { SupabaseClientFactory } from "@/shared/infrastructure/database/SupabaseClient";
+import { SUPABASE_CLIENT_FACTORY_TOKEN } from "@/shared/infrastructure/di/tokens";
 
 interface AuthState {
   user: User | null;
@@ -32,7 +32,7 @@ const subscribers = new Set<(state: AuthState) => void>();
 // Функция для уведомления всех подписчиков
 const notifySubscribers = (newState: AuthState) => {
   globalAuthState = newState;
-  subscribers.forEach(callback => callback(newState));
+  subscribers.forEach((callback) => callback(newState));
 };
 
 // Инициализация авторизации (выполняется один раз)
@@ -48,8 +48,10 @@ const initializeAuth = async () => {
 
   try {
     // Получаем текущего пользователя
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     notifySubscribers({
       user,
       loading: false,
@@ -65,7 +67,7 @@ const initializeAuth = async () => {
       });
     });
   } catch (error) {
-    console.error('Auth initialization error:', error);
+    console.error("Auth initialization error:", error);
     notifySubscribers({
       user: null,
       loading: false,
@@ -120,7 +122,7 @@ export function useAuth(): UseAuthReturn {
 
       return {};
     } catch (err) {
-      return { error: 'Unexpected error occurred' };
+      return { error: "Unexpected error occurred" };
     }
   };
 
@@ -137,7 +139,7 @@ export function useAuth(): UseAuthReturn {
 
       return {};
     } catch (err) {
-      return { error: 'Unexpected error occurred' };
+      return { error: "Unexpected error occurred" };
     }
   };
 
@@ -145,7 +147,7 @@ export function useAuth(): UseAuthReturn {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      console.error('Sign out error:', err);
+      console.error("Sign out error:", err);
     }
   };
 

@@ -1,4 +1,4 @@
-import { DomainEventType } from '../types';
+import { DomainEventType } from "../types";
 
 /**
  * Base class for all domain events

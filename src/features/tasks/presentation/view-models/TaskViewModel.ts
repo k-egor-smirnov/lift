@@ -14,7 +14,6 @@ import { DeleteTaskUseCase } from "../../../../shared/application/use-cases/Dele
 import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepository";
 import { GetTodayTasksUseCase } from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
 
-
 /**
  * Task filter options
  */
@@ -152,18 +151,21 @@ export const createTaskViewModel = (
     getTodayTaskIds: async () => {
       try {
         const result = await getTodayTasksUseCase.execute({
-          includeCompleted: true
+          includeCompleted: true,
         });
-        
+
         if (result.success) {
-          return result.data.tasks.map(taskInfo => taskInfo.task.id.value);
+          return result.data.tasks.map((taskInfo) => taskInfo.task.id.value);
         } else {
           const errorMessage = (result as any).error.message;
           set({ error: errorMessage });
           return [];
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error getting today task IDs';
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Error getting today task IDs";
         set({ error: errorMessage });
         return [];
       }
@@ -194,7 +196,7 @@ export const createTaskViewModel = (
         if (result.success) {
           // Reload tasks to get the updated list
           await get().loadTasks();
-          
+
           return true;
         } else {
           set({ error: (result as any).error.message });
@@ -218,7 +220,7 @@ export const createTaskViewModel = (
         if (result.success) {
           // Reload tasks to get the updated list
           await get().loadTasks();
-          
+
           return true;
         } else {
           set({ error: (result as any).error.message });
@@ -242,7 +244,7 @@ export const createTaskViewModel = (
         if (result.success) {
           // Reload tasks to get the updated list
           await get().loadTasks();
-          
+
           return true;
         } else {
           set({ error: (result as any).error.message });
@@ -292,7 +294,7 @@ export const createTaskViewModel = (
         if (result.success) {
           // Reload tasks to get the updated list
           await get().loadTasks();
-          
+
           return true;
         } else {
           set({ error: (result as any).error.message });

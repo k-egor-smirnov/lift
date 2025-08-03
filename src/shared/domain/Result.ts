@@ -24,7 +24,7 @@ export class ResultUtils {
   static ok<T>(data: T): Success<T> {
     return {
       success: true,
-      data
+      data,
     };
   }
 
@@ -34,7 +34,7 @@ export class ResultUtils {
   static error<E>(error: E): Failure<E> {
     return {
       success: false,
-      error
+      error,
     };
   }
 

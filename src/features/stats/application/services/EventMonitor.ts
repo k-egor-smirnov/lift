@@ -1,4 +1,7 @@
-import { TodoDatabase, EventStoreRecord } from '../../../../shared/infrastructure/database/TodoDatabase';
+import {
+  TodoDatabase,
+  EventStoreRecord,
+} from "../../../../shared/infrastructure/database/TodoDatabase";
 
 export interface EventProcessingStats {
   totalEvents: number;
@@ -16,7 +19,7 @@ export interface EventDetails {
   aggregateId: string;
   aggregateType: string;
   eventType: string;
-  status: 'pending' | 'processing' | 'done' | 'dead';
+  status: "pending" | "processing" | "done" | "dead";
   attemptCount: number;
   createdAt: Date;
   nextAttemptAt?: Date;
@@ -41,15 +44,15 @@ export class EventMonitor {
       doneEvents,
       deadLetterEvents,
       oldestPending,
-      newestEvent
+      newestEvent,
     ] = await Promise.all([
       this.database.eventStore.count(),
-      this.database.eventStore.where('status').equals('pending').count(),
-      this.database.eventStore.where('status').equals('processing').count(),
-      this.database.eventStore.where('status').equals('done').count(),
-      this.database.eventStore.where('status').equals('dead').count(),
+      this.database.eventStore.where("status").equals("pending").count(),
+      this.database.eventStore.where("status").equals("processing").count(),
+      this.database.eventStore.where("status").equals("done").count(),
+      this.database.eventStore.where("status").equals("dead").count(),
       this.getOldestPendingEvent(),
-      this.getNewestEvent()
+      this.getNewestEvent(),
     ]);
 
     // Calculate average processing time (simplified - would need timing data in real implementation)
@@ -62,8 +65,12 @@ export class EventMonitor {
       doneEvents,
       deadLetterEvents,
       averageProcessingTime,
-      oldestPendingEvent: oldestPending?.createdAt ? new Date(oldestPending.createdAt) : undefined,
-      newestEvent: newestEvent?.createdAt ? new Date(newestEvent.createdAt) : undefined
+      oldestPendingEvent: oldestPending?.createdAt
+        ? new Date(oldestPending.createdAt)
+        : undefined,
+      newestEvent: newestEvent?.createdAt
+        ? new Date(newestEvent.createdAt)
+        : undefined,
     };
   }
 
@@ -71,12 +78,12 @@ export class EventMonitor {
    * Get detailed information about events by status
    */
   async getEventsByStatus(
-    status: 'pending' | 'processing' | 'done' | 'dead',
+    status: "pending" | "processing" | "done" | "dead",
     limit: number = 50,
     offset: number = 0
   ): Promise<EventDetails[]> {
     const events = await this.database.eventStore
-      .where('status')
+      .where("status")
       .equals(status)
       .offset(offset)
       .limit(limit)
@@ -93,14 +100,15 @@ export class EventMonitor {
     maxProcessingMinutes: number = 30,
     maxAttempts: number = 5
   ): Promise<EventDetails[]> {
-    const cutoffTime = Date.now() - (maxProcessingMinutes * 60 * 1000);
+    const cutoffTime = Date.now() - maxProcessingMinutes * 60 * 1000;
 
     const stuckEvents = await this.database.eventStore
-      .where('status')
-      .anyOf(['processing', 'pending'])
-      .and(event => 
-        event.attemptCount >= maxAttempts || 
-        (event.status === 'processing' && event.createdAt < cutoffTime)
+      .where("status")
+      .anyOf(["processing", "pending"])
+      .and(
+        (event) =>
+          event.attemptCount >= maxAttempts ||
+          (event.status === "processing" && event.createdAt < cutoffTime)
       )
       .toArray();
 
@@ -110,10 +118,13 @@ export class EventMonitor {
   /**
    * Get dead letter events with details
    */
-  async getDeadLetterEvents(limit: number = 50, offset: number = 0): Promise<EventDetails[]> {
+  async getDeadLetterEvents(
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<EventDetails[]> {
     const events = await this.database.eventStore
-      .where('status')
-      .equals('dead')
+      .where("status")
+      .equals("dead")
       .offset(offset)
       .limit(limit)
       .reverse()
@@ -130,7 +141,7 @@ export class EventMonitor {
     limit: number = 50
   ): Promise<EventDetails[]> {
     const events = await this.database.eventStore
-      .where('aggregateId')
+      .where("aggregateId")
       .equals(aggregateId)
       .limit(limit)
       .reverse()
@@ -142,10 +153,18 @@ export class EventMonitor {
   /**
    * Get processing statistics by event type
    */
-  async getStatsByEventType(): Promise<Record<string, { total: number; pending: number; done: number; dead: number }>> {
+  async getStatsByEventType(): Promise<
+    Record<
+      string,
+      { total: number; pending: number; done: number; dead: number }
+    >
+  > {
     const allEvents = await this.database.eventStore.toArray();
-    
-    const stats: Record<string, { total: number; pending: number; done: number; dead: number }> = {};
+
+    const stats: Record<
+      string,
+      { total: number; pending: number; done: number; dead: number }
+    > = {};
 
     for (const event of allEvents) {
       if (!stats[event.eventType]) {
@@ -153,15 +172,15 @@ export class EventMonitor {
       }
 
       stats[event.eventType].total++;
-      
+
       switch (event.status) {
-        case 'pending':
+        case "pending":
           stats[event.eventType].pending++;
           break;
-        case 'done':
+        case "done":
           stats[event.eventType].done++;
           break;
-        case 'dead':
+        case "dead":
           stats[event.eventType].dead++;
           break;
       }
@@ -173,10 +192,18 @@ export class EventMonitor {
   /**
    * Get processing statistics by aggregate type
    */
-  async getStatsByAggregateType(): Promise<Record<string, { total: number; pending: number; done: number; dead: number }>> {
+  async getStatsByAggregateType(): Promise<
+    Record<
+      string,
+      { total: number; pending: number; done: number; dead: number }
+    >
+  > {
     const allEvents = await this.database.eventStore.toArray();
-    
-    const stats: Record<string, { total: number; pending: number; done: number; dead: number }> = {};
+
+    const stats: Record<
+      string,
+      { total: number; pending: number; done: number; dead: number }
+    > = {};
 
     for (const event of allEvents) {
       if (!stats[event.aggregateType]) {
@@ -184,15 +211,15 @@ export class EventMonitor {
       }
 
       stats[event.aggregateType].total++;
-      
+
       switch (event.status) {
-        case 'pending':
+        case "pending":
           stats[event.aggregateType].pending++;
           break;
-        case 'done':
+        case "done":
           stats[event.aggregateType].done++;
           break;
-        case 'dead':
+        case "dead":
           stats[event.aggregateType].dead++;
           break;
       }
@@ -207,15 +234,15 @@ export class EventMonitor {
   async reprocessDeadLetterEvent(eventId: string): Promise<boolean> {
     try {
       const updated = await this.database.eventStore.update(eventId, {
-        status: 'pending' as const,
+        status: "pending" as const,
         attemptCount: 0,
         lastError: undefined,
-        nextAttemptAt: Date.now()
+        nextAttemptAt: Date.now(),
       });
 
       return updated > 0;
     } catch (error) {
-      console.error('Failed to reprocess dead letter event:', error);
+      console.error("Failed to reprocess dead letter event:", error);
       return false;
     }
   }
@@ -225,8 +252,8 @@ export class EventMonitor {
    */
   async reprocessAllDeadLetterEvents(): Promise<number> {
     const deadEvents = await this.database.eventStore
-      .where('status')
-      .equals('dead')
+      .where("status")
+      .equals("dead")
       .toArray();
 
     let reprocessedCount = 0;
@@ -245,50 +272,55 @@ export class EventMonitor {
    * Get health status of event processing
    */
   async getHealthStatus(): Promise<{
-    status: 'healthy' | 'warning' | 'critical';
+    status: "healthy" | "warning" | "critical";
     issues: string[];
     recommendations: string[];
   }> {
     const stats = await this.getProcessingStats();
     const stuckEvents = await this.getStuckEvents();
-    
+
     const issues: string[] = [];
     const recommendations: string[] = [];
-    let status: 'healthy' | 'warning' | 'critical' = 'healthy';
+    let status: "healthy" | "warning" | "critical" = "healthy";
 
     // Check for high number of pending events
     if (stats.pendingEvents > 100) {
       issues.push(`High number of pending events: ${stats.pendingEvents}`);
-      recommendations.push('Consider increasing event processing capacity');
-      status = 'warning';
+      recommendations.push("Consider increasing event processing capacity");
+      status = "warning";
     }
 
     // Check for dead letter events
     if (stats.deadLetterEvents > 0) {
       issues.push(`Dead letter events detected: ${stats.deadLetterEvents}`);
-      recommendations.push('Review and reprocess dead letter events');
+      recommendations.push("Review and reprocess dead letter events");
       if (stats.deadLetterEvents > 10) {
-        status = 'critical';
-      } else if (status === 'healthy') {
-        status = 'warning';
+        status = "critical";
+      } else if (status === "healthy") {
+        status = "warning";
       }
     }
 
     // Check for stuck events
     if (stuckEvents.length > 0) {
       issues.push(`Stuck events detected: ${stuckEvents.length}`);
-      recommendations.push('Review stuck events and consider manual intervention');
-      status = 'critical';
+      recommendations.push(
+        "Review stuck events and consider manual intervention"
+      );
+      status = "critical";
     }
 
     // Check for old pending events
     if (stats.oldestPendingEvent) {
-      const ageHours = (Date.now() - stats.oldestPendingEvent.getTime()) / (1000 * 60 * 60);
+      const ageHours =
+        (Date.now() - stats.oldestPendingEvent.getTime()) / (1000 * 60 * 60);
       if (ageHours > 24) {
-        issues.push(`Old pending events detected (${Math.round(ageHours)} hours old)`);
-        recommendations.push('Investigate why events are not being processed');
-        if (status !== 'critical') {
-          status = 'warning';
+        issues.push(
+          `Old pending events detected (${Math.round(ageHours)} hours old)`
+        );
+        recommendations.push("Investigate why events are not being processed");
+        if (status !== "critical") {
+          status = "warning";
         }
       }
     }
@@ -300,15 +332,15 @@ export class EventMonitor {
 
   private async getOldestPendingEvent(): Promise<EventStoreRecord | undefined> {
     return await this.database.eventStore
-      .where('status')
-      .equals('pending')
-      .orderBy('createdAt')
+      .where("status")
+      .equals("pending")
+      .orderBy("createdAt")
       .first();
   }
 
   private async getNewestEvent(): Promise<EventStoreRecord | undefined> {
     return await this.database.eventStore
-      .orderBy('createdAt')
+      .orderBy("createdAt")
       .reverse()
       .first();
   }
@@ -328,8 +360,10 @@ export class EventMonitor {
       status: event.status,
       attemptCount: event.attemptCount,
       createdAt: new Date(event.createdAt),
-      nextAttemptAt: event.nextAttemptAt ? new Date(event.nextAttemptAt) : undefined,
-      lastError: event.lastError
+      nextAttemptAt: event.nextAttemptAt
+        ? new Date(event.nextAttemptAt)
+        : undefined,
+      lastError: event.lastError,
     };
   }
 }

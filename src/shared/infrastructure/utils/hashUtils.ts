@@ -9,13 +9,13 @@
 export function hashObject(obj: any): string {
   // Convert object to a stable JSON string
   const jsonString = JSON.stringify(obj, Object.keys(obj).sort());
-  
+
   // Simple hash function (djb2 algorithm)
   let hash = 5381;
   for (let i = 0; i < jsonString.length; i++) {
-    hash = ((hash << 5) + hash) + jsonString.charCodeAt(i);
+    hash = (hash << 5) + hash + jsonString.charCodeAt(i);
   }
-  
+
   // Convert to positive number and return as hex string
   return (hash >>> 0).toString(16);
 }
@@ -32,8 +32,8 @@ export function hashTask(task: any): string {
     status: task.status,
     updatedAt: task.updatedAt?.toISOString() || task.updatedAt,
     deletedAt: task.deletedAt?.toISOString() || task.deletedAt,
-    inboxEnteredAt: task.inboxEnteredAt?.toISOString() || task.inboxEnteredAt
+    inboxEnteredAt: task.inboxEnteredAt?.toISOString() || task.inboxEnteredAt,
   };
-  
+
   return hashObject(syncData);
 }
