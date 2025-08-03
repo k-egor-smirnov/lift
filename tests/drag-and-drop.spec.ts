@@ -7,40 +7,39 @@ test.describe('Drag and Drop Functionality', () => {
     await page.waitForSelector('[data-testid="task-list"], .text-center', { timeout: 10000 });
   });
 
-  test('should display miniature task card during drag', async ({ page }) => {
-    // Check if there are tasks available
+  test('should display compact task preview during drag', async ({ page }) => {
     const taskCards = await page.locator('[data-testid="task-card"]').count();
-    
+
     if (taskCards === 0) {
-      // Create a test task first
       await page.click('button:has-text("New Task")');
       await page.fill('input[placeholder*="task"]', 'Test Drag Task');
       await page.press('input[placeholder*="task"]', 'Enter');
       await page.waitForSelector('[data-testid="task-card"]');
     }
 
-    // Get the first task card
     const firstTask = page.locator('[data-testid="task-card"]').first();
     await expect(firstTask).toBeVisible();
 
-    // Start dragging
+    const title = await firstTask.locator('h3').textContent();
+
     const taskBounds = await firstTask.boundingBox();
     if (taskBounds) {
-      await page.mouse.move(taskBounds.x + taskBounds.width / 2, taskBounds.y + taskBounds.height / 2);
+      await page.mouse.move(
+        taskBounds.x + taskBounds.width / 2,
+        taskBounds.y + taskBounds.height / 2
+      );
       await page.mouse.down();
-      
-      // Move mouse to trigger drag
-      await page.mouse.move(taskBounds.x + taskBounds.width / 2, taskBounds.y + taskBounds.height / 2 + 50);
-      
-      // Check if miniature card appears (should be 32px height)
-      const dragOverlay = page.locator('[data-testid="drag-overlay"], .transform-gpu');
+      await page.mouse.move(
+        taskBounds.x + taskBounds.width / 2,
+        taskBounds.y + taskBounds.height / 2 + 50
+      );
+
+      const dragOverlay = page.locator('[data-testid="drag-overlay"]');
       await expect(dragOverlay).toBeVisible();
-      
-      // Verify the miniature card has correct styling
-      const miniatureCard = dragOverlay.locator('div').first();
-      await expect(miniatureCard).toHaveClass(/h-8/);
-      
-      // End drag
+      if (title) {
+        await expect(dragOverlay).toContainText(title.trim());
+      }
+
       await page.mouse.up();
     }
   });

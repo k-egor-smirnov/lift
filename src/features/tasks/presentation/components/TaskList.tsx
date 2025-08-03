@@ -305,25 +305,19 @@ export const TaskList: React.FC<TaskListProps> = ({
         <DragOverlay modifiers={[applyDragOffset, restrictToWindowEdges]}>
           {activeTask ? (
             <motion.div
-              className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-xs"
+              className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-[240px] text-sm"
               initial={{ scale: 0.8, opacity: 0.8 }}
               animate={{ scale: 1, opacity: 1 }}
-              style={{
-                width: "32px",
-                height: "32px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "12px",
-                fontWeight: "bold",
-                color: "#374151",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
               data-testid="drag-overlay"
             >
-              {activeTask.title.value}
+              <p className="font-medium text-gray-800 truncate">
+                {activeTask.title.value}
+              </p>
+              {lastLogs[activeTask.id.value] && (
+                <p className="mt-1 text-xs text-gray-500 truncate">
+                  {lastLogs[activeTask.id.value].message}
+                </p>
+              )}
             </motion.div>
           ) : null}
         </DragOverlay>
