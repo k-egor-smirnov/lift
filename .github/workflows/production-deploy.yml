@@ -35,5 +35,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "dist/."
           target: "/var/www/lift/"
+          strip_components: 1
           run: |
             echo "Production deployed to: https://lift.egor.dev/"

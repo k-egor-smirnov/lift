@@ -38,7 +38,8 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "dist/."
+          strip_components: 1
           target: "/var/www/lift-preview/${{ github.event.pull_request.head.sha }}/"
       - name: Notify preview deployment
         run: |
-          echo "Preview deployed to: https://lift.egor.dev/lift-preview/${{ github.event.pull_request.head.sha }}"
+          echo "Preview deployed to: https://lift.egor.dev/preview/${{ github.event.pull_request.head.sha }}"
