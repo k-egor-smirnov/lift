@@ -37,6 +37,11 @@ export interface TaskRepository {
   findOverdueTasks(overdueDays: number): Promise<Task[]>;
 
   /**
+   * Find all soft-deleted tasks
+   */
+  findDeleted(): Promise<Task[]>;
+
+  /**
    * Save a task (create or update)
    */
   save(task: Task): Promise<void>;
@@ -50,6 +55,16 @@ export interface TaskRepository {
    * Delete a task permanently (hard delete)
    */
   delete(id: TaskId): Promise<void>;
+
+  /**
+   * Permanently delete all soft-deleted tasks
+   */
+  clearDeleted(): Promise<void>;
+
+  /**
+   * Restore a soft-deleted task
+   */
+  restore(id: TaskId): Promise<void>;
 
   /**
    * Count total tasks (active only)

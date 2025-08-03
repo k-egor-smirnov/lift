@@ -17,6 +17,10 @@ import {
   TodayViewModelDependencies,
   createTodayViewModel,
 } from "../features/today/presentation/view-models/TodayViewModel";
+import {
+  createTrashViewModel,
+  TrashViewModel,
+} from "../features/trash/presentation/view-models/TrashViewModel";
 import { useKeyboardShortcuts } from "../shared/infrastructure/services/useKeyboardShortcuts";
 import { DailyModalContainer } from "../features/onboarding";
 import { useOnboardingViewModel } from "../features/onboarding/presentation/view-models/OnboardingViewModel";
@@ -52,7 +56,7 @@ export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [activeView, setActiveView] = useState<
-    "today" | "logs" | "settings" | TaskCategory
+    "today" | "logs" | "settings" | "trash" | TaskCategory
   >("today");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
@@ -165,6 +169,10 @@ export const MVPApp: React.FC = () => {
   const todayViewModel = useMemo(
     () => createTodayViewModel(todayDependencies),
     []
+  );
+  const trashViewModel: TrashViewModel = useMemo(
+    () => createTrashViewModel({ taskRepository }),
+    [taskRepository]
   );
 
   // Initialize keyboard shortcuts
@@ -580,7 +588,7 @@ export const MVPApp: React.FC = () => {
   );
 
   const handleViewChange = useCallback(
-    (view: "today" | "logs" | TaskCategory) => {
+    (view: "today" | "logs" | "settings" | "trash" | TaskCategory) => {
       setActiveView(view);
     },
     []
@@ -849,6 +857,7 @@ export const MVPApp: React.FC = () => {
             onCreateTaskLog={handleCreateTaskLog}
             onDeferTask={handleDeferTask}
             onUndeferTask={handleUndeferTask}
+            trashViewModel={trashViewModel}
           />
         </main>
       </div>

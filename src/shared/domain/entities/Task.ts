@@ -337,6 +337,20 @@ export class Task {
   }
 
   /**
+   * Restore a soft-deleted task
+   */
+  restore(): DomainEvent[] {
+    if (!this.isDeleted) {
+      return [];
+    }
+
+    this._deletedAt = undefined;
+    this._updatedAt = new Date();
+
+    return [];
+  }
+
+  /**
    * Update the updatedAt timestamp (for sync purposes)
    */
   touch(): void {

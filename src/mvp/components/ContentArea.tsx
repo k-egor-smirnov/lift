@@ -7,11 +7,13 @@ import { AllLogsView } from "../../features/logs/presentation/components";
 import { Settings } from "../../features/settings/presentation/components/Settings";
 import { TodayViewModelDependencies } from "../../features/today/presentation/view-models/TodayViewModel";
 import { LogViewModelDependencies } from "../../features/logs/presentation/view-models/LogViewModel";
+import { TrashView } from "../../features/trash/presentation/components/TrashView";
+import { TrashViewModel } from "../../features/trash/presentation/view-models/TrashViewModel";
 import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { ViewContainer } from "./ViewContainer";
 
 interface ContentAreaProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
+  activeView: "today" | "logs" | "settings" | "trash" | TaskCategory;
   loading: boolean;
   
   // Today view props
@@ -37,6 +39,7 @@ interface ContentAreaProps {
   onCreateTaskLog: (taskId: string, content: string) => Promise<void>;
   onDeferTask: (taskId: string, deferredUntil: Date) => Promise<void>;
   onUndeferTask: (taskId: string) => Promise<void>;
+  trashViewModel: TrashViewModel;
 }
 
 export const ContentArea: React.FC<ContentAreaProps> = ({
@@ -58,6 +61,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   onCreateTaskLog,
   onDeferTask,
   onUndeferTask,
+  trashViewModel,
 }) => {
   if (loading) {
     return (
@@ -99,6 +103,13 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
       return (
         <ViewContainer>
           <Settings />
+        </ViewContainer>
+      );
+
+    case "trash":
+      return (
+        <ViewContainer>
+          <TrashView viewModel={trashViewModel} />
         </ViewContainer>
       );
 

@@ -13,12 +13,14 @@ const resources = {
       navigation: {
         today: "Today",
         settings: "Settings",
+        trash: "Trash",
         descriptions: {
           today: "Focus on what matters most today",
           simple: "Quick tasks that take less than 15 minutes",
           focus: "Important tasks requiring deep concentration",
           inbox: "New tasks waiting to be organized",
           deferred: "Tasks postponed until a specific date",
+          trash: "Deleted tasks",
         },
       },
       common: {
@@ -113,6 +115,11 @@ const resources = {
           new_day_transition_error: "New day transition error",
         },
       },
+      trash: {
+        empty: "Trash is empty",
+        restore: "Restore",
+        clear: "Empty trash",
+      },
     },
   },
   ru: {
@@ -126,14 +133,21 @@ const resources = {
       navigation: {
         today: "Сегодня",
         settings: "Настройки",
+        trash: "Корзина",
         descriptions: {
           today: "Сосредоточьтесь на важном",
           simple: "Быстрые задачи, которые займут менее 15 минут",
           focus: "Важные задачи, требующие глубокой концентрации",
           inbox: "Новые задачи, ожидающие распределения",
           deferred: "Отложенные задачи до определенной даты",
+          trash: "Удаленные задачи",
         },
         logs: "История",
+      },
+      trash: {
+        empty: "Корзина пуста",
+        restore: "Вернуть",
+        clear: "Очистить корзину",
       },
       common: {
         close: "Закрыть",
