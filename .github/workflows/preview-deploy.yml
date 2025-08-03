@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   build-and-deploy-preview:
@@ -30,6 +31,9 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
 
       - name: Deploy preview via SCP
         uses: appleboy/scp-action@v1
@@ -40,6 +44,12 @@ jobs:
           source: "dist/."
           strip_components: 1
           target: "/var/www/lift-preview/${{ github.event.pull_request.head.sha }}/"
-      - name: Notify preview deployment
-        run: |
-          echo "Preview deployed to: https://lift.egor.dev/preview/${{ github.event.pull_request.head.sha }}"
+
+      - name: Comment preview URL on PR
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ✅ Превью доступно
+            https://lift.egor.dev/preview/${{ github.event.pull_request.head.sha }}/
