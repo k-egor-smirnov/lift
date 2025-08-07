@@ -67,6 +67,7 @@ vi.mock("../../../../../shared/infrastructure/database/TodoDatabase", () => ({
   todoDatabase: {
     userSettings: {
       toArray: vi.fn().mockResolvedValue([]),
+      get: vi.fn().mockResolvedValue(null),
     },
   },
 }));

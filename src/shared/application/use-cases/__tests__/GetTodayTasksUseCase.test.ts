@@ -118,8 +118,9 @@ describe("GetTodayTasksUseCase", () => {
         expect(response.tasks[1].completedInSelection).toBe(false);
       }
 
+      const today = DateOnly.today().value;
       expect(mockDailySelectionRepository.getTasksForDay).toHaveBeenCalledWith(
-        DateOnly.today()
+        expect.objectContaining({ value: today })
       );
       expect(mockTaskRepository.findById).toHaveBeenCalledTimes(2);
     });
@@ -164,7 +165,7 @@ describe("GetTodayTasksUseCase", () => {
       }
 
       expect(mockDailySelectionRepository.getTasksForDay).toHaveBeenCalledWith(
-        DateOnly.fromString(specificDate)
+        expect.objectContaining({ value: specificDate })
       );
     });
 

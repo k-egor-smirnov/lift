@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  beforeAll,
+  vi,
+} from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useSync } from "../useSync";
 import { syncInitializer } from "../../../infrastructure/sync/SyncInitializer";
@@ -53,9 +61,14 @@ Object.defineProperty(window, "removeEventListener", {
 });
 
 describe("useSync", () => {
-  const { mockSyncService, mockRealtimeService } = vi.mocked(
-    await import("../../../infrastructure/sync/SyncInitializer")
-  );
+  let mockSyncService: any;
+  let mockRealtimeService: any;
+
+  beforeAll(async () => {
+    const module = await import("../../../infrastructure/sync/SyncInitializer");
+    mockSyncService = module.mockSyncService;
+    mockRealtimeService = module.mockRealtimeService;
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();

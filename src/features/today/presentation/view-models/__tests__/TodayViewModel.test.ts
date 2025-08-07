@@ -22,10 +22,6 @@ import {
   createTodayViewModel,
   TodayViewModelDependencies,
 } from "../TodayViewModel";
-import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
-
-// Mock DateOnly.today() to return consistent date
-vi.spyOn(DateOnly, "today").mockReturnValue(new DateOnly("2023-12-01"));
 
 // Mock dependencies
 const mockGetTodayTasksUseCase: GetTodayTasksUseCase = {

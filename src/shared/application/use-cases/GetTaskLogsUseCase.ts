@@ -89,7 +89,7 @@ export class GetTaskLogsUseCase {
       // Validate and set pagination parameters
       const page = Math.max(1, request.page || 1);
       let requestedPageSize =
-        request.pageSize || GetTaskLogsUseCase.DEFAULT_PAGE_SIZE;
+        request.pageSize ?? GetTaskLogsUseCase.DEFAULT_PAGE_SIZE;
       // Handle edge case where pageSize is 0 or negative
       if (requestedPageSize <= 0) {
         requestedPageSize = 1;
