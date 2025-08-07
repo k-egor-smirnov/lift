@@ -17,6 +17,7 @@ export interface UpdateTaskRequest {
   title?: string;
   category?: TaskCategory;
   order?: number;
+  note?: string;
 }
 
 /**
@@ -87,6 +88,11 @@ export class UpdateTaskUseCase extends BaseTaskUseCase {
         if (request.order !== undefined) {
           const orderEvents = task.changeOrder(request.order);
           allEvents.push(...orderEvents);
+        }
+
+        if (request.note !== undefined) {
+          const noteEvents = task.changeNote(request.note);
+          allEvents.push(...noteEvents);
         }
 
         // Execute in transaction

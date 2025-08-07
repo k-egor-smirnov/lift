@@ -18,6 +18,7 @@ import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 interface TodayViewProps {
   dependencies: TodayViewModelDependencies;
   onEditTask?: (taskId: string, newTitle: string) => void;
+  onEditTaskNote?: (taskId: string, note: string) => void;
   onDeleteTask?: (taskId: string) => void;
   onDefer?: (taskId: string, deferDate: Date) => void;
   onUndefer?: (taskId: TaskId) => Promise<void>;
@@ -31,6 +32,7 @@ interface TodayViewProps {
 export const TodayView: React.FC<TodayViewProps> = ({
   dependencies,
   onEditTask,
+  onEditTaskNote,
   onDeleteTask,
   onDefer,
   onUndefer,
@@ -170,6 +172,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
       onEditTask(taskId, newTitle);
     } else {
       alert(`Edit task: ${taskId} to "${newTitle}"`);
+    }
+  };
+
+  const handleEditTaskNote = (taskId: string, note: string) => {
+    if (onEditTaskNote) {
+      onEditTaskNote(taskId, note);
     }
   };
 
@@ -364,6 +372,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onComplete={handleCompleteTask}
                 onRevertCompletion={handleRevertCompletion}
                 onEdit={handleEditTask}
+                onEditNote={handleEditTaskNote}
                 onDelete={handleDeleteTask}
                 onAddToToday={handleToggleToday}
                 onDefer={onDefer}
@@ -403,6 +412,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onComplete={undefined}
                 onRevertCompletion={handleRevertCompletion}
                 onEdit={handleEditTask}
+                onEditNote={handleEditTaskNote}
                 onDelete={handleDeleteTask}
                 onAddToToday={handleToggleToday}
                 onDefer={onDefer}

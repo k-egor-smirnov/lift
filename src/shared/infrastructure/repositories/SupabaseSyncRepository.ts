@@ -347,6 +347,7 @@ export class SupabaseSyncRepository implements SyncRepository {
         ? SupabaseUtils.toISOString(task.deferredUntil)
         : null,
       original_category: task.originalCategory || null,
+      note: task.note || null,
       user_id: this.userId, // Всегда используем текущий user_id
     };
   }
@@ -372,7 +373,8 @@ export class SupabaseSyncRepository implements SyncRepository {
       row.deferred_until
         ? SupabaseUtils.fromISOString(row.deferred_until)
         : undefined,
-      row.original_category as TaskCategory | undefined
+      row.original_category as TaskCategory | undefined,
+      row.note || ""
     );
   }
 

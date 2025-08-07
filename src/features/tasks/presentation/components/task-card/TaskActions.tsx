@@ -1,7 +1,14 @@
 import React from "react";
 import { TaskStatus } from "../../../../../shared/domain/types";
 import { useTranslation } from "react-i18next";
-import { Check, Undo2, MoreHorizontal, Clock, Trash2 } from "lucide-react";
+import {
+  Check,
+  Undo2,
+  MoreHorizontal,
+  Clock,
+  Trash2,
+  StickyNote,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +25,7 @@ interface TaskActionsProps {
   onRevertCompletion?: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onDefer?: () => void;
+  onOpenNote?: () => void;
 }
 
 export const TaskActions: React.FC<TaskActionsProps> = ({
@@ -29,6 +37,7 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
   onRevertCompletion,
   onDelete,
   onDefer,
+  onOpenNote,
 }) => {
   const { t } = useTranslation();
   const isCompleted = status === TaskStatus.COMPLETED;
@@ -50,6 +59,17 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
           })}
         >
           <Check className="w-4 h-4" />
+        </button>
+      )}
+
+      {onOpenNote && (
+        <button
+          onClick={onOpenNote}
+          className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          title={t("taskCard.editNote")}
+          aria-label={t("taskCard.editNote")}
+        >
+          <StickyNote className="w-4 h-4" />
         </button>
       )}
 
