@@ -359,7 +359,6 @@ describe("OnboardingService", () => {
         overdueDate
       );
 
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
       const regularInboxTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Regular Inbox Task"),

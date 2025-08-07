@@ -31,6 +31,7 @@ describe("Task Entity", () => {
         title,
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
+        now.getTime(),
         now,
         now
       );
@@ -53,6 +54,7 @@ describe("Task Entity", () => {
         title,
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
+        now.getTime(),
         now,
         now
       );
@@ -67,6 +69,7 @@ describe("Task Entity", () => {
         title,
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
+        now.getTime(),
         now,
         now
       );
@@ -81,6 +84,7 @@ describe("Task Entity", () => {
         title,
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
+        now.getTime(),
         now,
         now
       );
@@ -95,6 +99,7 @@ describe("Task Entity", () => {
         title,
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
+        now.getTime(),
         now,
         now
       );
@@ -316,7 +321,8 @@ describe("Task Entity", () => {
 
   describe("isOverdue", () => {
     it("should return true for overdue INBOX tasks", () => {
-      const pastDate = new Date();
+      const baseDate = new Date("2023-12-01T12:00:00Z");
+      const pastDate = new Date(baseDate);
       pastDate.setDate(pastDate.getDate() - 5); // 5 days ago
 
       task = new Task(
@@ -324,6 +330,7 @@ describe("Task Entity", () => {
         title,
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
+        pastDate.getTime(),
         pastDate,
         pastDate,
         undefined,
@@ -334,7 +341,8 @@ describe("Task Entity", () => {
     });
 
     it("should return false for non-overdue INBOX tasks", () => {
-      const recentDate = new Date();
+      const baseDate = new Date("2023-12-01T12:00:00Z");
+      const recentDate = new Date(baseDate);
       recentDate.setDate(recentDate.getDate() - 1); // 1 day ago
 
       task = new Task(
@@ -342,6 +350,7 @@ describe("Task Entity", () => {
         title,
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
+        recentDate.getTime(),
         recentDate,
         recentDate,
         undefined,
@@ -352,7 +361,7 @@ describe("Task Entity", () => {
     });
 
     it("should return false for non-INBOX tasks", () => {
-      const pastDate = new Date();
+      const pastDate = new Date("2023-12-01T12:00:00Z");
       pastDate.setDate(pastDate.getDate() - 10);
 
       task = new Task(
@@ -360,6 +369,7 @@ describe("Task Entity", () => {
         title,
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE,
+        pastDate.getTime(),
         pastDate,
         pastDate
       );
@@ -368,7 +378,7 @@ describe("Task Entity", () => {
     });
 
     it("should return false for completed INBOX tasks", () => {
-      const pastDate = new Date();
+      const pastDate = new Date("2023-12-01T12:00:00Z");
       pastDate.setDate(pastDate.getDate() - 5);
 
       task = new Task(
@@ -376,6 +386,7 @@ describe("Task Entity", () => {
         title,
         TaskCategory.INBOX,
         TaskStatus.COMPLETED,
+        pastDate.getTime(),
         pastDate,
         pastDate,
         undefined,
@@ -386,13 +397,15 @@ describe("Task Entity", () => {
     });
 
     it("should return false when inboxEnteredAt is not set", () => {
+      const baseDate = new Date("2023-12-01T12:00:00Z");
       task = new Task(
         taskId,
         title,
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
-        new Date(),
-        new Date()
+        baseDate.getTime(),
+        baseDate,
+        baseDate
       );
 
       expect(task.isOverdue(3)).toBe(false);

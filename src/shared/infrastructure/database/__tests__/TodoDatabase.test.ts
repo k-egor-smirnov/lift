@@ -170,6 +170,7 @@ describe("TodoDatabase", () => {
   describe("Daily Selection Entries Table", () => {
     it("should create daily selection entry with automatic timestamp", async () => {
       const entryData: DailySelectionEntryRecord = {
+        id: "entry_1",
         date: "2024-01-15",
         taskId: "task_123",
         completedFlag: false,
@@ -188,6 +189,7 @@ describe("TodoDatabase", () => {
 
     it("should enforce unique constraint on date+taskId combination", async () => {
       const entryData: DailySelectionEntryRecord = {
+        id: "entry_1",
         date: "2024-01-15",
         taskId: "task_123",
         completedFlag: false,
@@ -209,18 +211,21 @@ describe("TodoDatabase", () => {
     it("should filter by date", async () => {
       await db.dailySelectionEntries.bulkAdd([
         {
+          id: "entry_1",
           date: "2024-01-15",
           taskId: "task_1",
           completedFlag: false,
           createdAt: new Date(),
         },
         {
+          id: "entry_2",
           date: "2024-01-15",
           taskId: "task_2",
           completedFlag: true,
           createdAt: new Date(),
         },
         {
+          id: "entry_3",
           date: "2024-01-16",
           taskId: "task_3",
           completedFlag: false,
@@ -245,6 +250,7 @@ describe("TodoDatabase", () => {
   describe("Task Logs Table", () => {
     it("should create task log with automatic timestamp", async () => {
       const logData: TaskLogRecord = {
+        id: "log_1",
         taskId: "task_123",
         type: "SYSTEM",
         message: "Task created",
@@ -263,6 +269,7 @@ describe("TodoDatabase", () => {
 
     it("should create custom log without taskId", async () => {
       const logData: TaskLogRecord = {
+        id: "log_2",
         type: "USER",
         message: "Custom user log",
         createdAt: new Date(),
@@ -280,18 +287,21 @@ describe("TodoDatabase", () => {
     it("should filter logs by taskId", async () => {
       await db.taskLogs.bulkAdd([
         {
+          id: "log_3",
           taskId: "task_1",
           type: "SYSTEM",
           message: "Task 1 created",
           createdAt: new Date(),
         },
         {
+          id: "log_4",
           taskId: "task_1",
           type: "USER",
           message: "Working on task 1",
           createdAt: new Date(),
         },
         {
+          id: "log_5",
           taskId: "task_2",
           type: "SYSTEM",
           message: "Task 2 created",
@@ -315,18 +325,21 @@ describe("TodoDatabase", () => {
     it("should filter logs by type", async () => {
       await db.taskLogs.bulkAdd([
         {
+          id: "log_6",
           taskId: "task_1",
           type: "SYSTEM",
           message: "System log 1",
           createdAt: new Date(),
         },
         {
+          id: "log_7",
           taskId: "task_2",
           type: "USER",
           message: "User log 1",
           createdAt: new Date(),
         },
         {
+          id: "log_8",
           taskId: "task_3",
           type: "CONFLICT",
           message: "Conflict log 1",
