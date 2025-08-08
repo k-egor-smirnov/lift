@@ -8,6 +8,7 @@ import {
   Clock,
   Trash2,
   Pencil,
+  StickyNote,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -26,6 +27,8 @@ interface TaskActionsProps {
   onDelete: (taskId: string) => void;
   onDefer?: () => void;
   onEdit?: () => void;
+  onEditNote?: () => void;
+  hasNote?: boolean;
 }
 
 export const TaskActions: React.FC<TaskActionsProps> = ({
@@ -38,6 +41,8 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
   onDelete,
   onDefer,
   onEdit,
+  onEditNote,
+  hasNote = false,
 }) => {
   const { t } = useTranslation();
   const isCompleted = status === TaskStatus.COMPLETED;
@@ -72,6 +77,21 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
           })}
         >
           <Undo2 className="w-4 h-4" />
+        </button>
+      )}
+
+      {onEditNote && (
+        <button
+          onClick={onEditNote}
+          className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+            hasNote
+              ? "text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              : "text-gray-400 hover:text-gray-500 hover:bg-gray-50"
+          }`}
+          title={t("taskCard.editNote")}
+          aria-label={t("taskCard.editNote")}
+        >
+          <StickyNote className="w-4 h-4" />
         </button>
       )}
 
