@@ -4,6 +4,7 @@ import { Task } from "../../../domain/entities/Task";
 import { TaskId } from "../../../domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../domain/value-objects/NonEmptyTitle";
 import { TaskCategory, TaskStatus } from "../../../domain/types";
+import { TestTaskIdUtils } from "../../../../test/utils/testHelpers";
 
 // Mock dependencies
 const mockTaskRepository = {
@@ -53,7 +54,7 @@ describe("SupabaseSyncRepository - First Device Login Fix", () => {
     // Arrange
     const remoteTasks = [
       new Task(
-        new TaskId("task-1"),
+        new TaskId(TestTaskIdUtils.getValidTaskIdString()),
         new NonEmptyTitle("Remote Task 1"),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,
@@ -94,7 +95,7 @@ describe("SupabaseSyncRepository - First Device Login Fix", () => {
     // Arrange
     const localTasks = [
       new Task(
-        new TaskId("task-2"),
+        new TaskId(TestTaskIdUtils.getValidTaskIdString()),
         new NonEmptyTitle("Local Task 1"),
         TaskCategory.INBOX,
         TaskStatus.ACTIVE,

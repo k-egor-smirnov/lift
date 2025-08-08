@@ -17,29 +17,38 @@ vi.mock("../shared/domain/value-objects/DateOnly", () => {
   const originalDate = global.Date;
 
   return {
-    DateOnly: {
-      today: () => ({
-        value: mockDateString,
-        daysDifference: (other: any) => {
-          const thisDate = new Date(mockDateString);
-          const otherDate = new Date(other.value || other);
-          const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-          const days = diffTime / (1000 * 60 * 60 * 24);
-          return days === 0 ? 0 : Math.ceil(days);
-        },
-      }),
-      yesterday: () => ({
-        value: mockYesterdayString,
-        daysDifference: (other: any) => {
-          const thisDate = new Date(mockYesterdayString);
-          const otherDate = new Date(other.value || other);
-          const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-          const days = diffTime / (1000 * 60 * 60 * 24);
-          return days === 0 ? 0 : Math.ceil(days);
-        },
-      }),
-      getCurrentDate: () => mockDate,
-      fromDate: (date: Date) => {
+    DateOnly: class MockDateOnly {
+      constructor(value) {
+        this.value = value;
+      }
+      static today() {
+        return {
+          value: mockDateString,
+          daysDifference: (other: any) => {
+            const thisDate = new Date(mockDateString);
+            const otherDate = new Date(other.value || other);
+            const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
+            const days = diffTime / (1000 * 60 * 60 * 24);
+            return days === 0 ? 0 : Math.ceil(days);
+          },
+        };
+      }
+      static yesterday() {
+        return {
+          value: mockYesterdayString,
+          daysDifference: (other: any) => {
+            const thisDate = new Date(mockYesterdayString);
+            const otherDate = new Date(other.value || other);
+            const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
+            const days = diffTime / (1000 * 60 * 60 * 24);
+            return days === 0 ? 0 : Math.ceil(days);
+          },
+        };
+      }
+      getCurrentDate() {
+        return mockDate;
+      }
+      static fromDate = (date: Date) => {
         // Use local date formatting to avoid timezone issues
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -56,17 +65,19 @@ vi.mock("../shared/domain/value-objects/DateOnly", () => {
             return days === 0 ? 0 : Math.ceil(days);
           },
         };
-      },
-      fromString: (dateString: string) => ({
-        value: dateString,
-        daysDifference: (other: any) => {
-          const thisDate = new Date(dateString);
-          const otherDate = new Date(other.value || other);
-          const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-          const days = diffTime / (1000 * 60 * 60 * 24);
-          return days === 0 ? 0 : Math.ceil(days);
-        },
-      }),
+      };
+      static fromString = (dateString: string) => {
+        return {
+          value: dateString,
+          daysDifference: (other: any) => {
+            const thisDate = new Date(dateString);
+            const otherDate = new Date(other.value || other);
+            const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
+            const days = diffTime / (1000 * 60 * 60 * 24);
+            return days === 0 ? 0 : Math.ceil(days);
+          },
+        };
+      };
     },
   };
 });

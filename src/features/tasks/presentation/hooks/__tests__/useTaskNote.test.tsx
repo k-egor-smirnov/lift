@@ -2,11 +2,14 @@ import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useTaskNote } from "../useTaskNote";
 import { TaskViewModel } from "../../view-models/TaskViewModel";
+import { TestTaskIdUtils } from "../../../../test/utils/testHelpers";
 
 describe("useTaskNote", () => {
   let mockTaskViewModel: Partial<TaskViewModel>;
+  let validTaskId: string;
 
   beforeEach(() => {
+    validTaskId = TestTaskIdUtils.getValidTaskIdString();
     mockTaskViewModel = {
       changeTaskNote: vi.fn().mockReturnValue(true),
     };
@@ -14,7 +17,11 @@ describe("useTaskNote", () => {
 
   it("should initialize with closed state", () => {
     const { result } = renderHook(() =>
-      useTaskNote("task-1", "Initial note", mockTaskViewModel as TaskViewModel)
+      useTaskNote(
+        validTaskId,
+        "Initial note",
+        mockTaskViewModel as TaskViewModel
+      )
     );
 
     expect(result.current.isOpen).toBe(false);
@@ -23,7 +30,11 @@ describe("useTaskNote", () => {
 
   it("should open note when openNote is called", () => {
     const { result } = renderHook(() =>
-      useTaskNote("task-1", "Initial note", mockTaskViewModel as TaskViewModel)
+      useTaskNote(
+        validTaskId,
+        "Initial note",
+        mockTaskViewModel as TaskViewModel
+      )
     );
 
     act(() => {
@@ -35,7 +46,11 @@ describe("useTaskNote", () => {
 
   it("should close note when closeNote is called", () => {
     const { result } = renderHook(() =>
-      useTaskNote("task-1", "Initial note", mockTaskViewModel as TaskViewModel)
+      useTaskNote(
+        validTaskId,
+        "Initial note",
+        mockTaskViewModel as TaskViewModel
+      )
     );
 
     act(() => {
@@ -51,7 +66,11 @@ describe("useTaskNote", () => {
 
   it("should save note using TaskViewModel when provided", async () => {
     const { result } = renderHook(() =>
-      useTaskNote("task-1", "Initial note", mockTaskViewModel as TaskViewModel)
+      useTaskNote(
+        validTaskId,
+        "Initial note",
+        mockTaskViewModel as TaskViewModel
+      )
     );
 
     await act(async () => {
@@ -59,7 +78,7 @@ describe("useTaskNote", () => {
     });
 
     expect(mockTaskViewModel.changeTaskNote).toHaveBeenCalledWith(
-      "task-1",
+      validTaskId,
       "Updated note"
     );
   });
@@ -72,7 +91,9 @@ describe("useTaskNote", () => {
       }),
     }));
 
-    const { result } = renderHook(() => useTaskNote("task-1", "Initial note"));
+    const { result } = renderHook(() =>
+      useTaskNote(validTaskId, "Initial note")
+    );
 
     // Should not throw error
     await expect(
@@ -89,7 +110,7 @@ describe("useTaskNote", () => {
 
     const { result } = renderHook(() =>
       useTaskNote(
-        "task-1",
+        validTaskId,
         "Initial note",
         mockTaskViewModelWithError as TaskViewModel
       )

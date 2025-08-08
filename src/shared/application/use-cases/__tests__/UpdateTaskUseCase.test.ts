@@ -9,6 +9,7 @@ import { NonEmptyTitle } from "../../../domain/value-objects/NonEmptyTitle";
 import { TaskCategory, TaskStatus } from "../../../domain/types";
 import { ResultUtils } from "../../../domain/Result";
 import { DebouncedSyncService } from "../../services/DebouncedSyncService";
+import { TestTaskIdUtils } from "../../../test/utils/testHelpers";
 
 // Mock implementations
 const mockTaskRepository: TaskRepository = {
@@ -191,7 +192,7 @@ describe("UpdateTaskUseCase", () => {
     it("should fail with invalid task ID", async () => {
       // Arrange
       const request: UpdateTaskRequest = {
-        taskId: "invalid-id",
+        taskId: "INVALID_TASK_ID_FORMAT", // Invalid ULID format
         title: "New Title",
       };
 
