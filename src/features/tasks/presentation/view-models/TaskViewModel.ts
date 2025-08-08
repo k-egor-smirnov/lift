@@ -36,7 +36,7 @@ export interface TaskViewModelState {
 
   // Actions
   loadTasks: () => Promise<void>;
-  createTask: (request: CreateTaskRequest) => Promise<boolean>;
+  createTask: (request: CreateTaskRequest) => Promise<string | null>;
   updateTask: (request: UpdateTaskRequest) => Promise<boolean>;
   completeTask: (taskId: string) => Promise<boolean>;
   revertTaskCompletion: (taskId: string) => Promise<boolean>;
@@ -194,20 +194,18 @@ export const createTaskViewModel = (
         const result = await createTaskUseCase.execute(request);
 
         if (result.success) {
-          // Reload tasks to get the updated list
           await get().loadTasks();
-
-          return true;
+          return result.data.taskId;
         } else {
           set({ error: (result as any).error.message });
-          return false;
+          return null;
         }
       } catch (error) {
         set({
           error:
             error instanceof Error ? error.message : "Failed to create task",
         });
-        return false;
+        return null;
       }
     },
 

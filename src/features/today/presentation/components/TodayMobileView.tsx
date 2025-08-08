@@ -22,7 +22,7 @@ interface TodayMobileViewProps {
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
-  onCreateTask?: (title: string) => Promise<void>;
+  onCreateTask?: (title: string, images?: File[]) => Promise<void>;
 }
 
 export const TodayMobileView: React.FC<TodayMobileViewProps> = ({

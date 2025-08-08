@@ -169,7 +169,7 @@ describe("TaskViewModel", () => {
 
       const result = await viewModel.getState().createTask(request);
 
-      expect(result).toBe(true);
+      expect(result).toBe("new-task-id");
       expect(mockCreateTaskUseCase.execute).toHaveBeenCalledWith(request);
       expect(mockTaskRepository.findAll).toHaveBeenCalled(); // loadTasks called
     });
@@ -184,7 +184,7 @@ describe("TaskViewModel", () => {
 
       const result = await viewModel.getState().createTask(request);
 
-      expect(result).toBe(false);
+      expect(result).toBeNull();
       expect(viewModel.getState().error).toBe("Creation failed");
     });
   });
