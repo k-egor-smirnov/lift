@@ -95,6 +95,7 @@ const resources = {
       taskCard: {
         deferTask: "Defer Task",
         deferTaskWithTitle: "Defer task: {{title}}",
+        editTask: "Edit task",
       },
       logs: {
         actions: {
@@ -216,6 +217,7 @@ const resources = {
         overdue: "Залежалась",
         daysAgo: "Несколько дней назад",
         deleteTask: "Удалить",
+        editTask: "Редактировать",
       },
       tasks: {
         newTask: "Новая задача",
