@@ -38,6 +38,7 @@ export class Task {
   private _wasEverReviewed: boolean = false;
   private _deferredUntil?: Date;
   private _originalCategory?: TaskCategory;
+  private _note: string | null;
   public readonly inboxEnteredAt?: Date;
 
   constructor(
@@ -51,7 +52,8 @@ export class Task {
     deletedAt?: Date,
     inboxEnteredAt?: Date,
     deferredUntil?: Date,
-    originalCategory?: TaskCategory
+    originalCategory?: TaskCategory,
+    note: string | null = null
   ) {
     this._title = title;
     this._category = category;
@@ -61,6 +63,7 @@ export class Task {
     this._deletedAt = deletedAt;
     this._deferredUntil = deferredUntil;
     this._originalCategory = originalCategory;
+    this._note = note;
 
     // Set inboxEnteredAt if not provided and category is INBOX
     this.inboxEnteredAt =
@@ -120,6 +123,10 @@ export class Task {
     return this._originalCategory;
   }
 
+  get note(): string | null {
+    return this._note ?? null;
+  }
+
   get isDeferred(): boolean {
     return (
       this._category === TaskCategory.DEFERRED &&
@@ -136,6 +143,17 @@ export class Task {
     const deferredDate = new Date(this._deferredUntil);
     deferredDate.setHours(0, 0, 0, 0);
     return deferredDate <= today;
+  }
+
+  /**
+   * Update task note HTML content
+   */
+  updateNote(note: string | null): void {
+    if (this.isDeleted) {
+      throw new InvalidTaskOperationError("Cannot update note of deleted task");
+    }
+    this._note = note;
+    this._updatedAt = new Date();
   }
 
   /**
@@ -382,6 +400,7 @@ export class Task {
     deletedAt?: Date;
     deferredUntil?: Date;
     originalCategory?: TaskCategory;
+    note?: string | null;
   }): Task {
     return new Task(
       this.id,
@@ -394,7 +413,8 @@ export class Task {
       updates.deletedAt ?? this._deletedAt,
       this.inboxEnteredAt,
       updates.deferredUntil ?? this._deferredUntil,
-      updates.originalCategory ?? this._originalCategory
+      updates.originalCategory ?? this._originalCategory,
+      updates.note ?? this._note
     );
   }
 }

@@ -15,6 +15,7 @@ export interface TaskRecord {
   inboxEnteredAt?: Date;
   deferredUntil?: Date;
   originalCategory?: TaskCategory;
+  note?: string | null;
 }
 
 export interface DailySelectionEntryRecord {
@@ -304,6 +305,31 @@ export class TodoDatabase extends Dexie {
             });
           }
         }
+      });
+
+    // Version 8 - Add note field to tasks
+    this.version(8)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory, note",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+      })
+      .upgrade(async (_trans) => {
+        console.log(
+          "Upgrading database to version 8 - adding note field to tasks"
+        );
+        // No migration needed; note is optional
       });
 
     // Add hooks for automatic timestamp updates
