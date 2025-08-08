@@ -33,6 +33,7 @@ export function hashTask(task: any): string {
     updatedAt: task.updatedAt?.toISOString() || task.updatedAt,
     deletedAt: task.deletedAt?.toISOString() || task.deletedAt,
     inboxEnteredAt: task.inboxEnteredAt?.toISOString() || task.inboxEnteredAt,
+    note: task.note ?? null,
   };
 
   return hashObject(syncData);
