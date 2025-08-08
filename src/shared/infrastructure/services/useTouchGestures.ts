@@ -36,9 +36,18 @@ export const useTouchGestures = (options: TouchGestureOptions = {}) => {
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isLongPressing, setIsLongPressing] = useState(false);
 
+  const isInteractiveElement = (target: EventTarget | null): boolean => {
+    return (
+      target instanceof HTMLElement &&
+      !!target.closest(
+        "button, a, input, textarea, select, [role='button'], [aria-haspopup]"
+      )
+    );
+  };
+
   const handleTouchStart = (event: TouchEvent) => {
     const touch = event.touches[0];
-    if (!touch) return;
+    if (!touch || isInteractiveElement(event.target)) return;
 
     touchStartRef.current = {
       x: touch.clientX,
@@ -64,6 +73,11 @@ export const useTouchGestures = (options: TouchGestureOptions = {}) => {
   };
 
   const handleTouchEnd = (event: TouchEvent) => {
+    if (isInteractiveElement(event.target)) {
+      touchStartRef.current = null;
+      return;
+    }
+
     const touchStart = touchStartRef.current;
     if (!touchStart) return;
 

@@ -1,7 +1,14 @@
 import React from "react";
 import { TaskStatus } from "../../../../../shared/domain/types";
 import { useTranslation } from "react-i18next";
-import { Check, Undo2, MoreHorizontal, Clock, Trash2 } from "lucide-react";
+import {
+  Check,
+  Undo2,
+  MoreHorizontal,
+  Clock,
+  Trash2,
+  Pencil,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +25,7 @@ interface TaskActionsProps {
   onRevertCompletion?: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onDefer?: () => void;
+  onEdit?: () => void;
 }
 
 export const TaskActions: React.FC<TaskActionsProps> = ({
@@ -29,6 +37,7 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
   onRevertCompletion,
   onDelete,
   onDefer,
+  onEdit,
 }) => {
   const { t } = useTranslation();
   const isCompleted = status === TaskStatus.COMPLETED;
@@ -78,6 +87,15 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
+          {onEdit && (
+            <DropdownMenuItem
+              onClick={onEdit}
+              className="flex items-center gap-2"
+            >
+              <Pencil className="w-4 h-4" />
+              {t("taskCard.editTask")}
+            </DropdownMenuItem>
+          )}
           {showDeferButton && onDefer && !isCompleted && (
             <DropdownMenuItem
               onClick={onDefer}

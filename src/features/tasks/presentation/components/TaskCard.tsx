@@ -140,11 +140,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         onAddToToday(task.id.value);
       }
     },
-    onTap: () => {
-      if (isTouch && !isEditing) {
-        handleStartEdit();
-      }
-    },
     onLongPress: () => {
       if (isTouch && onCreateLog) {
         // Long press opens log modal
@@ -243,6 +238,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onRevertCompletion={onRevertCompletion}
                 onDelete={onDelete}
                 onDefer={handleOpenDeferModal}
+                onEdit={handleStartEdit}
               />
             </div>
           )}
