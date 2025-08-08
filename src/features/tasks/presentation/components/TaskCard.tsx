@@ -19,6 +19,7 @@ import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
+import { TaskImages } from "./task-card/TaskImages";
 
 // Хуки
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
@@ -254,6 +255,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           onToggleLogHistory={handleToggleLogHistory}
           onCreateLog={onCreateLog}
         />
+        <TaskImages taskId={task.id.value} />
       </motion.article>
 
       {/* Modals */}
