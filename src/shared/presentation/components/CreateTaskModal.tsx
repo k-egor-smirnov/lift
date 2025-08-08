@@ -5,7 +5,11 @@ import { TaskCategory } from "../../domain/types";
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (title: string, category: TaskCategory) => Promise<boolean>;
+  onSubmit: (
+    title: string,
+    category: TaskCategory,
+    image?: File
+  ) => Promise<boolean>;
   initialTitle?: string;
   initialCategory?: TaskCategory;
   hideCategorySelection?: boolean;
@@ -75,6 +79,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 }) => {
   const [title, setTitle] = useState(initialTitle);
   const [category, setCategory] = useState(initialCategory);
+  const [image, setImage] = useState<File | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,6 +88,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     if (isOpen) {
       setTitle(initialTitle);
       setCategory(initialCategory);
+      setImage(undefined);
       setError(null);
     }
   }, [isOpen, initialTitle, initialCategory]);
@@ -113,11 +119,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setError(null);
 
     try {
-      const success = await onSubmit(title.trim(), category);
+      const success = await onSubmit(title.trim(), category, image);
       if (success) {
         onClose();
         setTitle("");
         setCategory(TaskCategory.INBOX);
+        setImage(undefined);
       } else {
         setError(t("createTaskModal.failedToCreate"));
       }
@@ -198,6 +205,20 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 autoFocus
                 disabled={isSubmitting}
                 data-testid="task-title-input"
+              />
+            </div>
+
+            {/* Image Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Image
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImage(e.target.files?.[0])}
+                disabled={isSubmitting}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none"
               />
             </div>
 

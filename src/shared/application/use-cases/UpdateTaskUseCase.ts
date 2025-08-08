@@ -17,6 +17,7 @@ export interface UpdateTaskRequest {
   title?: string;
   category?: TaskCategory;
   order?: number;
+  image?: File;
 }
 
 /**
@@ -56,7 +57,7 @@ export class UpdateTaskUseCase extends BaseTaskUseCase {
           );
         }
 
-        const task = taskResult.data;
+        let task = taskResult.data;
         const allEvents: any[] = [];
 
         // Update title if provided
@@ -87,6 +88,18 @@ export class UpdateTaskUseCase extends BaseTaskUseCase {
         if (request.order !== undefined) {
           const orderEvents = task.changeOrder(request.order);
           allEvents.push(...orderEvents);
+        }
+
+        if (request.image) {
+          const { generateThumbhash } = await import(
+            "../../infrastructure/utils/thumbhash"
+          );
+          const thumbhash = await generateThumbhash(request.image);
+          task = task.copyWith({
+            thumbhash,
+            image: request.image,
+            updatedAt: new Date(),
+          });
         }
 
         // Execute in transaction

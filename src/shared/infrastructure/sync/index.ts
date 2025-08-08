@@ -57,6 +57,9 @@ export {
   default as SyncStatusIndicatorDefault,
 } from "../../presentation/components/SyncStatusIndicator";
 
+// P2P image synchronization service
+export { P2PImageSyncService } from "./P2PImageSyncService";
+
 // Типы
 export type {
   SyncResult,

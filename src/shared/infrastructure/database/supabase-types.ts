@@ -173,6 +173,7 @@ export type Database = {
           original_category:
             | Database["public"]["Enums"]["task_category"]
             | null;
+          thumbhash: string | null;
           status: Database["public"]["Enums"]["task_status"];
           sync_version: number;
           title: string;
@@ -191,6 +192,7 @@ export type Database = {
           original_category?:
             | Database["public"]["Enums"]["task_category"]
             | null;
+          thumbhash?: string | null;
           status?: Database["public"]["Enums"]["task_status"];
           sync_version?: number;
           title: string;
@@ -209,6 +211,7 @@ export type Database = {
           original_category?:
             | Database["public"]["Enums"]["task_category"]
             | null;
+          thumbhash?: string | null;
           status?: Database["public"]["Enums"]["task_status"];
           sync_version?: number;
           title?: string;

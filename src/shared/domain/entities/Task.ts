@@ -38,6 +38,8 @@ export class Task {
   private _wasEverReviewed: boolean = false;
   private _deferredUntil?: Date;
   private _originalCategory?: TaskCategory;
+  private _thumbhash?: string;
+  private _image?: Blob;
   public readonly inboxEnteredAt?: Date;
 
   constructor(
@@ -51,7 +53,9 @@ export class Task {
     deletedAt?: Date,
     inboxEnteredAt?: Date,
     deferredUntil?: Date,
-    originalCategory?: TaskCategory
+    originalCategory?: TaskCategory,
+    thumbhash?: string,
+    image?: Blob
   ) {
     this._title = title;
     this._category = category;
@@ -61,6 +65,8 @@ export class Task {
     this._deletedAt = deletedAt;
     this._deferredUntil = deferredUntil;
     this._originalCategory = originalCategory;
+    this._thumbhash = thumbhash;
+    this._image = image;
 
     // Set inboxEnteredAt if not provided and category is INBOX
     this.inboxEnteredAt =
@@ -120,6 +126,14 @@ export class Task {
     return this._originalCategory;
   }
 
+  get thumbhash(): string | undefined {
+    return this._thumbhash;
+  }
+
+  get image(): Blob | undefined {
+    return this._image;
+  }
+
   get isDeferred(): boolean {
     return (
       this._category === TaskCategory.DEFERRED &&
@@ -144,7 +158,9 @@ export class Task {
   static create(
     id: TaskId,
     title: NonEmptyTitle,
-    category: TaskCategory
+    category: TaskCategory,
+    thumbhash?: string,
+    image?: Blob
   ): { task: Task; events: DomainEvent[] } {
     const now = new Date();
     const task = new Task(
@@ -156,7 +172,11 @@ export class Task {
       now,
       now,
       undefined,
-      category === TaskCategory.INBOX ? now : undefined
+      category === TaskCategory.INBOX ? now : undefined,
+      undefined,
+      undefined,
+      thumbhash,
+      image
     );
 
     const events = [new TaskCreatedEvent(id, title, category)];
@@ -382,6 +402,8 @@ export class Task {
     deletedAt?: Date;
     deferredUntil?: Date;
     originalCategory?: TaskCategory;
+    thumbhash?: string;
+    image?: Blob;
   }): Task {
     return new Task(
       this.id,
@@ -394,7 +416,9 @@ export class Task {
       updates.deletedAt ?? this._deletedAt,
       this.inboxEnteredAt,
       updates.deferredUntil ?? this._deferredUntil,
-      updates.originalCategory ?? this._originalCategory
+      updates.originalCategory ?? this._originalCategory,
+      updates.thumbhash ?? this._thumbhash,
+      updates.image ?? this._image
     );
   }
 }

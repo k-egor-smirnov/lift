@@ -17,6 +17,7 @@ import * as tokens from "../../infrastructure/di/tokens";
 export interface CreateTaskRequest {
   title: string;
   category: TaskCategory;
+  image?: File;
 }
 
 /**
@@ -73,7 +74,20 @@ export class CreateTaskUseCase extends BaseTaskUseCase {
         }
 
         // Create task entity
-        const { task, events } = Task.create(taskId, title, request.category);
+        let thumbhash: string | undefined;
+        if (request.image) {
+          const { generateThumbhash } = await import(
+            "../../infrastructure/utils/thumbhash"
+          );
+          thumbhash = await generateThumbhash(request.image);
+        }
+        const { task, events } = Task.create(
+          taskId,
+          title,
+          request.category,
+          thumbhash,
+          request.image
+        );
 
         // Execute in transaction (this will trigger sync)
         const transactionResult = await this.executeInTransaction<void>(
