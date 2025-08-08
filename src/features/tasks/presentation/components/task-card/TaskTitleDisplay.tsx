@@ -12,6 +12,7 @@ interface TaskTitleDisplayProps {
   isInTodaySelection: boolean;
   onEdit: () => void;
   onAddToToday?: (taskId: string) => void;
+  checklistProgress?: { completed: number; total: number } | null;
 }
 
 export const TaskTitleDisplay: React.FC<TaskTitleDisplayProps> = ({
@@ -22,6 +23,7 @@ export const TaskTitleDisplay: React.FC<TaskTitleDisplayProps> = ({
   isInTodaySelection,
   onEdit,
   onAddToToday,
+  checklistProgress,
 }) => {
   const { t } = useTranslation();
   const isCompleted = status === TaskStatus.COMPLETED;
@@ -80,6 +82,11 @@ export const TaskTitleDisplay: React.FC<TaskTitleDisplayProps> = ({
       >
         {title}
       </h3>
+      {checklistProgress && (
+        <span className="text-sm text-gray-500 whitespace-nowrap">
+          {checklistProgress.completed} / {checklistProgress.total}
+        </span>
+      )}
     </div>
   );
 };

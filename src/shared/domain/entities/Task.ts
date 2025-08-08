@@ -38,6 +38,7 @@ export class Task {
   private _wasEverReviewed: boolean = false;
   private _deferredUntil?: Date;
   private _originalCategory?: TaskCategory;
+  private _note: string | null;
   public readonly inboxEnteredAt?: Date;
 
   constructor(
@@ -51,7 +52,8 @@ export class Task {
     deletedAt?: Date,
     inboxEnteredAt?: Date,
     deferredUntil?: Date,
-    originalCategory?: TaskCategory
+    originalCategory?: TaskCategory,
+    note: string | null = null
   ) {
     this._title = title;
     this._category = category;
@@ -61,6 +63,7 @@ export class Task {
     this._deletedAt = deletedAt;
     this._deferredUntil = deferredUntil;
     this._originalCategory = originalCategory;
+    this._note = note;
 
     // Set inboxEnteredAt if not provided and category is INBOX
     this.inboxEnteredAt =
@@ -118,6 +121,10 @@ export class Task {
 
   get originalCategory(): TaskCategory | undefined {
     return this._originalCategory;
+  }
+
+  get note(): string | null {
+    return this._note;
   }
 
   get isDeferred(): boolean {
@@ -277,6 +284,20 @@ export class Task {
   }
 
   /**
+   * Change the task's note HTML content
+   */
+  changeNote(newNote: string | null): DomainEvent[] {
+    if (this.isDeleted) {
+      throw new InvalidTaskOperationError("Cannot change note of deleted task");
+    }
+
+    this._note = newNote;
+    this._updatedAt = new Date();
+
+    return []; // No domain event for note change
+  }
+
+  /**
    * Check if task is overdue (only applies to INBOX tasks)
    */
   isOverdue(overdueDays: number): boolean {
@@ -382,6 +403,7 @@ export class Task {
     deletedAt?: Date;
     deferredUntil?: Date;
     originalCategory?: TaskCategory;
+    note?: string | null;
   }): Task {
     return new Task(
       this.id,
@@ -394,7 +416,8 @@ export class Task {
       updates.deletedAt ?? this._deletedAt,
       this.inboxEnteredAt,
       updates.deferredUntil ?? this._deferredUntil,
-      updates.originalCategory ?? this._originalCategory
+      updates.originalCategory ?? this._originalCategory,
+      updates.note ?? this._note
     );
   }
 }

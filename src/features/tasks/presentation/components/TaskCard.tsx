@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -19,6 +19,7 @@ import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
+import { TaskNoteModal } from "./task-card/TaskNoteModal";
 
 // Хуки
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
@@ -42,6 +43,7 @@ interface TaskCardProps {
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   isDraggable?: boolean;
   currentCategory?: TaskCategory;
+  onUpdateNote?: (taskId: string, note: string | null) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -61,6 +63,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onCreateLog,
   isDraggable = false,
   currentCategory,
+  onUpdateNote,
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
@@ -155,6 +158,33 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [attachGestures, isTouch]);
 
+  const [showNoteModal, setShowNoteModal] = useState(false);
+
+  const handleOpenNote = () => setShowNoteModal(true);
+  const handleCloseNote = () => setShowNoteModal(false);
+  const handleSaveNote = (note: string | null) => {
+    onUpdateNote && onUpdateNote(task.id.value, note);
+    setShowNoteModal(false);
+  };
+
+  const checklistProgress = useMemo(() => {
+    if (!task.note) return null;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(task.note, "text/html");
+      const items = Array.from(
+        doc.querySelectorAll('li[data-type="taskItem"]')
+      );
+      if (items.length === 0) return null;
+      const completed = items.filter(
+        (item) => item.getAttribute("data-checked") === "true"
+      ).length;
+      return { completed, total: items.length };
+    } catch {
+      return null;
+    }
+  }, [task.note]);
+
   return (
     <>
       {/* Blue line indicator for drop location */}
@@ -227,6 +257,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 isInTodaySelection={isInTodaySelection}
                 onEdit={handleStartEdit}
                 onAddToToday={onAddToToday}
+                checklistProgress={checklistProgress}
               />
 
               <TaskActions
@@ -239,6 +270,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onDelete={onDelete}
                 onDefer={handleOpenDeferModal}
                 onEdit={handleStartEdit}
+                onEditNote={handleOpenNote}
+                hasNote={!!task.note}
               />
             </div>
           )}
@@ -268,6 +301,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         isOpen={showDeferModal}
         onClose={handleCloseDeferModal}
         onDeferConfirm={handleDeferConfirm}
+      />
+
+      <TaskNoteModal
+        isOpen={showNoteModal}
+        initialNote={task.note ?? null}
+        onClose={handleCloseNote}
+        onSave={handleSaveNote}
       />
     </>
   );
