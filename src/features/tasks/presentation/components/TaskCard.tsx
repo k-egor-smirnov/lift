@@ -19,11 +19,13 @@ import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
+import { NoteModal } from "../../../../shared/ui/components/NoteModal";
 
 // Хуки
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
 import { useTaskLogs } from "./task-card/hooks/useTaskLogs";
 import { useTaskDefer } from "./task-card/hooks/useTaskDefer";
+import { useTaskNote } from "./task-card/hooks/useTaskNote";
 
 interface TaskCardProps {
   task: Task;
@@ -103,6 +105,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   } = useTaskDefer({
     taskId: task.id.value,
     onDefer,
+  });
+
+  const {
+    showNoteModal,
+    isSaving,
+    handleOpenNoteModal,
+    handleCloseNoteModal,
+    handleSaveNote,
+  } = useTaskNote({
+    taskId: task.id.value,
+    initialNote: task.note,
   });
 
   // Drag and drop functionality
@@ -239,6 +252,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onDelete={onDelete}
                 onDefer={handleOpenDeferModal}
                 onEdit={handleStartEdit}
+                note={task.note}
+                onNoteClick={handleOpenNoteModal}
               />
             </div>
           )}
@@ -268,6 +283,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         isOpen={showDeferModal}
         onClose={handleCloseDeferModal}
         onDeferConfirm={handleDeferConfirm}
+      />
+
+      <NoteModal
+        isOpen={showNoteModal}
+        onClose={handleCloseNoteModal}
+        onSave={handleSaveNote}
+        initialContent={task.note || ""}
+        taskTitle={task.title.value}
       />
     </>
   );

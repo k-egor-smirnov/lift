@@ -8,7 +8,13 @@ import {
   Clock,
   Trash2,
   Pencil,
+  FileText,
+  File,
 } from "lucide-react";
+import {
+  parseChecklistProgress,
+  formatChecklistProgress,
+} from "../../../../../shared/utils/checklistUtils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +32,8 @@ interface TaskActionsProps {
   onDelete: (taskId: string) => void;
   onDefer?: () => void;
   onEdit?: () => void;
+  note?: string;
+  onNoteClick?: () => void;
 }
 
 export const TaskActions: React.FC<TaskActionsProps> = ({
@@ -38,9 +46,16 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
   onDelete,
   onDefer,
   onEdit,
+  note,
+  onNoteClick,
 }) => {
   const { t } = useTranslation();
   const isCompleted = status === TaskStatus.COMPLETED;
+
+  // Parse checklist progress from note
+  const checklistProgress = note ? parseChecklistProgress(note) : null;
+  const hasNote = note && note.trim().length > 0;
+  const hasChecklist = checklistProgress && checklistProgress.total > 0;
 
   return (
     <div
@@ -48,6 +63,33 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
       role="toolbar"
       aria-label={t("taskCard.taskActions")}
     >
+      {/* Note button - always visible if onNoteClick is provided */}
+      {onNoteClick && (
+        <button
+          onClick={onNoteClick}
+          className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 relative ${
+            hasNote
+              ? "text-blue-600 hover:text-blue-700 hover:bg-blue-50 focus:ring-blue-500"
+              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50 focus:ring-gray-500"
+          }`}
+          title={hasNote ? "Редактировать заметку" : "Добавить заметку"}
+          aria-label={hasNote ? "Редактировать заметку" : "Добавить заметку"}
+        >
+          {hasNote ? (
+            <FileText className="w-4 h-4" />
+          ) : (
+            <File className="w-4 h-4" />
+          )}
+
+          {/* Checklist progress indicator */}
+          {hasChecklist && (
+            <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center leading-none">
+              {formatChecklistProgress(checklistProgress)}
+            </span>
+          )}
+        </button>
+      )}
+
       {/* Complete/Revert button - always visible */}
       {!isCompleted && (
         <button
