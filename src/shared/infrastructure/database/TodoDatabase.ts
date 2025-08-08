@@ -62,6 +62,13 @@ export interface StatsDailyRecord {
   createdAt: Date;
 }
 
+export interface TaskImageRecord {
+  id: string;
+  taskId: string;
+  blob: Blob;
+  thumbhash: string;
+}
+
 // Event store record interfaces for persistent event bus
 export interface EventStoreRecord {
   id: string; // ULID (primary key)
@@ -95,6 +102,7 @@ export class TodoDatabase extends Dexie {
   userSettings!: Table<UserSettingsRecord>;
   syncQueue!: Table<SyncQueueRecord>;
   statsDaily!: Table<StatsDailyRecord>;
+  taskImages!: Table<TaskImageRecord>;
   eventStore!: Table<EventStoreRecord>;
   handledEvents!: Table<HandledEventRecord>;
   locks!: Table<LockRecord>;
@@ -306,6 +314,31 @@ export class TodoDatabase extends Dexie {
         }
       });
 
+    // Version 8 - Add task images table
+    this.version(8)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        taskImages: "id, taskId",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+      })
+      .upgrade(async () => {
+        console.log(
+          "Upgrading database to version 8 - adding task images table"
+        );
+      });
+
     // Add hooks for automatic timestamp updates
     this.tasks.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
@@ -388,6 +421,7 @@ export class TodoDatabase extends Dexie {
         this.userSettings,
         this.syncQueue,
         this.statsDaily,
+        this.taskImages,
         this.eventStore,
         this.handledEvents,
         this.locks,
@@ -399,6 +433,7 @@ export class TodoDatabase extends Dexie {
         await this.userSettings.clear();
         await this.syncQueue.clear();
         await this.statsDaily.clear();
+        await this.taskImages.clear();
         await this.eventStore.clear();
         await this.handledEvents.clear();
         await this.locks.clear();
