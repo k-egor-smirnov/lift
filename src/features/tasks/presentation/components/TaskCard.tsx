@@ -25,7 +25,8 @@ import { NoteModal } from "../../../../shared/ui/components/NoteModal";
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
 import { useTaskLogs } from "./task-card/hooks/useTaskLogs";
 import { useTaskDefer } from "./task-card/hooks/useTaskDefer";
-import { useTaskNote } from "./task-card/hooks/useTaskNote";
+import { useTaskNote } from "../hooks/useTaskNote";
+import { TaskViewModel } from "../view-models/TaskViewModel";
 
 interface TaskCardProps {
   task: Task;
@@ -44,6 +45,7 @@ interface TaskCardProps {
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   isDraggable?: boolean;
   currentCategory?: TaskCategory;
+  taskViewModel?: TaskViewModel;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -63,6 +65,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onCreateLog,
   isDraggable = false,
   currentCategory,
+  taskViewModel,
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
@@ -108,15 +111,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   });
 
   const {
-    showNoteModal,
+    isOpen: showNoteModal,
     isSaving,
-    handleOpenNoteModal,
-    handleCloseNoteModal,
-    handleSaveNote,
-  } = useTaskNote({
-    taskId: task.id.value,
-    initialNote: task.note,
-  });
+    openNote: handleOpenNoteModal,
+    closeNote: handleCloseNoteModal,
+    saveNote: handleSaveNote,
+  } = useTaskNote(task.id.value, task.note, taskViewModel!);
 
   // Drag and drop functionality
   const {

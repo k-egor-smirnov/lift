@@ -4,6 +4,7 @@ import { CHANGE_TASK_NOTE_USE_CASE_TOKEN } from "../../../../shared/infrastructu
 import { ChangeTaskNoteUseCase } from "../../../../shared/application/use-cases/ChangeTaskNoteUseCase";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 import { ResultUtils } from "../../../../shared/domain/Result";
+import { TaskViewModel } from "../view-models/TaskViewModel";
 
 export interface UseTaskNoteReturn {
   isOpen: boolean;
@@ -15,7 +16,8 @@ export interface UseTaskNoteReturn {
 
 export function useTaskNote(
   taskId: string,
-  initialNote?: string
+  initialNote?: string,
+  taskViewModel?: TaskViewModel
 ): UseTaskNoteReturn {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -36,20 +38,44 @@ export function useTaskNote(
     async (content: string) => {
       setIsSaving(true);
       try {
-        const result = await changeTaskNoteUseCase.execute({
-          taskId: TaskId.create(taskId),
-          note: content,
-        });
-
-        if (ResultUtils.isFailure(result)) {
-          console.error("Failed to save note:", result.error);
-          throw result.error;
+        if (!taskId) {
+          throw new Error("Task ID is required");
         }
+
+        // Если передан TaskViewModel, используем его метод
+        if (taskViewModel) {
+          const success = taskViewModel.changeTaskNote(taskId, content);
+          if (!success) {
+            throw new Error("Failed to save note via TaskViewModel");
+          }
+        } else {
+          // Fallback к использованию use case напрямую
+          let taskIdObj: TaskId;
+          try {
+            taskIdObj = TaskId.fromString(taskId);
+          } catch (error) {
+            console.error("Invalid task ID format:", taskId, error);
+            throw new Error(`Invalid task ID format: ${taskId}`);
+          }
+
+          const result = await changeTaskNoteUseCase.execute({
+            taskId: taskIdObj,
+            note: content,
+          });
+
+          if (ResultUtils.isFailure(result)) {
+            console.error("Failed to save note:", result.error);
+            throw result.error;
+          }
+        }
+      } catch (error) {
+        console.error("Error saving note:", error);
+        throw error; // Не создаем новую ошибку, а пробрасываем оригинальную
       } finally {
         setIsSaving(false);
       }
     },
-    [taskId, changeTaskNoteUseCase]
+    [taskId, changeTaskNoteUseCase, taskViewModel]
   );
 
   return {

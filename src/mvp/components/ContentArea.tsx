@@ -7,6 +7,7 @@ import { AllLogsView } from "../../features/logs/presentation/components";
 import { Settings } from "../../features/settings/presentation/components/Settings";
 import { TodayViewModelDependencies } from "../../features/today/presentation/view-models/TodayViewModel";
 import { LogViewModelDependencies } from "../../features/logs/presentation/view-models/LogViewModel";
+import { TaskViewModel } from "../../features/tasks/presentation/view-models/TaskViewModel";
 import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { ViewContainer } from "./ViewContainer";
 
@@ -19,6 +20,9 @@ interface ContentAreaProps {
 
   // Logs view props
   logDependencies: LogViewModelDependencies;
+
+  // Task view model
+  taskViewModel: TaskViewModel;
 
   // Task list props
   tasks: Task[];
@@ -44,6 +48,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   loading,
   todayDependencies,
   logDependencies,
+  taskViewModel,
   tasks,
   currentCategory,
   todayTaskIds,
@@ -125,6 +130,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             showDeferButton={true}
             onDefer={onDeferTask}
             onUndefer={onUndeferTask}
+            taskViewModel={taskViewModel}
           />
         </ViewContainer>
       );

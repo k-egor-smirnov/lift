@@ -1,16 +1,20 @@
 import { useState } from "react";
-import { container } from "tsyringe";
-import { ChangeTaskNoteUseCase } from "../../../../../../shared/application/use-cases/ChangeTaskNoteUseCase";
+import { TaskViewModel } from "../../../view-models/TaskViewModel";
 
 interface UseTaskNoteProps {
   taskId: string;
   initialNote?: string;
+  taskViewModel: TaskViewModel;
 }
 
-export const useTaskNote = ({ taskId, initialNote = "" }: UseTaskNoteProps) => {
+export const useTaskNote = ({
+  taskId,
+  initialNote = "",
+  taskViewModel,
+}: UseTaskNoteProps) => {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const changeTaskNoteUseCase = container.resolve(ChangeTaskNoteUseCase);
+  const { changeTaskNote } = taskViewModel();
 
   const handleOpenNoteModal = () => {
     setShowNoteModal(true);
@@ -23,18 +27,17 @@ export const useTaskNote = ({ taskId, initialNote = "" }: UseTaskNoteProps) => {
   const handleSaveNote = async (content: string) => {
     setIsSaving(true);
     try {
-      const result = await changeTaskNoteUseCase.execute(
-        taskId,
-        content.trim() || undefined
-      );
-
-      if (result.isSuccess) {
-        setShowNoteModal(false);
-        return true;
-      } else {
-        console.error("Failed to save note:", result.error);
-        throw new Error(result.error);
+      if (!taskId) {
+        throw new Error("Task ID is required");
       }
+
+      const success = await changeTaskNote(taskId, content);
+
+      if (!success) {
+        throw new Error("Failed to save note");
+      }
+
+      setShowNoteModal(false);
     } catch (error) {
       console.error("Error saving note:", error);
       throw error;

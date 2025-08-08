@@ -7,6 +7,7 @@ import { DeferredTaskCard } from "./DeferredTaskCard";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
+import { TaskViewModel } from "../view-models/TaskViewModel";
 import {
   DndContext,
   closestCenter,
@@ -19,10 +20,10 @@ import {
   DragOverlay,
 } from "@dnd-kit/core";
 import {
-  arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
+  arrayMove,
+  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { motion } from "framer-motion";
@@ -44,10 +45,11 @@ interface TaskListProps {
   onReorder?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
+  onCreateTask?: (title: string, category: TaskCategory) => Promise<void>;
   lastLogs?: Record<string, LogEntry>;
   emptyMessage?: string;
-  onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
   currentCategory?: TaskCategory;
+  taskViewModel?: TaskViewModel;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -67,10 +69,11 @@ export const TaskList: React.FC<TaskListProps> = ({
   onReorder,
   onLoadTaskLogs,
   onCreateLog,
+  onCreateTask,
   lastLogs = {},
   emptyMessage = "No tasks found",
-  onCreateTask,
   currentCategory,
+  taskViewModel,
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
@@ -210,6 +213,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         onCreateLog={onCreateLog}
         isDraggable={!!onReorder}
         currentCategory={currentCategory}
+        taskViewModel={taskViewModel}
       />
     );
   };
