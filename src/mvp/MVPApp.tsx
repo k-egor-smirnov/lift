@@ -43,6 +43,7 @@ import { DeferTaskUseCase } from "../shared/application/use-cases/DeferTaskUseCa
 import { UndeferTaskUseCase } from "../shared/application/use-cases/UndeferTaskUseCase";
 import { GetTaskLogsUseCase } from "../shared/application/use-cases/GetTaskLogsUseCase";
 import { CreateUserLogUseCase } from "../shared/application/use-cases/CreateUserLogUseCase";
+import { TaskImageService } from "../shared/application/services/TaskImageService";
 import { LogViewModelDependencies } from "../features/logs/presentation/view-models/LogViewModel";
 import { toast, Toaster } from "sonner";
 import { Settings } from "../features/settings/presentation/components/Settings";
@@ -119,6 +120,9 @@ export const MVPApp: React.FC = () => {
   );
   const createUserLogUseCase = getService<CreateUserLogUseCase>(
     tokens.CREATE_USER_LOG_USE_CASE_TOKEN
+  );
+  const taskImageService = getService<TaskImageService>(
+    tokens.TASK_IMAGE_SERVICE_TOKEN
   );
 
   // Create TaskLogService manually to avoid circular dependency
@@ -354,29 +358,29 @@ export const MVPApp: React.FC = () => {
   }, [activeView]); // Remove setViewModelFilter from dependencies
 
   const handleCreateTask = useCallback(
-    async (title: string, category: TaskCategory): Promise<boolean> => {
+    async (
+      title: string,
+      category: TaskCategory,
+      images: File[] = []
+    ): Promise<boolean> => {
       const success = await createTask({ title, category });
       if (success) {
         setIsCreateModalOpen(false);
-
-        // If we're on the Today view, automatically add the newly created task to today
-        if (activeView === "today") {
-          try {
-            // Get the newly created task ID from the task repository
-            // Since we just created the task, it should be the most recent one
-            const tasks = await taskRepository.findAll();
-            const newestTask = tasks.sort(
-              (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-            )[0];
-
-            if (newestTask) {
+        try {
+          const tasks = await taskRepository.findAll();
+          const newestTask = tasks.sort(
+            (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+          )[0];
+          if (newestTask) {
+            if (images.length) {
+              await taskImageService.addImages(newestTask.id.value, images);
+            }
+            if (activeView === "today") {
               const result = await addTaskToTodayUseCase.execute({
                 taskId: newestTask.id.value,
               });
               if (result.success) {
                 console.log("Task automatically added to today");
-                // Note: Don't reload todayTaskIds here - let the event bus handle updates
-                // This prevents unnecessary state updates that cause UI flickering
               } else {
                 console.error(
                   "Failed to automatically add task to today:",
@@ -384,14 +388,20 @@ export const MVPApp: React.FC = () => {
                 );
               }
             }
-          } catch (error) {
-            console.error("Error automatically adding task to today:", error);
           }
+        } catch (error) {
+          console.error("Error after creating task:", error);
         }
       }
       return success;
     },
-    [createTask, activeView, taskRepository, addTaskToTodayUseCase]
+    [
+      createTask,
+      activeView,
+      taskRepository,
+      addTaskToTodayUseCase,
+      taskImageService,
+    ]
   );
 
   const handleCompleteTask = useCallback(

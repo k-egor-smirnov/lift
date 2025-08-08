@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -19,6 +19,10 @@ import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
+import { PhotoProvider, PhotoView } from "react-photo-view";
+import { TaskImage } from "../../../../shared/domain/entities/TaskImage";
+import { TaskImageService } from "../../../../shared/application/services/TaskImageService";
+import { getService, tokens } from "../../../../shared/infrastructure/di";
 
 // Хуки
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
@@ -64,6 +68,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
+  const taskImageService = getService<TaskImageService>(
+    tokens.TASK_IMAGE_SERVICE_TOKEN
+  );
+  const [images, setImages] = useState<TaskImage[]>([]);
+  const [isDragImageOver, setIsDragImageOver] = useState(false);
 
   // Хуки для управления состоянием
   const {
@@ -160,6 +169,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [attachGestures, isTouch]);
 
+  useEffect(() => {
+    taskImageService.getImages(task.id.value).then(setImages);
+  }, [task.id.value]);
+
+  const handleAddImages = async (files: File[]) => {
+    await taskImageService.addImages(task.id.value, files);
+    setImages(await taskImageService.getImages(task.id.value));
+  };
+
+  const handleDropImages = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragImageOver(false);
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/")
+    );
+    if (files.length) {
+      handleAddImages(files);
+    }
+  };
+
   return (
     <>
       {/* Blue line indicator for drop location */}
@@ -183,7 +212,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           ${isTouch ? "touch-manipulation" : ""}
           ${isDraggingState ? "opacity-50" : ""}
           ${isDraggable ? "cursor-grab active:cursor-grabbing" : ""}
+          ${isDragImageOver ? "border-blue-400" : ""}
         `}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragImageOver(true);
+        }}
+        onDragLeave={() => setIsDragImageOver(false)}
+        onDrop={handleDropImages}
         role="article"
         id={`task-${task.id.value}`}
         aria-labelledby={`task-title-${task.id.value}`}
@@ -243,6 +279,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onRevertCompletion={onRevertCompletion}
                 onDelete={onDelete}
                 onDefer={handleOpenDeferModal}
+                onAddImages={handleAddImages}
               />
             </div>
           )}
@@ -254,6 +291,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           onToggleLogHistory={handleToggleLogHistory}
           onCreateLog={onCreateLog}
         />
+        {images.length > 0 && (
+          <PhotoProvider>
+            <div className="flex gap-2 mt-2 flex-wrap">
+              {images.map((img) => {
+                const url = URL.createObjectURL(new Blob([img.data]));
+                return (
+                  <PhotoView key={img.id} src={url}>
+                    <img
+                      src={url}
+                      className="w-16 h-16 object-cover rounded"
+                      alt="task"
+                    />
+                  </PhotoView>
+                );
+              })}
+            </div>
+          </PhotoProvider>
+        )}
       </motion.article>
 
       {/* Modals */}

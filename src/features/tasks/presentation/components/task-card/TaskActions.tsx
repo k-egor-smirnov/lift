@@ -1,7 +1,14 @@
 import React from "react";
 import { TaskStatus } from "../../../../../shared/domain/types";
 import { useTranslation } from "react-i18next";
-import { Check, Undo2, MoreHorizontal, Clock, Trash2 } from "lucide-react";
+import {
+  Check,
+  Undo2,
+  MoreHorizontal,
+  Clock,
+  Trash2,
+  ImagePlus,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +25,7 @@ interface TaskActionsProps {
   onRevertCompletion?: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onDefer?: () => void;
+  onAddImages?: (files: File[]) => void;
 }
 
 export const TaskActions: React.FC<TaskActionsProps> = ({
@@ -29,6 +37,7 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
   onRevertCompletion,
   onDelete,
   onDefer,
+  onAddImages,
 }) => {
   const { t } = useTranslation();
   const isCompleted = status === TaskStatus.COMPLETED;
@@ -39,6 +48,27 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
       role="toolbar"
       aria-label={t("taskCard.taskActions")}
     >
+      {onAddImages && (
+        <>
+          <input
+            id={`img-upload-${taskId}`}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => onAddImages(Array.from(e.target.files || []))}
+          />
+          <button
+            onClick={() =>
+              document.getElementById(`img-upload-${taskId}`)?.click()
+            }
+            className="p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
+            title={t("taskCard.addImage")}
+          >
+            <ImagePlus className="w-4 h-4" />
+          </button>
+        </>
+      )}
       {/* Complete/Revert button - always visible */}
       {!isCompleted && (
         <button

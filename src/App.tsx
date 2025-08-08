@@ -1,4 +1,5 @@
 import "./App.css";
+import "react-photo-view/dist/react-photo-view.css";
 import { MVPApp } from "./mvp/MVPApp";
 
 function App() {
