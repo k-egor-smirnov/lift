@@ -27,7 +27,11 @@ interface ContentAreaProps {
   lastLogs: Record<string, LogEntry>;
 
   // Event handlers
-  onCreateTask: (title: string, category: TaskCategory) => Promise<void>;
+  onCreateTask: (
+    title: string,
+    category: TaskCategory,
+    images?: File[]
+  ) => Promise<string | null>;
   onCompleteTask: (taskId: string) => Promise<void>;
   onEditTask: (taskId: string, newTitle: string) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;

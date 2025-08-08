@@ -5,7 +5,11 @@ import { TaskCategory } from "../../domain/types";
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (title: string, category: TaskCategory) => Promise<boolean>;
+  onSubmit: (
+    title: string,
+    category: TaskCategory,
+    images?: File[]
+  ) => Promise<string | null>;
   initialTitle?: string;
   initialCategory?: TaskCategory;
   hideCategorySelection?: boolean;
@@ -113,8 +117,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setError(null);
 
     try {
-      const success = await onSubmit(title.trim(), category);
-      if (success) {
+      const taskId = await onSubmit(title.trim(), category);
+      if (taskId) {
         onClose();
         setTitle("");
         setCategory(TaskCategory.INBOX);

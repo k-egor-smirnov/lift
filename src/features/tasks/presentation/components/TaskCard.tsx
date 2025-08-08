@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -19,6 +19,13 @@ import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
+import {
+  TaskImageService,
+  thumbhashToDataUrl,
+} from "../../../../shared/infrastructure/services/TaskImageService";
+import { ImageViewer } from "../../../../shared/ui/components/ImageViewer";
+import { container } from "tsyringe";
+import { TaskImageRecord } from "../../../../shared/infrastructure/database/TodoDatabase";
 
 // Хуки
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
@@ -64,6 +71,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
+  const taskImageService = container.resolve(TaskImageService);
+  const [images, setImages] = useState<TaskImageRecord[]>([]);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [isImageDragOver, setIsImageDragOver] = useState(false);
 
   // Хуки для управления состоянием
   const {
@@ -104,6 +115,23 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     taskId: task.id.value,
     onDefer,
   });
+
+  useEffect(() => {
+    taskImageService.getImages(task.id.value).then(setImages);
+  }, [task.id.value]);
+
+  const handleImageDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsImageDragOver(false);
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/")
+    );
+    if (files.length) {
+      await taskImageService.addImages(task.id.value, files);
+      const updated = await taskImageService.getImages(task.id.value);
+      setImages(updated);
+    }
+  };
 
   // Drag and drop functionality
   const {
@@ -176,6 +204,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         style={style}
         {...(isDraggable ? attributes : {})}
         {...(isDraggable ? listeners : {})}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsImageDragOver(true);
+        }}
+        onDragLeave={() => setIsImageDragOver(false)}
+        onDrop={handleImageDrop}
         className={`
           bg-white rounded-lg border shadow-sm px-4 py-2 transition-all duration-200 hover:shadow-md
           ${isOverdue ? "border-red-300 bg-red-50" : "border-gray-200"}
@@ -183,6 +217,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           ${isTouch ? "touch-manipulation" : ""}
           ${isDraggingState ? "opacity-50" : ""}
           ${isDraggable ? "cursor-grab active:cursor-grabbing" : ""}
+          ${isImageDragOver ? "border-blue-400" : ""}
         `}
         role="article"
         id={`task-${task.id.value}`}
@@ -247,6 +282,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           )}
         </div>
+        {images.length > 0 && (
+          <div className="mt-2 flex gap-2 flex-wrap">
+            {images.map((img, idx) => (
+              <img
+                key={img.id}
+                src={URL.createObjectURL(img.data)}
+                className="w-12 h-12 object-cover rounded cursor-pointer"
+                onClick={() => setViewerIndex(idx)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Logs section */}
         <TaskLogsDisplay
@@ -273,6 +320,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         onClose={handleCloseDeferModal}
         onDeferConfirm={handleDeferConfirm}
       />
+
+      {viewerIndex !== null && (
+        <ImageViewer
+          images={images.map((img) => URL.createObjectURL(img.data))}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
     </>
   );
 };

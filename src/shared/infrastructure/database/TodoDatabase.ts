@@ -87,6 +87,14 @@ export interface LockRecord {
   expiresAt: number; // Date.now() timestamp
 }
 
+export interface TaskImageRecord {
+  id: string; // ULID (primary key)
+  taskId: string;
+  data: Blob;
+  thumbhash: string;
+  createdAt: Date;
+}
+
 @injectable()
 export class TodoDatabase extends Dexie {
   tasks!: Table<TaskRecord>;
@@ -98,6 +106,7 @@ export class TodoDatabase extends Dexie {
   eventStore!: Table<EventStoreRecord>;
   handledEvents!: Table<HandledEventRecord>;
   locks!: Table<LockRecord>;
+  taskImages!: Table<TaskImageRecord>;
 
   constructor() {
     super("TodoDatabase");
@@ -133,6 +142,7 @@ export class TodoDatabase extends Dexie {
           "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
+        taskImages: "id, taskId, createdAt",
       })
       .upgrade((trans) => {
         // Data migration logic if needed
@@ -194,6 +204,7 @@ export class TodoDatabase extends Dexie {
           "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
+        taskImages: "id, taskId, createdAt",
       })
       .upgrade(async (trans) => {
         console.log(
@@ -219,6 +230,7 @@ export class TodoDatabase extends Dexie {
           "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
+        taskImages: "id, taskId, createdAt",
       })
       .upgrade(async (trans) => {
         console.log(
@@ -244,6 +256,7 @@ export class TodoDatabase extends Dexie {
           "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
+        taskImages: "id, taskId, createdAt",
       })
       .upgrade(async (trans) => {
         console.log(
@@ -287,6 +300,7 @@ export class TodoDatabase extends Dexie {
           "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
+        taskImages: "id, taskId, createdAt",
       })
       .upgrade(async (trans) => {
         console.log(
@@ -304,6 +318,31 @@ export class TodoDatabase extends Dexie {
             });
           }
         }
+      });
+
+    // Version 8 - Add task images table
+    this.version(8)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        taskImages: "id, taskId, createdAt",
+      })
+      .upgrade(async () => {
+        console.log(
+          "Upgrading database to version 8 - adding task images table"
+        );
       });
 
     // Add hooks for automatic timestamp updates
@@ -344,6 +383,10 @@ export class TodoDatabase extends Dexie {
     );
 
     this.syncQueue.hook("creating", (_primKey, obj, _trans) => {
+      obj.createdAt = new Date();
+    });
+
+    this.taskImages.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
 
