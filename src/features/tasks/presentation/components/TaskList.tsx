@@ -48,6 +48,7 @@ interface TaskListProps {
   emptyMessage?: string;
   onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
   currentCategory?: TaskCategory;
+  onUpdateNote?: (taskId: string, note: string | null) => void;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -71,6 +72,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   emptyMessage = "No tasks found",
   onCreateTask,
   currentCategory,
+  onUpdateNote,
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
@@ -210,6 +212,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         onCreateLog={onCreateLog}
         isDraggable={!!onReorder}
         currentCategory={currentCategory}
+        onUpdateNote={onUpdateNote}
       />
     );
   };

@@ -19,11 +19,26 @@ import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
+import { TaskNoteModal } from "./task-card/TaskNoteModal";
 
 // Хуки
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
 import { useTaskLogs } from "./task-card/hooks/useTaskLogs";
 import { useTaskDefer } from "./task-card/hooks/useTaskDefer";
+
+const getChecklistProgress = (
+  html: string | null
+): { completed: number; total: number } | null => {
+  if (!html) return null;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const items = Array.from(doc.querySelectorAll("li[data-type='taskItem']"));
+  if (items.length === 0) return null;
+  const completed = items.filter(
+    (li) => li.getAttribute("data-checked") === "true"
+  ).length;
+  return { completed, total: items.length };
+};
 
 interface TaskCardProps {
   task: Task;
@@ -42,6 +57,7 @@ interface TaskCardProps {
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   isDraggable?: boolean;
   currentCategory?: TaskCategory;
+  onUpdateNote?: (taskId: string, note: string | null) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -61,6 +77,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onCreateLog,
   isDraggable = false,
   currentCategory,
+  onUpdateNote,
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
@@ -104,6 +121,25 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     taskId: task.id.value,
     onDefer,
   });
+
+  const [showNoteModal, setShowNoteModal] = React.useState(false);
+  const [note, setNote] = React.useState<string | null>(task.note || null);
+
+  React.useEffect(() => {
+    setNote(task.note || null);
+  }, [task.note]);
+
+  const checklistProgress = React.useMemo(
+    () => getChecklistProgress(note),
+    [note]
+  );
+
+  const handleSaveNote = (html: string | null) => {
+    setNote(html);
+    if (onUpdateNote) {
+      onUpdateNote(task.id.value, html);
+    }
+  };
 
   // Drag and drop functionality
   const {
@@ -243,6 +279,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onRevertCompletion={onRevertCompletion}
                 onDelete={onDelete}
                 onDefer={handleOpenDeferModal}
+                onOpenNote={() => setShowNoteModal(true)}
+                note={note}
+                checklistProgress={checklistProgress}
               />
             </div>
           )}
@@ -266,6 +305,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         onNewLogTextChange={setNewLogText}
         onCreateLog={onCreateLog ? handleCreateNewLog : undefined}
         onNewLogKeyDown={handleNewLogKeyDown}
+      />
+
+      <TaskNoteModal
+        isOpen={showNoteModal}
+        initialNote={note}
+        onSave={handleSaveNote}
+        onClose={() => setShowNoteModal(false)}
       />
 
       <TaskDeferModal

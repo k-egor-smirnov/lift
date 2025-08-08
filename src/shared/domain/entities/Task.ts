@@ -38,6 +38,7 @@ export class Task {
   private _wasEverReviewed: boolean = false;
   private _deferredUntil?: Date;
   private _originalCategory?: TaskCategory;
+  private _note?: string | null;
   public readonly inboxEnteredAt?: Date;
 
   constructor(
@@ -51,7 +52,8 @@ export class Task {
     deletedAt?: Date,
     inboxEnteredAt?: Date,
     deferredUntil?: Date,
-    originalCategory?: TaskCategory
+    originalCategory?: TaskCategory,
+    note?: string | null
   ) {
     this._title = title;
     this._category = category;
@@ -61,6 +63,7 @@ export class Task {
     this._deletedAt = deletedAt;
     this._deferredUntil = deferredUntil;
     this._originalCategory = originalCategory;
+    this._note = note;
 
     // Set inboxEnteredAt if not provided and category is INBOX
     this.inboxEnteredAt =
@@ -118,6 +121,10 @@ export class Task {
 
   get originalCategory(): TaskCategory | undefined {
     return this._originalCategory;
+  }
+
+  get note(): string | null {
+    return this._note ?? null;
   }
 
   get isDeferred(): boolean {
@@ -274,6 +281,24 @@ export class Task {
     this._updatedAt = new Date();
 
     return []; // No specific domain event for order change
+  }
+
+  /**
+   * Update task note
+   */
+  updateNote(note: string | null): DomainEvent[] {
+    if (this.isDeleted) {
+      throw new InvalidTaskOperationError("Cannot change note of deleted task");
+    }
+
+    if (this._note === note) {
+      return [];
+    }
+
+    this._note = note;
+    this._updatedAt = new Date();
+
+    return [];
   }
 
   /**

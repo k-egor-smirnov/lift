@@ -1,7 +1,14 @@
 import React from "react";
 import { TaskStatus } from "../../../../../shared/domain/types";
 import { useTranslation } from "react-i18next";
-import { Check, Undo2, MoreHorizontal, Clock, Trash2 } from "lucide-react";
+import {
+  Check,
+  Undo2,
+  MoreHorizontal,
+  Clock,
+  Trash2,
+  StickyNote,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +25,9 @@ interface TaskActionsProps {
   onRevertCompletion?: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onDefer?: () => void;
+  onOpenNote?: () => void;
+  note?: string | null;
+  checklistProgress?: { completed: number; total: number } | null;
 }
 
 export const TaskActions: React.FC<TaskActionsProps> = ({
@@ -29,6 +39,9 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
   onRevertCompletion,
   onDelete,
   onDefer,
+  onOpenNote,
+  note,
+  checklistProgress,
 }) => {
   const { t } = useTranslation();
   const isCompleted = status === TaskStatus.COMPLETED;
@@ -65,6 +78,26 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
           <Undo2 className="w-4 h-4" />
         </button>
       )}
+
+      {/* Note button */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onOpenNote}
+          className="p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          title={t("taskCard.openNote")}
+          aria-label={t("taskCard.openNote")}
+        >
+          <StickyNote
+            className={`w-4 h-4 ${note ? "text-yellow-600" : "text-gray-400"}`}
+            fill={note ? "currentColor" : "none"}
+          />
+        </button>
+        {checklistProgress && (
+          <span className="text-xs text-gray-500">
+            {checklistProgress.completed} / {checklistProgress.total}
+          </span>
+        )}
+      </div>
 
       {/* Dropdown menu for other actions */}
       <DropdownMenu>
