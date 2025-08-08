@@ -5,6 +5,7 @@ import { container } from "tsyringe";
 import { TodoDatabase } from "../database/TodoDatabase";
 import { PersistentEventBusImpl } from "../../domain/events/EventBus";
 import { TaskRepositoryImpl } from "../repositories/TaskRepositoryImpl";
+import { TaskImageRepositoryImpl } from "../repositories/TaskImageRepositoryImpl";
 import { DailySelectionRepositoryImpl } from "../repositories/DailySelectionRepositoryImpl";
 import { TaskEventAdapter } from "../events/TaskEventAdapter";
 
@@ -26,6 +27,7 @@ import { UndeferTaskUseCase } from "../../application/use-cases/UndeferTaskUseCa
 
 // Import services
 import { DeferredTaskService } from "../../application/services/DeferredTaskService";
+import { SyncthingLikeImageSyncService } from "../../application/services/ImageSyncService";
 
 // Import tokens
 import * as tokens from "./tokens";
@@ -48,6 +50,10 @@ export function configureContainer(): void {
 
   // Register repositories as singletons
   container.registerSingleton(tokens.TASK_REPOSITORY_TOKEN, TaskRepositoryImpl);
+  container.registerSingleton(
+    tokens.TASK_IMAGE_REPOSITORY_TOKEN,
+    TaskImageRepositoryImpl
+  );
   container.registerSingleton(
     tokens.DAILY_SELECTION_REPOSITORY_TOKEN,
     DailySelectionRepositoryImpl
@@ -115,6 +121,10 @@ export function configureContainer(): void {
   container.registerSingleton(
     tokens.DEFERRED_TASK_SERVICE_TOKEN,
     DeferredTaskService
+  );
+  container.registerSingleton(
+    tokens.IMAGE_SYNC_SERVICE_TOKEN,
+    SyncthingLikeImageSyncService
   );
 }
 

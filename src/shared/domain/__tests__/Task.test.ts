@@ -33,7 +33,12 @@ describe("Task Entity", () => {
         TaskStatus.ACTIVE,
         now.getTime(),
         now,
-        now
+        now,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined
       );
 
       expect(task.id).toBe(taskId);
@@ -56,7 +61,12 @@ describe("Task Entity", () => {
         TaskStatus.ACTIVE,
         now.getTime(),
         now,
-        now
+        now,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined
       );
 
       expect(task.inboxEnteredAt).toBeDefined();
@@ -71,7 +81,12 @@ describe("Task Entity", () => {
         TaskStatus.ACTIVE,
         now.getTime(),
         now,
-        now
+        now,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined
       );
 
       expect(task.inboxEnteredAt).toBeUndefined();
@@ -86,7 +101,12 @@ describe("Task Entity", () => {
         TaskStatus.ACTIVE,
         now.getTime(),
         now,
-        now
+        now,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined
       );
 
       expect(task.wasEverReviewed).toBe(true);
@@ -101,7 +121,12 @@ describe("Task Entity", () => {
         TaskStatus.ACTIVE,
         now.getTime(),
         now,
-        now
+        now,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined
       );
 
       expect(task.wasEverReviewed).toBe(false);
@@ -334,7 +359,10 @@ describe("Task Entity", () => {
         pastDate,
         pastDate,
         undefined,
-        pastDate
+        pastDate,
+        undefined,
+        undefined,
+        undefined
       );
 
       expect(task.isOverdue(3)).toBe(true);
@@ -354,7 +382,10 @@ describe("Task Entity", () => {
         recentDate,
         recentDate,
         undefined,
-        recentDate
+        recentDate,
+        undefined,
+        undefined,
+        undefined
       );
 
       expect(task.isOverdue(3)).toBe(false);
@@ -371,7 +402,11 @@ describe("Task Entity", () => {
         TaskStatus.ACTIVE,
         pastDate.getTime(),
         pastDate,
-        pastDate
+        pastDate,
+        undefined,
+        undefined,
+        undefined,
+        undefined
       );
 
       expect(task.isOverdue(3)).toBe(false);
@@ -390,7 +425,10 @@ describe("Task Entity", () => {
         pastDate,
         pastDate,
         undefined,
-        pastDate
+        pastDate,
+        undefined,
+        undefined,
+        undefined
       );
 
       expect(task.isOverdue(3)).toBe(false);
@@ -405,7 +443,11 @@ describe("Task Entity", () => {
         TaskStatus.ACTIVE,
         baseDate.getTime(),
         baseDate,
-        baseDate
+        baseDate,
+        undefined,
+        undefined,
+        undefined,
+        undefined
       );
 
       expect(task.isOverdue(3)).toBe(false);

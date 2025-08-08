@@ -5,7 +5,12 @@ import { TaskCategory } from "../../domain/types";
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (title: string, category: TaskCategory) => Promise<boolean>;
+  onSubmit: (
+    title: string,
+    category: TaskCategory,
+    image?: File,
+    thumbhash?: string
+  ) => Promise<boolean>;
   initialTitle?: string;
   initialCategory?: TaskCategory;
   hideCategorySelection?: boolean;
@@ -77,6 +82,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [category, setCategory] = useState(initialCategory);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -84,6 +90,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       setTitle(initialTitle);
       setCategory(initialCategory);
       setError(null);
+      setImageFile(null);
     }
   }, [isOpen, initialTitle, initialCategory]);
 
@@ -113,11 +120,34 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setError(null);
 
     try {
-      const success = await onSubmit(title.trim(), category);
+      let thumbhash: string | undefined;
+      if (imageFile) {
+        const bitmap = await createImageBitmap(imageFile);
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(bitmap, 0, 0);
+          const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          // @ts-ignore no types for thumbhash
+          const { rgbaToThumbHash } = await import("thumbhash");
+          const hash = rgbaToThumbHash(data.width, data.height, data.data);
+          thumbhash = btoa(String.fromCharCode(...hash));
+        }
+      }
+
+      const success = await onSubmit(
+        title.trim(),
+        category,
+        imageFile || undefined,
+        thumbhash
+      );
       if (success) {
         onClose();
         setTitle("");
         setCategory(TaskCategory.INBOX);
+        setImageFile(null);
       } else {
         setError(t("createTaskModal.failedToCreate"));
       }
@@ -198,6 +228,21 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 autoFocus
                 disabled={isSubmitting}
                 data-testid="task-title-input"
+              />
+            </div>
+
+            {/* Image uploader */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Image
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) =>
+                  setImageFile(e.target.files ? e.target.files[0] : null)
+                }
+                disabled={isSubmitting}
               />
             </div>
 

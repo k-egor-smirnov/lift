@@ -52,7 +52,10 @@ export const createMockTask = (
     merged.createdAt,
     merged.updatedAt,
     merged.deletedAt,
-    merged.inboxEnteredAt
+    merged.inboxEnteredAt,
+    undefined,
+    undefined,
+    undefined
   );
 };
 

@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CreateTaskUseCase, CreateTaskRequest } from "../CreateTaskUseCase";
 import { TaskRepository } from "../../../domain/repositories/TaskRepository";
+import { TaskImageRepository } from "../../../domain/repositories/TaskImageRepository";
 import { EventBus } from "../../../domain/events/EventBus";
 import { TodoDatabase } from "../../../infrastructure/database/TodoDatabase";
 import { TaskCategory } from "../../../domain/types";
 import { ResultUtils } from "../../../domain/Result";
 import { DebouncedSyncService } from "../../services/DebouncedSyncService";
+import { ImageSyncService } from "../../services/ImageSyncService";
 
 // Mock implementations
 const mockTaskRepository: TaskRepository = {
@@ -29,6 +31,15 @@ const mockEventBus: EventBus = {
   subscribe: vi.fn(),
   subscribeToAll: vi.fn(),
   clear: vi.fn(),
+};
+
+const mockImageRepository: TaskImageRepository = {
+  get: vi.fn(),
+  save: vi.fn(),
+};
+
+const mockImageSyncService: ImageSyncService = {
+  broadcastImage: vi.fn(),
 };
 
 const mockDatabase = {
@@ -60,9 +71,11 @@ describe("CreateTaskUseCase", () => {
 
     useCase = new CreateTaskUseCase(
       mockTaskRepository,
+      mockImageRepository,
       mockEventBus,
       mockDatabase,
-      mockDebouncedSyncService
+      mockDebouncedSyncService,
+      mockImageSyncService
     );
   });
 

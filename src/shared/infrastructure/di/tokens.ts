@@ -12,6 +12,7 @@ export const TASK_REPOSITORY_TOKEN = Symbol("TaskRepository");
 export const DAILY_SELECTION_REPOSITORY_TOKEN = Symbol(
   "DailySelectionRepository"
 );
+export const TASK_IMAGE_REPOSITORY_TOKEN = Symbol("TaskImageRepository");
 
 // Use Cases
 export const CREATE_TASK_USE_CASE_TOKEN = Symbol("CreateTaskUseCase");
@@ -42,6 +43,7 @@ export const DEBOUNCED_SYNC_SERVICE_TOKEN = Symbol("DebouncedSyncService");
 export const SUPABASE_REALTIME_SERVICE_TOKEN = Symbol(
   "SupabaseRealtimeService"
 );
+export const IMAGE_SYNC_SERVICE_TOKEN = Symbol("ImageSyncService");
 
 // Supabase
 export const SUPABASE_CLIENT_FACTORY_TOKEN = Symbol("SupabaseClientFactory");

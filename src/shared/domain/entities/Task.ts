@@ -38,6 +38,7 @@ export class Task {
   private _wasEverReviewed: boolean = false;
   private _deferredUntil?: Date;
   private _originalCategory?: TaskCategory;
+  private _imageThumbhash?: string;
   public readonly inboxEnteredAt?: Date;
 
   constructor(
@@ -51,7 +52,8 @@ export class Task {
     deletedAt?: Date,
     inboxEnteredAt?: Date,
     deferredUntil?: Date,
-    originalCategory?: TaskCategory
+    originalCategory?: TaskCategory,
+    imageThumbhash?: string
   ) {
     this._title = title;
     this._category = category;
@@ -61,6 +63,7 @@ export class Task {
     this._deletedAt = deletedAt;
     this._deferredUntil = deferredUntil;
     this._originalCategory = originalCategory;
+    this._imageThumbhash = imageThumbhash;
 
     // Set inboxEnteredAt if not provided and category is INBOX
     this.inboxEnteredAt =
@@ -120,6 +123,10 @@ export class Task {
     return this._originalCategory;
   }
 
+  get imageThumbhash(): string | undefined {
+    return this._imageThumbhash;
+  }
+
   get isDeferred(): boolean {
     return (
       this._category === TaskCategory.DEFERRED &&
@@ -144,7 +151,8 @@ export class Task {
   static create(
     id: TaskId,
     title: NonEmptyTitle,
-    category: TaskCategory
+    category: TaskCategory,
+    imageThumbhash?: string
   ): { task: Task; events: DomainEvent[] } {
     const now = new Date();
     const task = new Task(
@@ -156,7 +164,10 @@ export class Task {
       now,
       now,
       undefined,
-      category === TaskCategory.INBOX ? now : undefined
+      category === TaskCategory.INBOX ? now : undefined,
+      undefined,
+      undefined,
+      imageThumbhash
     );
 
     const events = [new TaskCreatedEvent(id, title, category)];
@@ -382,6 +393,7 @@ export class Task {
     deletedAt?: Date;
     deferredUntil?: Date;
     originalCategory?: TaskCategory;
+    imageThumbhash?: string;
   }): Task {
     return new Task(
       this.id,
@@ -394,7 +406,8 @@ export class Task {
       updates.deletedAt ?? this._deletedAt,
       this.inboxEnteredAt,
       updates.deferredUntil ?? this._deferredUntil,
-      updates.originalCategory ?? this._originalCategory
+      updates.originalCategory ?? this._originalCategory,
+      updates.imageThumbhash ?? this._imageThumbhash
     );
   }
 }

@@ -4,11 +4,13 @@ import { TaskId } from "../../domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
 import { TaskCategory } from "../../domain/types";
 import { TaskRepository } from "../../domain/repositories/TaskRepository";
+import { TaskImageRepository } from "../../domain/repositories/TaskImageRepository";
 import { EventBus } from "../../domain/events/EventBus";
 import { Result, ResultUtils } from "../../domain/Result";
 import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
 import { BaseTaskUseCase, TaskOperationError } from "./BaseTaskUseCase";
 import { DebouncedSyncService } from "../services/DebouncedSyncService";
+import { ImageSyncService } from "../services/ImageSyncService";
 import * as tokens from "../../infrastructure/di/tokens";
 
 /**
@@ -17,6 +19,8 @@ import * as tokens from "../../infrastructure/di/tokens";
 export interface CreateTaskRequest {
   title: string;
   category: TaskCategory;
+  image?: Blob;
+  thumbhash?: string;
 }
 
 /**
@@ -43,10 +47,14 @@ export class TaskCreationError extends TaskOperationError {
 export class CreateTaskUseCase extends BaseTaskUseCase {
   constructor(
     @inject(tokens.TASK_REPOSITORY_TOKEN) taskRepository: TaskRepository,
+    @inject(tokens.TASK_IMAGE_REPOSITORY_TOKEN)
+    private imageRepository: TaskImageRepository,
     @inject(tokens.EVENT_BUS_TOKEN) eventBus: EventBus,
     @inject(tokens.DATABASE_TOKEN) database: TodoDatabase,
     @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
-    debouncedSyncService: DebouncedSyncService
+    debouncedSyncService: DebouncedSyncService,
+    @inject(tokens.IMAGE_SYNC_SERVICE_TOKEN)
+    private imageSyncService: ImageSyncService
   ) {
     super(taskRepository, eventBus, database, debouncedSyncService);
   }
@@ -73,7 +81,12 @@ export class CreateTaskUseCase extends BaseTaskUseCase {
         }
 
         // Create task entity
-        const { task, events } = Task.create(taskId, title, request.category);
+        const { task, events } = Task.create(
+          taskId,
+          title,
+          request.category,
+          request.thumbhash
+        );
 
         // Execute in transaction (this will trigger sync)
         const transactionResult = await this.executeInTransaction<void>(
@@ -88,6 +101,14 @@ export class CreateTaskUseCase extends BaseTaskUseCase {
               transactionResult.error.message,
               transactionResult.error.code
             )
+          );
+        }
+
+        if (request.image) {
+          await this.imageRepository.save(taskId, request.image);
+          await this.imageSyncService.broadcastImage(
+            taskId.value,
+            request.image
           );
         }
 

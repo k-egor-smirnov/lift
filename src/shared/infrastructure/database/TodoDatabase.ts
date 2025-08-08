@@ -15,6 +15,7 @@ export interface TaskRecord {
   inboxEnteredAt?: Date;
   deferredUntil?: Date;
   originalCategory?: TaskCategory;
+  imageThumbhash?: string;
 }
 
 export interface DailySelectionEntryRecord {
@@ -39,6 +40,13 @@ export interface TaskLogRecord {
 export interface UserSettingsRecord {
   key: string;
   value: any;
+  updatedAt: Date;
+}
+
+export interface TaskImageRecord {
+  taskId: string;
+  imageData: Blob;
+  createdAt: Date;
   updatedAt: Date;
 }
 
@@ -98,6 +106,7 @@ export class TodoDatabase extends Dexie {
   eventStore!: Table<EventStoreRecord>;
   handledEvents!: Table<HandledEventRecord>;
   locks!: Table<LockRecord>;
+  taskImages!: Table<TaskImageRecord>;
 
   constructor() {
     super("TodoDatabase");
@@ -306,6 +315,25 @@ export class TodoDatabase extends Dexie {
         }
       });
 
+    // Version 8 - Add table for task images
+    this.version(8).stores({
+      tasks:
+        "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory",
+      dailySelectionEntries:
+        "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+      taskLogs: "id, taskId, type, createdAt",
+      userSettings: "key, updatedAt",
+      syncQueue:
+        "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+      statsDaily:
+        "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+      eventStore:
+        "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+      handledEvents: "[eventId+handlerId], eventId, handlerId",
+      locks: "id, expiresAt",
+      taskImages: "taskId, updatedAt",
+    });
+
     // Add hooks for automatic timestamp updates
     this.tasks.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
@@ -350,6 +378,18 @@ export class TodoDatabase extends Dexie {
     this.statsDaily.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
+
+    this.taskImages.hook("creating", (_primKey, obj, _trans) => {
+      obj.createdAt = new Date();
+      obj.updatedAt = new Date();
+    });
+
+    this.taskImages.hook(
+      "updating",
+      (modifications, _primKey, _obj, _trans) => {
+        (modifications as any).updatedAt = new Date();
+      }
+    );
   }
 
   // Connection management
@@ -388,6 +428,7 @@ export class TodoDatabase extends Dexie {
         this.userSettings,
         this.syncQueue,
         this.statsDaily,
+        this.taskImages,
         this.eventStore,
         this.handledEvents,
         this.locks,
@@ -399,6 +440,7 @@ export class TodoDatabase extends Dexie {
         await this.userSettings.clear();
         await this.syncQueue.clear();
         await this.statsDaily.clear();
+        await this.taskImages.clear();
         await this.eventStore.clear();
         await this.handledEvents.clear();
         await this.locks.clear();

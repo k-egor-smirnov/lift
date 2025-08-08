@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -19,6 +19,8 @@ import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
+import { getService, tokens } from "../../../../shared/infrastructure/di";
+import { TaskImageRepository } from "../../../../shared/domain/repositories/TaskImageRepository";
 
 // Хуки
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
@@ -64,6 +66,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
+  const imageRepo = getService<TaskImageRepository>(
+    tokens.TASK_IMAGE_REPOSITORY_TOKEN
+  );
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   // Хуки для управления состоянием
   const {
@@ -160,6 +166,22 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [attachGestures, isTouch]);
 
+  useEffect(() => {
+    let cancelled = false;
+    imageRepo.get(task.id).then((blob) => {
+      if (blob && !cancelled) {
+        const url = URL.createObjectURL(blob);
+        setImageUrl(url);
+      }
+    });
+    return () => {
+      cancelled = true;
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+      }
+    };
+  }, [task.id]);
+
   return (
     <>
       {/* Blue line indicator for drop location */}
@@ -212,6 +234,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           currentCategory={currentCategory}
           isOverdue={isOverdue}
         />
+
+        {imageUrl && (
+          <img src={imageUrl} alt="" className="w-full h-auto mb-2 rounded" />
+        )}
 
         {/* Task title section */}
         <div className="mb-1">
