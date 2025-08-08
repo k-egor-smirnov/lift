@@ -7,6 +7,7 @@ import { PersistentEventBusImpl } from "../../domain/events/EventBus";
 import { TaskRepositoryImpl } from "../repositories/TaskRepositoryImpl";
 import { DailySelectionRepositoryImpl } from "../repositories/DailySelectionRepositoryImpl";
 import { TaskEventAdapter } from "../events/TaskEventAdapter";
+import { TaskImageRepositoryImpl } from "../repositories/TaskImageRepositoryImpl";
 
 // Import use cases
 import { CreateTaskUseCase } from "../../application/use-cases/CreateTaskUseCase";
@@ -23,6 +24,7 @@ import { CreateUserLogUseCase } from "../../application/use-cases/CreateUserLogU
 import { CreateSystemLogUseCase } from "../../application/use-cases/CreateSystemLogUseCase";
 import { DeferTaskUseCase } from "../../application/use-cases/DeferTaskUseCase";
 import { UndeferTaskUseCase } from "../../application/use-cases/UndeferTaskUseCase";
+import { TaskImageService } from "../../application/services/TaskImageService";
 
 // Import services
 import { DeferredTaskService } from "../../application/services/DeferredTaskService";
@@ -51,6 +53,10 @@ export function configureContainer(): void {
   container.registerSingleton(
     tokens.DAILY_SELECTION_REPOSITORY_TOKEN,
     DailySelectionRepositoryImpl
+  );
+  container.registerSingleton(
+    tokens.TASK_IMAGE_REPOSITORY_TOKEN,
+    TaskImageRepositoryImpl
   );
 
   // Register use cases as singletons
@@ -115,6 +121,10 @@ export function configureContainer(): void {
   container.registerSingleton(
     tokens.DEFERRED_TASK_SERVICE_TOKEN,
     DeferredTaskService
+  );
+  container.registerSingleton(
+    tokens.TASK_IMAGE_SERVICE_TOKEN,
+    TaskImageService
   );
 }
 

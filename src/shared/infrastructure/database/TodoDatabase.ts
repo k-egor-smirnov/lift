@@ -62,6 +62,14 @@ export interface StatsDailyRecord {
   createdAt: Date;
 }
 
+export interface TaskImageRecord {
+  id: string;
+  taskId: string;
+  data: ArrayBuffer;
+  thumbhash: string;
+  createdAt: Date;
+}
+
 // Event store record interfaces for persistent event bus
 export interface EventStoreRecord {
   id: string; // ULID (primary key)
@@ -98,6 +106,7 @@ export class TodoDatabase extends Dexie {
   eventStore!: Table<EventStoreRecord>;
   handledEvents!: Table<HandledEventRecord>;
   locks!: Table<LockRecord>;
+  taskImages!: Table<TaskImageRecord>;
 
   constructor() {
     super("TodoDatabase");
@@ -306,6 +315,32 @@ export class TodoDatabase extends Dexie {
         }
       });
 
+    // Version 8 - Add task images table
+    this.version(8)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        taskImages: "id, taskId, createdAt",
+      })
+      .upgrade(async () => {
+        console.log(
+          "Upgrading database to version 8 - adding task images table"
+        );
+        // No migration needed
+      });
+
     // Add hooks for automatic timestamp updates
     this.tasks.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
@@ -348,6 +383,10 @@ export class TodoDatabase extends Dexie {
     });
 
     this.statsDaily.hook("creating", (_primKey, obj, _trans) => {
+      obj.createdAt = new Date();
+    });
+
+    this.taskImages.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
   }
