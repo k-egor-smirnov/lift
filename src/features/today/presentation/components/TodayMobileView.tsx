@@ -15,6 +15,7 @@ import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 interface TodayMobileViewProps {
   dependencies: TodayViewModelDependencies;
   onEditTask?: (taskId: string, newTitle: string) => void;
+  onEditTaskNote?: (taskId: string, note: string) => void;
   onDeleteTask?: (taskId: string) => void;
   onDefer?: (taskId: string, deferDate: Date) => void;
   onUndefer?: (taskId: TaskId) => Promise<void>;
@@ -28,6 +29,7 @@ interface TodayMobileViewProps {
 export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   dependencies,
   onEditTask,
+  onEditTaskNote,
   onDeleteTask,
   onDefer,
   onUndefer,
@@ -126,6 +128,12 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   const handleEditTask = (taskId: string, newTitle: string) => {
     if (onEditTask) {
       onEditTask(taskId, newTitle);
+    }
+  };
+
+  const handleEditTaskNote = (taskId: string, note: string) => {
+    if (onEditTaskNote) {
+      onEditTaskNote(taskId, note);
     }
   };
 
@@ -313,6 +321,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                           onComplete={handleCompleteTask}
                           onRevertCompletion={handleRevertCompletion}
                           onEdit={handleEditTask}
+                          onEditNote={handleEditTaskNote}
                           onDelete={handleDeleteTask}
                           onAddToToday={handleToggleToday}
                           onDefer={onDefer}
@@ -343,6 +352,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                           onComplete={undefined}
                           onRevertCompletion={handleRevertCompletion}
                           onEdit={handleEditTask}
+                          onEditNote={handleEditTaskNote}
                           onDelete={handleDeleteTask}
                           onAddToToday={handleToggleToday}
                           onDefer={onDefer}

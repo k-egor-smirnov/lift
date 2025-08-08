@@ -48,6 +48,7 @@ interface TaskListProps {
   emptyMessage?: string;
   onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
   currentCategory?: TaskCategory;
+  onEditNote?: (taskId: string, note: string) => void;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -71,6 +72,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   emptyMessage = "No tasks found",
   onCreateTask,
   currentCategory,
+  onEditNote,
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
@@ -201,6 +203,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         onDelete={onDelete}
         onAddToToday={onAddToToday}
         onDefer={onDefer}
+        onEditNote={onEditNote}
         showTodayButton={showTodayButton}
         showDeferButton={showDeferButton}
         isOverdue={overdueTaskIds.includes(task.id.value)}

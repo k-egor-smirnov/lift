@@ -30,6 +30,7 @@ interface ContentAreaProps {
   onCreateTask: (title: string, category: TaskCategory) => Promise<void>;
   onCompleteTask: (taskId: string) => Promise<void>;
   onEditTask: (taskId: string, newTitle: string) => Promise<void>;
+  onEditTaskNote: (taskId: string, note: string) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   onAddToToday: (taskId: string) => Promise<void>;
   onReorderTasks: (taskIds: string[]) => Promise<void>;
@@ -51,6 +52,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   onCreateTask,
   onCompleteTask,
   onEditTask,
+  onEditTaskNote,
   onDeleteTask,
   onAddToToday,
   onReorderTasks,
@@ -77,6 +79,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
           <TodayView
             dependencies={todayDependencies}
             onEditTask={onEditTask}
+            onEditTaskNote={onEditTaskNote}
             onDeleteTask={onDeleteTask}
             onDefer={onDeferTask}
             onUndefer={onUndeferTask}
@@ -114,6 +117,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             currentCategory={currentCategory}
             onComplete={onCompleteTask}
             onEdit={onEditTask}
+            onEditNote={onEditTaskNote}
             onDelete={onDeleteTask}
             onAddToToday={onAddToToday}
             onReorder={onReorderTasks}

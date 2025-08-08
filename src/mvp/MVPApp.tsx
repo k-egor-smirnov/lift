@@ -458,6 +458,29 @@ export const MVPApp: React.FC = () => {
     [updateTaskUseCase, loadTasks]
   );
 
+  const handleEditTaskNote = useCallback(
+    async (taskId: string, note: string) => {
+      try {
+        const success = await updateTaskUseCase.execute({
+          taskId,
+          note,
+        });
+
+        if (success.success) {
+          await loadTasks();
+        } else {
+          console.error(
+            "Failed to update task note:",
+            (success as any).error?.message
+          );
+        }
+      } catch (error) {
+        console.error("Error updating task note:", error);
+      }
+    },
+    [updateTaskUseCase, loadTasks]
+  );
+
   const handleDeleteTask = useCallback(
     async (taskId: string) => {
       if (confirm("Are you sure you want to delete this task?")) {
@@ -744,6 +767,7 @@ export const MVPApp: React.FC = () => {
       <TodayMobileView
         dependencies={todayDependencies}
         onEditTask={handleEditTask}
+        onEditTaskNote={handleEditTaskNote}
         onDeleteTask={handleDeleteTask}
         onDefer={handleDeferTask}
         onUndefer={handleUndeferTask}
@@ -845,6 +869,7 @@ export const MVPApp: React.FC = () => {
             onCreateTask={handleCreateTask}
             onCompleteTask={handleCompleteTask}
             onEditTask={handleEditTask}
+            onEditTaskNote={handleEditTaskNote}
             onDeleteTask={handleDeleteTask}
             onAddToToday={handleAddToToday}
             onReorderTasks={handleReorderTasks}

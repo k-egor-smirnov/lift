@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -19,11 +19,14 @@ import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
+import { TaskNoteModal } from "./task-card/TaskNoteModal";
 
 // Хуки
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
 import { useTaskLogs } from "./task-card/hooks/useTaskLogs";
 import { useTaskDefer } from "./task-card/hooks/useTaskDefer";
+import { useTaskNote } from "./task-card/hooks/useTaskNote";
+import { getChecklistProgress } from "../../../../shared/lib/checklist";
 
 interface TaskCardProps {
   task: Task;
@@ -33,6 +36,7 @@ interface TaskCardProps {
   onDelete: (taskId: string) => void;
   onAddToToday?: (taskId: string) => void;
   onDefer?: (taskId: string, deferDate: Date) => void;
+  onEditNote?: (taskId: string, note: string) => void;
   showTodayButton?: boolean;
   showDeferButton?: boolean;
   isOverdue?: boolean;
@@ -52,6 +56,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onDelete,
   onAddToToday,
   onDefer,
+  onEditNote,
   showTodayButton = false,
   showDeferButton = false,
   isOverdue = false,
@@ -105,6 +110,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onDefer,
   });
 
+  const {
+    noteText,
+    setNoteText,
+    showNoteModal,
+    handleOpenNote,
+    handleCloseNote,
+    handleSaveNote,
+  } = useTaskNote({
+    taskId: task.id.value,
+    initialNote: task.note,
+    onSaveNote: onEditNote,
+  });
+
   // Drag and drop functionality
   const {
     attributes,
@@ -127,6 +145,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const isDraggingState = isDragging;
   const isCompleted = task.status === TaskStatus.COMPLETED;
   const isTouch = isTouchDevice();
+  const checklistProgress = useMemo(
+    () => getChecklistProgress(task.note || ""),
+    [task.note]
+  );
 
   // Touch gesture handlers
   const { attachGestures } = useTouchGestures({
@@ -232,6 +254,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 isInTodaySelection={isInTodaySelection}
                 onEdit={handleStartEdit}
                 onAddToToday={onAddToToday}
+                checklistProgress={checklistProgress}
               />
 
               <TaskActions
@@ -243,6 +266,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onRevertCompletion={onRevertCompletion}
                 onDelete={onDelete}
                 onDefer={handleOpenDeferModal}
+                onOpenNote={handleOpenNote}
               />
             </div>
           )}
@@ -266,6 +290,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         onNewLogTextChange={setNewLogText}
         onCreateLog={onCreateLog ? handleCreateNewLog : undefined}
         onNewLogKeyDown={handleNewLogKeyDown}
+      />
+
+      <TaskNoteModal
+        isOpen={showNoteModal}
+        note={noteText}
+        onChange={setNoteText}
+        onClose={handleCloseNote}
+        onSave={handleSaveNote}
       />
 
       <TaskDeferModal
