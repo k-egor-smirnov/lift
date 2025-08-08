@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -64,6 +64,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
+  const imageUrl = useMemo(() => {
+    if (!task.imageData) return null;
+    return URL.createObjectURL(new Blob([task.imageData]));
+  }, [task.imageData]);
+  useEffect(() => {
+    return () => {
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+    };
+  }, [imageUrl]);
 
   // Хуки для управления состоянием
   const {
@@ -212,6 +221,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           currentCategory={currentCategory}
           isOverdue={isOverdue}
         />
+
+        {imageUrl && (
+          <img src={imageUrl} alt="" className="w-full h-auto mb-2 rounded" />
+        )}
 
         {/* Task title section */}
         <div className="mb-1">

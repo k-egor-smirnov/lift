@@ -455,7 +455,9 @@ export class SupabaseRealtimeService {
       row.deferred_until
         ? SupabaseUtils.fromISOString(row.deferred_until)
         : undefined,
-      row.original_category as TaskCategory | undefined
+      row.original_category as TaskCategory | undefined,
+      undefined,
+      row.thumbhash || undefined
     );
   }
 }

@@ -42,6 +42,7 @@ export const DEBOUNCED_SYNC_SERVICE_TOKEN = Symbol("DebouncedSyncService");
 export const SUPABASE_REALTIME_SERVICE_TOKEN = Symbol(
   "SupabaseRealtimeService"
 );
+export const IMAGE_SYNC_SERVICE_TOKEN = Symbol("ImageSyncService");
 
 // Supabase
 export const SUPABASE_CLIENT_FACTORY_TOKEN = Symbol("SupabaseClientFactory");

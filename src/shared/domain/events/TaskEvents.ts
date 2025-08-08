@@ -220,3 +220,18 @@ export class TaskUndeferredEvent extends DomainEvent {
     };
   }
 }
+
+/**
+ * Event emitted when a task image is updated
+ */
+export class TaskImageUpdatedEvent extends DomainEvent {
+  constructor(public readonly taskId: TaskId) {
+    super(DomainEventType.TASK_IMAGE_UPDATED);
+  }
+
+  getEventData(): Record<string, any> {
+    return {
+      taskId: this.taskId.value,
+    };
+  }
+}

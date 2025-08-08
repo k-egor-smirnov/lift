@@ -178,6 +178,7 @@ export type Database = {
           title: string;
           updated_at: string;
           user_id: string;
+          thumbhash: string | null;
         };
         Insert: {
           category?: Database["public"]["Enums"]["task_category"];
@@ -196,6 +197,7 @@ export type Database = {
           title: string;
           updated_at?: string;
           user_id: string;
+          thumbhash?: string | null;
         };
         Update: {
           category?: Database["public"]["Enums"]["task_category"];
@@ -214,6 +216,7 @@ export type Database = {
           title?: string;
           updated_at?: string;
           user_id?: string;
+          thumbhash?: string | null;
         };
         Relationships: [];
       };

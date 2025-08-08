@@ -6,7 +6,12 @@ import { TaskCategory } from "../../../../shared/domain/types";
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (title: string, category: TaskCategory) => Promise<boolean>;
+  onSubmit: (
+    title: string,
+    category: TaskCategory,
+    imageData?: ArrayBuffer,
+    thumbhash?: string
+  ) => Promise<boolean>;
   initialTitle?: string;
   initialCategory?: TaskCategory;
   hideCategorySelection?: boolean;

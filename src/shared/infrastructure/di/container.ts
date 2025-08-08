@@ -26,6 +26,7 @@ import { UndeferTaskUseCase } from "../../application/use-cases/UndeferTaskUseCa
 
 // Import services
 import { DeferredTaskService } from "../../application/services/DeferredTaskService";
+import { ImageSyncService } from "../services/ImageSyncService";
 
 // Import tokens
 import * as tokens from "./tokens";
@@ -115,6 +116,11 @@ export function configureContainer(): void {
   container.registerSingleton(
     tokens.DEFERRED_TASK_SERVICE_TOKEN,
     DeferredTaskService
+  );
+
+  container.registerSingleton(
+    tokens.IMAGE_SYNC_SERVICE_TOKEN,
+    ImageSyncService
   );
 }
 

@@ -17,6 +17,8 @@ export interface UpdateTaskRequest {
   title?: string;
   category?: TaskCategory;
   order?: number;
+  imageData?: ArrayBuffer;
+  thumbhash?: string;
 }
 
 /**
@@ -87,6 +89,14 @@ export class UpdateTaskUseCase extends BaseTaskUseCase {
         if (request.order !== undefined) {
           const orderEvents = task.changeOrder(request.order);
           allEvents.push(...orderEvents);
+        }
+
+        if (request.imageData && request.thumbhash) {
+          const imageEvents = task.updateImage(
+            request.imageData,
+            request.thumbhash
+          );
+          allEvents.push(...imageEvents);
         }
 
         // Execute in transaction

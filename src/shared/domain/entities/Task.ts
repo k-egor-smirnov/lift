@@ -13,6 +13,7 @@ import {
   TaskSoftDeletedEvent,
   TaskDeferredEvent,
   TaskUndeferredEvent,
+  TaskImageUpdatedEvent,
 } from "../events/TaskEvents";
 
 /**
@@ -38,6 +39,8 @@ export class Task {
   private _wasEverReviewed: boolean = false;
   private _deferredUntil?: Date;
   private _originalCategory?: TaskCategory;
+  private _imageData?: ArrayBuffer;
+  private _thumbhash?: string;
   public readonly inboxEnteredAt?: Date;
 
   constructor(
@@ -51,7 +54,9 @@ export class Task {
     deletedAt?: Date,
     inboxEnteredAt?: Date,
     deferredUntil?: Date,
-    originalCategory?: TaskCategory
+    originalCategory?: TaskCategory,
+    imageData?: ArrayBuffer,
+    thumbhash?: string
   ) {
     this._title = title;
     this._category = category;
@@ -61,6 +66,8 @@ export class Task {
     this._deletedAt = deletedAt;
     this._deferredUntil = deferredUntil;
     this._originalCategory = originalCategory;
+    this._imageData = imageData;
+    this._thumbhash = thumbhash;
 
     // Set inboxEnteredAt if not provided and category is INBOX
     this.inboxEnteredAt =
@@ -120,6 +127,14 @@ export class Task {
     return this._originalCategory;
   }
 
+  get imageData(): ArrayBuffer | undefined {
+    return this._imageData;
+  }
+
+  get thumbhash(): string | undefined {
+    return this._thumbhash;
+  }
+
   get isDeferred(): boolean {
     return (
       this._category === TaskCategory.DEFERRED &&
@@ -144,7 +159,9 @@ export class Task {
   static create(
     id: TaskId,
     title: NonEmptyTitle,
-    category: TaskCategory
+    category: TaskCategory,
+    imageData?: ArrayBuffer,
+    thumbhash?: string
   ): { task: Task; events: DomainEvent[] } {
     const now = new Date();
     const task = new Task(
@@ -156,7 +173,11 @@ export class Task {
       now,
       now,
       undefined,
-      category === TaskCategory.INBOX ? now : undefined
+      category === TaskCategory.INBOX ? now : undefined,
+      undefined,
+      undefined,
+      imageData,
+      thumbhash
     );
 
     const events = [new TaskCreatedEvent(id, title, category)];
@@ -274,6 +295,22 @@ export class Task {
     this._updatedAt = new Date();
 
     return []; // No specific domain event for order change
+  }
+
+  /**
+   * Update task image data and thumbhash
+   */
+  updateImage(imageData: ArrayBuffer, thumbhash: string): DomainEvent[] {
+    if (this.isDeleted) {
+      throw new InvalidTaskOperationError(
+        "Cannot update image of deleted task"
+      );
+    }
+
+    this._imageData = imageData;
+    this._thumbhash = thumbhash;
+    this._updatedAt = new Date();
+    return [new TaskImageUpdatedEvent(this.id)];
   }
 
   /**

@@ -156,7 +156,9 @@ export class TaskRepositoryImpl implements TaskRepository {
       record.deletedAt,
       record.inboxEnteredAt,
       record.deferredUntil,
-      record.originalCategory
+      record.originalCategory,
+      record.imageData,
+      record.thumbhash
     );
   }
 
@@ -176,6 +178,8 @@ export class TaskRepositoryImpl implements TaskRepository {
       inboxEnteredAt: task.inboxEnteredAt,
       deferredUntil: task.deferredUntil,
       originalCategory: task.originalCategory,
+      imageData: task.imageData,
+      thumbhash: task.thumbhash,
     };
   }
 }
