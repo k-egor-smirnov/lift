@@ -38,6 +38,8 @@ export class Task {
   private _wasEverReviewed: boolean = false;
   private _deferredUntil?: Date;
   private _originalCategory?: TaskCategory;
+  private _imageThumbHash?: string;
+  private _imageData?: Uint8Array;
   public readonly inboxEnteredAt?: Date;
 
   constructor(
@@ -51,7 +53,9 @@ export class Task {
     deletedAt?: Date,
     inboxEnteredAt?: Date,
     deferredUntil?: Date,
-    originalCategory?: TaskCategory
+    originalCategory?: TaskCategory,
+    imageThumbHash?: string,
+    imageData?: Uint8Array
   ) {
     this._title = title;
     this._category = category;
@@ -61,6 +65,8 @@ export class Task {
     this._deletedAt = deletedAt;
     this._deferredUntil = deferredUntil;
     this._originalCategory = originalCategory;
+    this._imageThumbHash = imageThumbHash;
+    this._imageData = imageData;
 
     // Set inboxEnteredAt if not provided and category is INBOX
     this.inboxEnteredAt =
@@ -120,6 +126,14 @@ export class Task {
     return this._originalCategory;
   }
 
+  get imageThumbHash(): string | undefined {
+    return this._imageThumbHash;
+  }
+
+  get imageData(): Uint8Array | undefined {
+    return this._imageData;
+  }
+
   get isDeferred(): boolean {
     return (
       this._category === TaskCategory.DEFERRED &&
@@ -144,7 +158,9 @@ export class Task {
   static create(
     id: TaskId,
     title: NonEmptyTitle,
-    category: TaskCategory
+    category: TaskCategory,
+    imageThumbHash?: string,
+    imageData?: Uint8Array
   ): { task: Task; events: DomainEvent[] } {
     const now = new Date();
     const task = new Task(
@@ -156,12 +172,22 @@ export class Task {
       now,
       now,
       undefined,
-      category === TaskCategory.INBOX ? now : undefined
+      category === TaskCategory.INBOX ? now : undefined,
+      undefined,
+      undefined,
+      imageThumbHash,
+      imageData
     );
 
     const events = [new TaskCreatedEvent(id, title, category)];
 
     return { task, events };
+  }
+
+  setImage(data: Uint8Array, thumbHash: string): void {
+    this._imageData = data;
+    this._imageThumbHash = thumbHash;
+    this._updatedAt = new Date();
   }
 
   /**

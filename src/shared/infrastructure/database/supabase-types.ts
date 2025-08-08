@@ -175,6 +175,7 @@ export type Database = {
             | null;
           status: Database["public"]["Enums"]["task_status"];
           sync_version: number;
+          image_thumbhash: string | null;
           title: string;
           updated_at: string;
           user_id: string;
@@ -193,6 +194,7 @@ export type Database = {
             | null;
           status?: Database["public"]["Enums"]["task_status"];
           sync_version?: number;
+          image_thumbhash?: string | null;
           title: string;
           updated_at?: string;
           user_id: string;
@@ -211,6 +213,7 @@ export type Database = {
             | null;
           status?: Database["public"]["Enums"]["task_status"];
           sync_version?: number;
+          image_thumbhash?: string | null;
           title?: string;
           updated_at?: string;
           user_id?: string;

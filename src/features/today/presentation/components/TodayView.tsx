@@ -25,7 +25,11 @@ interface TodayViewProps {
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
-  onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
+  onCreateTask?: (
+    title: string,
+    category: TaskCategory,
+    imageFile?: File
+  ) => Promise<boolean>;
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({

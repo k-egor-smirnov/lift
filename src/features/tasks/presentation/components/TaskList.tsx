@@ -46,7 +46,11 @@ interface TaskListProps {
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
   emptyMessage?: string;
-  onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
+  onCreateTask?: (
+    title: string,
+    category: TaskCategory,
+    imageFile?: File
+  ) => Promise<boolean>;
   currentCategory?: TaskCategory;
 }
 

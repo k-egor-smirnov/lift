@@ -17,6 +17,8 @@ export interface UpdateTaskRequest {
   title?: string;
   category?: TaskCategory;
   order?: number;
+  imageThumbHash?: string;
+  imageData?: Uint8Array;
 }
 
 /**
@@ -87,6 +89,11 @@ export class UpdateTaskUseCase extends BaseTaskUseCase {
         if (request.order !== undefined) {
           const orderEvents = task.changeOrder(request.order);
           allEvents.push(...orderEvents);
+        }
+
+        // Update image if provided
+        if (request.imageData && request.imageThumbHash) {
+          task.setImage(request.imageData, request.imageThumbHash);
         }
 
         // Execute in transaction

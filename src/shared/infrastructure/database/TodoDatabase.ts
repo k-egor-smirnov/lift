@@ -15,6 +15,8 @@ export interface TaskRecord {
   inboxEnteredAt?: Date;
   deferredUntil?: Date;
   originalCategory?: TaskCategory;
+  imageThumbHash?: string;
+  imageData?: Uint8Array;
 }
 
 export interface DailySelectionEntryRecord {
@@ -304,6 +306,31 @@ export class TodoDatabase extends Dexie {
             });
           }
         }
+      });
+
+    // Version 8 - Add image storage for tasks
+    this.version(8)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 8 - adding task image fields"
+        );
+        // No migration needed for optional fields
       });
 
     // Add hooks for automatic timestamp updates

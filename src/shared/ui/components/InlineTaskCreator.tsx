@@ -3,7 +3,11 @@ import { TaskCategory } from "../../domain/types";
 import { Check } from "lucide-react";
 
 interface InlineTaskCreatorProps {
-  onCreateTask: (title: string, category: TaskCategory) => Promise<boolean>;
+  onCreateTask: (
+    title: string,
+    category: TaskCategory,
+    imageFile?: File
+  ) => Promise<boolean>;
   category: TaskCategory;
   placeholder?: string;
 }

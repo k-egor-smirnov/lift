@@ -38,6 +38,7 @@ import { DeleteTaskUseCase } from "../shared/application/use-cases/DeleteTaskUse
 import { GetTodayTasksUseCase } from "../shared/application/use-cases/GetTodayTasksUseCase";
 import { AddTaskToTodayUseCase } from "../shared/application/use-cases/AddTaskToTodayUseCase";
 import { RemoveTaskFromTodayUseCase } from "../shared/application/use-cases/RemoveTaskFromTodayUseCase";
+import { rgbaToThumbHash } from "thumbhash";
 import { TaskLogService } from "../shared/application/services/TaskLogService";
 import { DeferTaskUseCase } from "../shared/application/use-cases/DeferTaskUseCase";
 import { UndeferTaskUseCase } from "../shared/application/use-cases/UndeferTaskUseCase";
@@ -353,17 +354,63 @@ export const MVPApp: React.FC = () => {
     }
   }, [activeView]); // Remove setViewModelFilter from dependencies
 
+  const processImage = useCallback(async (file: File) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = reader.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not supported");
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const hashArr = rgbaToThumbHash(
+      imageData.width,
+      imageData.height,
+      imageData.data
+    );
+    const thumbHash = btoa(String.fromCharCode(...hashArr));
+    return { data: new Uint8Array(arrayBuffer), thumbHash };
+  }, []);
+
   const handleCreateTask = useCallback(
-    async (title: string, category: TaskCategory): Promise<boolean> => {
-      const success = await createTask({ title, category });
+    async (
+      title: string,
+      category: TaskCategory,
+      imageFile?: File
+    ): Promise<boolean> => {
+      let imageData: Uint8Array | undefined;
+      let thumbHash: string | undefined;
+      if (imageFile) {
+        try {
+          const processed = await processImage(imageFile);
+          imageData = processed.data;
+          thumbHash = processed.thumbHash;
+        } catch (e) {
+          console.error("Failed to process image", e);
+        }
+      }
+      const success = await createTask({
+        title,
+        category,
+        imageData,
+        imageThumbHash: thumbHash,
+      });
       if (success) {
         setIsCreateModalOpen(false);
 
-        // If we're on the Today view, automatically add the newly created task to today
         if (activeView === "today") {
           try {
-            // Get the newly created task ID from the task repository
-            // Since we just created the task, it should be the most recent one
             const tasks = await taskRepository.findAll();
             const newestTask = tasks.sort(
               (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
@@ -375,8 +422,6 @@ export const MVPApp: React.FC = () => {
               });
               if (result.success) {
                 console.log("Task automatically added to today");
-                // Note: Don't reload todayTaskIds here - let the event bus handle updates
-                // This prevents unnecessary state updates that cause UI flickering
               } else {
                 console.error(
                   "Failed to automatically add task to today:",
@@ -391,7 +436,13 @@ export const MVPApp: React.FC = () => {
       }
       return success;
     },
-    [createTask, activeView, taskRepository, addTaskToTodayUseCase]
+    [
+      createTask,
+      activeView,
+      taskRepository,
+      addTaskToTodayUseCase,
+      processImage,
+    ]
   );
 
   const handleCompleteTask = useCallback(

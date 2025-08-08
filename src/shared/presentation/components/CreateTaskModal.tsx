@@ -5,7 +5,11 @@ import { TaskCategory } from "../../domain/types";
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (title: string, category: TaskCategory) => Promise<boolean>;
+  onSubmit: (
+    title: string,
+    category: TaskCategory,
+    imageFile?: File
+  ) => Promise<boolean>;
   initialTitle?: string;
   initialCategory?: TaskCategory;
   hideCategorySelection?: boolean;
@@ -20,6 +24,7 @@ const defaultTranslations: Record<string, string> = {
   "createTaskModal.enterTitle": "Enter task title...",
   "createTaskModal.category": "Category",
   "createTaskModal.titleRequired": "Task title is required",
+  "createTaskModal.image": "Image",
   "createTaskModal.failedToCreate": "Failed to create task. Please try again.",
   "createTaskModal.unexpectedError": "An unexpected error occurred",
   "createTaskModal.creating": "Creating...",
@@ -77,6 +82,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [category, setCategory] = useState(initialCategory);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -84,6 +90,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       setTitle(initialTitle);
       setCategory(initialCategory);
       setError(null);
+      setImageFile(null);
     }
   }, [isOpen, initialTitle, initialCategory]);
 
@@ -113,11 +120,16 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setError(null);
 
     try {
-      const success = await onSubmit(title.trim(), category);
+      const success = await onSubmit(
+        title.trim(),
+        category,
+        imageFile || undefined
+      );
       if (success) {
         onClose();
         setTitle("");
         setCategory(TaskCategory.INBOX);
+        setImageFile(null);
       } else {
         setError(t("createTaskModal.failedToCreate"));
       }
@@ -198,6 +210,24 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 autoFocus
                 disabled={isSubmitting}
                 data-testid="task-title-input"
+              />
+            </div>
+
+            {/* Task Image */}
+            <div>
+              <label
+                htmlFor="task-image"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                {t("createTaskModal.image")}
+              </label>
+              <input
+                id="task-image"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                disabled={isSubmitting}
+                className="w-full text-sm text-gray-900"
               />
             </div>
 
