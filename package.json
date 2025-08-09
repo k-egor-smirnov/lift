@@ -10,6 +10,9 @@
     "preview": "vite preview",
     "test": "vitest --run",
     "test:watch": "vitest",
+    "test:coverage": "vitest --run --coverage --reporter=verbose",
+    "test:coverage-force": "vitest --run --coverage --reporter=verbose --passWithNoTests",
+    "bundle-analysis": "node scripts/bundle-analysis.cjs",
     "format": "prettier --write .",
     "prepare": "husky"
   },
@@ -63,6 +66,7 @@
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vitejs/plugin-react": "^4.0.3",
+    "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.14",
     "eslint": "^8.45.0",

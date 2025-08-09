@@ -1,0 +1,43 @@
+# Codecov configuration
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 1%
+        if_not_found: success
+    patch:
+      default:
+        target: 70%
+        threshold: 1%
+        if_not_found: success
+
+  ignore:
+    - "src/test/**"
+    - "tests/**"
+    - "**/*.test.ts"
+    - "**/*.test.tsx"
+    - "**/*.spec.ts"
+    - "**/*.spec.tsx"
+    - "src/main.tsx"
+    - "vite.config.ts"
+    - "vitest.config.ts"
+    - "playwright.config.ts"
+    - "tailwind.config.js"
+    - "postcss.config.js"
+
+comment:
+  layout: "reach,diff,flags,tree,reach"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+
+flag_management:
+  default_rules:
+    carryforward: true
+    statuses:
+      - type: project
+        target: 80%
+      - type: patch
+        target: 70%
