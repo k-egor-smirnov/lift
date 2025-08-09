@@ -69,8 +69,8 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
               ? "text-blue-600 hover:text-blue-700 hover:bg-blue-50 focus:ring-blue-500"
               : "text-gray-400 hover:text-gray-600 hover:bg-gray-50 focus:ring-gray-500"
           }`}
-          title={hasNote ? "Редактировать заметку" : "Добавить заметку"}
-          aria-label={hasNote ? "Редактировать заметку" : "Добавить заметку"}
+          title={hasNote ? t("taskCard.editNote") : t("taskCard.addNote")}
+          aria-label={hasNote ? t("taskCard.editNote") : t("taskCard.addNote")}
         >
           {hasNote ? (
             <FileText className="w-4 h-4" />
