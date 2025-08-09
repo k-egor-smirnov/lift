@@ -7,6 +7,7 @@ import {
   TaskReviewedEvent,
   TaskTitleChangedEvent,
   TaskSoftDeletedEvent,
+  TaskNoteChangedEvent,
 } from "../../../../shared/domain/events/TaskEvents";
 import { TodoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 import { DomainEventType } from "../../../../shared/domain/types";
@@ -46,6 +47,9 @@ export class TaskLogEventHandler implements EventHandler {
         break;
       case DomainEventType.TASK_TITLE_CHANGED:
         await this.handleTaskTitleChanged(event as TaskTitleChangedEvent);
+        break;
+      case DomainEventType.TASK_NOTE_CHANGED:
+        await this.handleTaskNoteChanged(event as TaskNoteChangedEvent);
         break;
       case DomainEventType.TASK_SOFT_DELETED:
         await this.handleTaskSoftDeleted(event as TaskSoftDeletedEvent);
@@ -154,6 +158,32 @@ export class TaskLogEventHandler implements EventHandler {
         eventType: event.eventType,
         fromTitle: event.fromTitle.value,
         toTitle: event.toTitle.value,
+      },
+      createdAt: new Date(event.createdAt),
+    });
+  }
+
+  private async handleTaskNoteChanged(
+    event: TaskNoteChangedEvent
+  ): Promise<void> {
+    const logId = `task-note-changed-${event.aggregateId}-${event.createdAt}`;
+
+    // Determine a concise message based on change type
+    const fromEmpty = !event.fromNote || event.fromNote.trim() === "";
+    const toEmpty = !event.toNote || event.toNote.trim() === "";
+    let message = "Task note changed";
+    if (fromEmpty && !toEmpty) message = "Task note added";
+    else if (!fromEmpty && toEmpty) message = "Task note removed";
+
+    await this.database.taskLogs.put({
+      id: logId,
+      taskId: event.taskId.value,
+      type: "SYSTEM",
+      message,
+      metadata: {
+        eventType: event.eventType,
+        fromNote: event.fromNote,
+        toNote: event.toNote,
       },
       createdAt: new Date(event.createdAt),
     });

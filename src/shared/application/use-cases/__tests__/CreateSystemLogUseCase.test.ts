@@ -208,7 +208,7 @@ describe("CreateSystemLogUseCase", () => {
     it("should fail with invalid task ID", async () => {
       // Arrange
       const request: CreateSystemLogRequest = {
-        taskId: "invalid-id",
+        taskId: "INVALID_TASK_ID_FORMAT",
         action: "created",
       };
 

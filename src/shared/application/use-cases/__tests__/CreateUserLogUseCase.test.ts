@@ -182,7 +182,7 @@ describe("CreateUserLogUseCase", () => {
     it("should fail with invalid task ID", async () => {
       // Arrange
       const request: CreateUserLogRequest = {
-        taskId: "invalid-id",
+        taskId: "INVALID_TASK_ID_FORMAT",
         message: "Valid message",
       };
 

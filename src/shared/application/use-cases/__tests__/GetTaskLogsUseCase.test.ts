@@ -298,7 +298,7 @@ describe("GetTaskLogsUseCase", () => {
     it("should fail with invalid task ID", async () => {
       // Arrange
       const request: GetTaskLogsRequest = {
-        taskId: "invalid-id",
+        taskId: "INVALID_TASK_ID_FORMAT",
       };
 
       // Act

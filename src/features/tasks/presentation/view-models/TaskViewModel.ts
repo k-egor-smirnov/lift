@@ -11,7 +11,9 @@ import {
 } from "../../../../shared/application/use-cases/UpdateTaskUseCase";
 import { CompleteTaskUseCase } from "../../../../shared/application/use-cases/CompleteTaskUseCase";
 import { DeleteTaskUseCase } from "../../../../shared/application/use-cases/DeleteTaskUseCase";
+import { ChangeTaskNoteUseCase } from "../../../../shared/application/use-cases/ChangeTaskNoteUseCase";
 import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepository";
+import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 import { GetTodayTasksUseCase } from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
 
 /**
@@ -41,6 +43,7 @@ export interface TaskViewModelState {
   completeTask: (taskId: string) => Promise<boolean>;
   revertTaskCompletion: (taskId: string) => Promise<boolean>;
   deleteTask: (taskId: string) => Promise<boolean>;
+  changeTaskNote: (taskId: string, note?: string) => Promise<boolean>;
   setFilter: (filter: TaskFilter) => void;
   setOverdueDays: (days: number) => void;
   clearError: () => void;
@@ -62,6 +65,7 @@ export interface TaskViewModelDependencies {
   updateTaskUseCase: UpdateTaskUseCase;
   completeTaskUseCase: CompleteTaskUseCase;
   deleteTaskUseCase: DeleteTaskUseCase;
+  changeTaskNoteUseCase: ChangeTaskNoteUseCase;
   getTodayTasksUseCase: GetTodayTasksUseCase;
 }
 
@@ -77,6 +81,7 @@ export const createTaskViewModel = (
     updateTaskUseCase,
     completeTaskUseCase,
     deleteTaskUseCase,
+    changeTaskNoteUseCase,
     getTodayTasksUseCase,
   } = dependencies;
 
@@ -304,6 +309,35 @@ export const createTaskViewModel = (
         set({
           error:
             error instanceof Error ? error.message : "Failed to delete task",
+        });
+        return false;
+      }
+    },
+
+    changeTaskNote: async (taskId: string, note?: string) => {
+      set({ error: null });
+
+      try {
+        const result = await changeTaskNoteUseCase.execute({
+          taskId: TaskId.fromString(taskId),
+          note,
+        });
+
+        if (result.success) {
+          // Reload tasks to get the updated list
+          await get().loadTasks();
+
+          return true;
+        } else {
+          set({ error: (result as any).error.message });
+          return false;
+        }
+      } catch (error) {
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to change task note",
         });
         return false;
       }

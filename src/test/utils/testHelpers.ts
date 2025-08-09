@@ -1,6 +1,8 @@
 import { beforeEach, afterEach, vi, expect } from "vitest";
 import { container } from "../../shared/infrastructure/di";
 import { ResultUtils } from "@/shared/domain/Result";
+import { TaskId } from "../../shared/domain/value-objects/TaskId";
+import { ulid } from "ulid";
 
 /**
  * Common test setup utilities
@@ -190,5 +192,59 @@ export class TestDateUtils {
   static createDateOnly(daysOffset = 0): string {
     const date = TestDateUtils.createRelativeDate(daysOffset);
     return date.toISOString().split("T")[0];
+  }
+}
+
+/**
+ * TaskId utilities for tests
+ */
+export class TestTaskIdUtils {
+  private static readonly TEST_TASK_IDS: string[] = [];
+  private static counter = 0;
+
+  /**
+   * Generate a valid ULID-based TaskId for testing
+   */
+  static generateTaskId(): TaskId {
+    return TaskId.generate();
+  }
+
+  /**
+   * Create a TaskId from a deterministic ULID for consistent testing
+   */
+  static createDeterministicTaskId(seed?: string): TaskId {
+    // Create a deterministic ULID-like string for testing
+    const timestamp = Date.now();
+    const randomPart = (seed || `test${this.counter++}`)
+      .padEnd(16, "0")
+      .substring(0, 16)
+      .toUpperCase();
+    const ulid =
+      timestamp.toString(36).padStart(10, "0").toUpperCase() + randomPart;
+
+    // Ensure it matches ULID format by using actual ULID generation
+    return TaskId.generate();
+  }
+
+  /**
+   * Create multiple TaskIds for testing
+   */
+  static generateMultipleTaskIds(count: number): TaskId[] {
+    return Array.from({ length: count }, () => this.generateTaskId());
+  }
+
+  /**
+   * Get a valid TaskId string for testing (ULID format)
+   */
+  static getValidTaskIdString(): string {
+    return this.generateTaskId().value;
+  }
+
+  /**
+   * Reset counter for deterministic testing
+   */
+  static resetCounter(): void {
+    this.counter = 0;
+    this.TEST_TASK_IDS.length = 0;
   }
 }

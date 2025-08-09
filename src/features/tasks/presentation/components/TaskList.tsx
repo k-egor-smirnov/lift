@@ -7,6 +7,7 @@ import { DeferredTaskCard } from "./DeferredTaskCard";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
+import { TaskViewModel } from "../view-models/TaskViewModel";
 import {
   DndContext,
   closestCenter,
@@ -19,10 +20,10 @@ import {
   DragOverlay,
 } from "@dnd-kit/core";
 import {
-  arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
+  arrayMove,
+  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { motion } from "framer-motion";
@@ -44,10 +45,11 @@ interface TaskListProps {
   onReorder?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
+  onCreateTask?: (title: string, category: TaskCategory) => Promise<void>;
   lastLogs?: Record<string, LogEntry>;
   emptyMessage?: string;
-  onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
   currentCategory?: TaskCategory;
+  taskViewModel?: TaskViewModel;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -67,10 +69,11 @@ export const TaskList: React.FC<TaskListProps> = ({
   onReorder,
   onLoadTaskLogs,
   onCreateLog,
+  onCreateTask,
   lastLogs = {},
   emptyMessage = "No tasks found",
-  onCreateTask,
   currentCategory,
+  taskViewModel,
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
@@ -112,8 +115,8 @@ export const TaskList: React.FC<TaskListProps> = ({
 
     return {
       ...transform,
-      x: transform.x - dragOffset.x,
-      y: transform.y - dragOffset.y,
+      x: transform.x + dragOffset.x,
+      y: transform.y + dragOffset.y,
     };
   };
 
@@ -137,25 +140,31 @@ export const TaskList: React.FC<TaskListProps> = ({
     const task = sortedTasks.find((t) => t.id.value === active.id);
     setActiveTask(task || null);
 
-    // // Calculate offset from click point to element's top-left corner
-    // const activatorEvent = (event as any).activatorEvent;
+    // Calculate offset from click point to element's top-left corner
+    const activatorEvent = (event as any).activatorEvent;
 
-    // if (
-    //   activatorEvent &&
-    //   activatorEvent.clientX !== undefined &&
-    //   activatorEvent.clientY !== undefined
-    // ) {
-    //   // Get the actual DOM element to calculate its bounding rect
-    //   const element = document.querySelector(`#task-${active.id}`);
+    if (
+      activatorEvent &&
+      activatorEvent.clientX !== undefined &&
+      activatorEvent.clientY !== undefined
+    ) {
+      // Get the actual DOM element to calculate its bounding rect
+      const element = document.querySelector(`#task-${active.id}`);
+      // Get the DndContext container to account for its position
+      const dndContainer =
+        element?.closest("[data-dnd-context]") || document.body;
 
-    //   if (element) {
-    //     const rect = element.getBoundingClientRect();
-    //     setDragOffset({
-    //       x: activatorEvent.clientX - rect.left,
-    //       y: activatorEvent.clientY - rect.top,
-    //     });
-    //   }
-    // }
+      if (element) {
+        const rect = element.getBoundingClientRect();
+        const containerRect = dndContainer.getBoundingClientRect();
+
+        // Calculate simple offset from click point to element's top-left corner
+        setDragOffset({
+          x: activatorEvent.clientX - rect.left,
+          y: activatorEvent.clientY - rect.top,
+        });
+      }
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -210,6 +219,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         onCreateLog={onCreateLog}
         isDraggable={!!onReorder}
         currentCategory={currentCategory}
+        taskViewModel={taskViewModel}
       />
     );
   };
@@ -283,47 +293,51 @@ export const TaskList: React.FC<TaskListProps> = ({
         onDragEnd={handleDragEnd}
         modifiers={[restrictToWindowEdges]}
       >
-        <div className="space-y-4">
-          {Object.entries(groupedTasks).map(([categoryKey, categoryTasks]) => {
-            const category = categoryKey as TaskCategory;
-            const taskIds = categoryTasks.map((task) => task.id.value);
+        <div data-dnd-context>
+          <div className="space-y-4">
+            {Object.entries(groupedTasks).map(
+              ([categoryKey, categoryTasks]) => {
+                const category = categoryKey as TaskCategory;
+                const taskIds = categoryTasks.map((task) => task.id.value);
 
-            return (
-              <div key={category}>
-                {groupByCategory &&
-                  renderCategoryHeader(category, categoryTasks.length)}
-                <SortableContext
-                  items={taskIds}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-3">
-                    {categoryTasks.map(renderTaskCard)}
+                return (
+                  <div key={category}>
+                    {groupByCategory &&
+                      renderCategoryHeader(category, categoryTasks.length)}
+                    <SortableContext
+                      items={taskIds}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-3">
+                        {categoryTasks.map(renderTaskCard)}
+                      </div>
+                    </SortableContext>
                   </div>
-                </SortableContext>
-              </div>
-            );
-          })}
-        </div>
+                );
+              }
+            )}
+          </div>
 
-        <DragOverlay modifiers={[applyDragOffset, restrictToWindowEdges]}>
-          {activeTask ? (
-            <motion.div
-              className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-[240px] text-sm"
-              initial={{ scale: 0.8, opacity: 0.8 }}
-              animate={{ scale: 1, opacity: 1 }}
-              data-testid="drag-overlay"
-            >
-              <p className="font-medium text-gray-800 truncate">
-                {activeTask.title.value}
-              </p>
-              {lastLogs[activeTask.id.value] && (
-                <p className="mt-1 text-xs text-gray-500 truncate">
-                  {lastLogs[activeTask.id.value].message}
+          <DragOverlay modifiers={[applyDragOffset]}>
+            {activeTask ? (
+              <motion.div
+                className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-[240px] text-sm"
+                initial={{ scale: 0.8, opacity: 0.8 }}
+                animate={{ scale: 1, opacity: 1 }}
+                data-testid="drag-overlay"
+              >
+                <p className="font-medium text-gray-800 truncate">
+                  {activeTask.title.value}
                 </p>
-              )}
-            </motion.div>
-          ) : null}
-        </DragOverlay>
+                {lastLogs[activeTask.id.value] && (
+                  <p className="mt-1 text-xs text-gray-500 truncate">
+                    {lastLogs[activeTask.id.value].message}
+                  </p>
+                )}
+              </motion.div>
+            ) : null}
+          </DragOverlay>
+        </div>
       </DndContext>
     </div>
   );

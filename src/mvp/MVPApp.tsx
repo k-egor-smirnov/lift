@@ -43,6 +43,7 @@ import { DeferTaskUseCase } from "../shared/application/use-cases/DeferTaskUseCa
 import { UndeferTaskUseCase } from "../shared/application/use-cases/UndeferTaskUseCase";
 import { GetTaskLogsUseCase } from "../shared/application/use-cases/GetTaskLogsUseCase";
 import { CreateUserLogUseCase } from "../shared/application/use-cases/CreateUserLogUseCase";
+import { ChangeTaskNoteUseCase } from "../shared/application/use-cases/ChangeTaskNoteUseCase";
 import { LogViewModelDependencies } from "../features/logs/presentation/view-models/LogViewModel";
 import { toast, Toaster } from "sonner";
 import { Settings } from "../features/settings/presentation/components/Settings";
@@ -120,6 +121,9 @@ export const MVPApp: React.FC = () => {
   const createUserLogUseCase = getService<CreateUserLogUseCase>(
     tokens.CREATE_USER_LOG_USE_CASE_TOKEN
   );
+  const changeTaskNoteUseCase = getService<ChangeTaskNoteUseCase>(
+    tokens.CHANGE_TASK_NOTE_USE_CASE_TOKEN
+  );
 
   // Create TaskLogService manually to avoid circular dependency
   const logService = useMemo(
@@ -135,6 +139,7 @@ export const MVPApp: React.FC = () => {
       updateTaskUseCase,
       completeTaskUseCase,
       deleteTaskUseCase,
+      changeTaskNoteUseCase,
       getTodayTasksUseCase,
     }),
     []
@@ -838,6 +843,7 @@ export const MVPApp: React.FC = () => {
             loading={loading}
             todayDependencies={todayDependencies}
             logDependencies={logDependencies}
+            taskViewModel={taskViewModel}
             tasks={getFilteredTasks()}
             currentCategory={currentCategory}
             todayTaskIds={todayTaskIds}

@@ -98,7 +98,7 @@ describe("RemoveTaskFromTodayUseCase", () => {
     it("should fail with invalid task ID", async () => {
       // Arrange
       const request: RemoveTaskFromTodayRequest = {
-        taskId: "invalid-id",
+        taskId: "INVALID_TASK_ID_FORMAT",
       };
 
       // Act

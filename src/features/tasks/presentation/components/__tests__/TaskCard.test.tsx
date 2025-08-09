@@ -7,6 +7,7 @@ import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../../../shared/domain/value-objects/NonEmptyTitle";
 import { TaskCategory, TaskStatus } from "../../../../../shared/domain/types";
 import { LogEntry } from "../../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import { TaskViewModel } from "../../../presentation/view-models/TaskViewModel";
 
 // Mock task factory
 const createMockTask = (overrides: Partial<any> = {}): Task => {
@@ -46,11 +47,16 @@ const createMockLog = (overrides: Partial<LogEntry> = {}): LogEntry => ({
 });
 
 describe.skip("TaskCard", () => {
+  const mockTaskViewModel = {
+    changeTaskNote: vi.fn().mockReturnValue(true),
+  } as unknown as TaskViewModel;
+
   const mockProps = {
     task: createMockTask(),
     onComplete: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
+    taskViewModel: mockTaskViewModel,
   };
 
   beforeEach(() => {

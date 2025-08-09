@@ -13,6 +13,7 @@ import { DateOnly } from "../../../domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../../domain/types";
 import { ResultUtils } from "../../../domain/Result";
 import { DebouncedSyncService } from "../../services/DebouncedSyncService";
+import { TestTaskIdUtils } from "../../../test/utils/testHelpers";
 
 // Mock implementations
 const mockDailySelectionRepository: DailySelectionRepository = {
@@ -139,7 +140,7 @@ describe("AddTaskToTodayUseCase", () => {
     it("should fail with invalid task ID", async () => {
       // Arrange
       const request: AddTaskToTodayRequest = {
-        taskId: "invalid-id",
+        taskId: "INVALID_TASK_ID_FORMAT", // Invalid ULID format
       };
 
       // Act
@@ -179,9 +180,8 @@ describe("AddTaskToTodayUseCase", () => {
 
     it("should fail with invalid date format", async () => {
       // Arrange
-      const taskId = TaskId.generate();
       const request: AddTaskToTodayRequest = {
-        taskId: taskId.value,
+        taskId: TaskId.generate().value,
         date: "invalid-date",
       };
 

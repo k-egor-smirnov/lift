@@ -26,6 +26,8 @@ const mockTaskRepository = {
 const mockSyncRepository = {
   initializeUser: vi.fn(),
   syncTasks: vi.fn(),
+  syncDailySelectionEntries: vi.fn(),
+  syncTaskLogs: vi.fn(),
   pushTasks: vi.fn(),
   pullTasks: vi.fn(),
   resolveConflict: vi.fn(),
@@ -71,7 +73,7 @@ describe("SyncService", () => {
   describe("performSync", () => {
     it("should perform successful sync", async () => {
       // Arrange
-      const mockResult = {
+      const mockTasksResult = {
         success: true,
         pushedCount: 2,
         pulledCount: 3,
@@ -79,17 +81,43 @@ describe("SyncService", () => {
         error: null,
       };
 
+      const mockDailyResult = {
+        success: true,
+        pushedCount: 0,
+        pulledCount: 0,
+        conflictsResolved: 0,
+        error: null,
+      };
+
+      const mockLogsResult = {
+        success: true,
+        pushedCount: 0,
+        pulledCount: 0,
+        conflictsResolved: 0,
+        error: null,
+      };
+
       mockSyncRepository.isOnline.mockResolvedValue(true);
-      mockSyncRepository.syncTasks.mockResolvedValue(mockResult);
+      mockSyncRepository.getLastSyncTimestamp.mockResolvedValue(new Date());
+      mockSyncRepository.syncTasks.mockResolvedValue(mockTasksResult);
+      mockSyncRepository.syncDailySelectionEntries.mockResolvedValue(
+        mockDailyResult
+      );
+      mockSyncRepository.syncTaskLogs.mockResolvedValue(mockLogsResult);
+      mockSyncRepository.setLastSyncTimestamp.mockResolvedValue();
 
       // Act
       const result = await syncService.performSync();
 
       // Assert
-      expect(result).toEqual(mockResult);
+      expect(result.success).toBe(true);
+      expect(result.pushedCount).toBe(2);
+      expect(result.pulledCount).toBe(3);
+      expect(result.conflictsResolved).toBe(1);
       expect(mockSyncRepository.isOnline).toHaveBeenCalled();
       expect(mockSyncRepository.syncTasks).toHaveBeenCalled();
-      // Логирование системных событий удалено
+      expect(mockSyncRepository.syncDailySelectionEntries).toHaveBeenCalled();
+      expect(mockSyncRepository.syncTaskLogs).toHaveBeenCalled();
     });
 
     it("should handle offline state", async () => {
@@ -101,7 +129,9 @@ describe("SyncService", () => {
 
       // Assert
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("OFFLINE");
+      expect(result.errors).toEqual([
+        { message: "Нет подключения к сети", type: "network" },
+      ]);
       expect(mockSyncRepository.syncTasks).not.toHaveBeenCalled();
     });
 
@@ -134,27 +164,40 @@ describe("SyncService", () => {
 
       mockSyncRepository.isOnline.mockResolvedValue(true);
       mockSyncRepository.syncTasks.mockResolvedValue(mockResult);
+      mockSyncRepository.syncDailySelectionEntries.mockResolvedValue({
+        success: true,
+        pushedCount: 0,
+        pulledCount: 0,
+        conflictsResolved: 0,
+      });
+      mockSyncRepository.syncTaskLogs.mockResolvedValue({
+        success: true,
+        pushedCount: 0,
+        pulledCount: 0,
+        conflictsResolved: 0,
+      });
+      mockSyncRepository.getLastSyncTimestamp.mockResolvedValue(new Date());
+      mockSyncRepository.setLastSyncTimestamp.mockResolvedValue();
 
       // Act
-      const result = await syncService.performBackgroundSync();
+      await syncService.performBackgroundSync();
 
-      // Assert
-      expect(result).toEqual(mockResult);
-      // Логирование системных событий удалено
+      // Assert - метод возвращает void, проверяем что вызовы были сделаны
+      expect(mockSyncRepository.isOnline).toHaveBeenCalled();
+      expect(mockSyncRepository.syncTasks).toHaveBeenCalled();
     });
 
-    it("should skip background sync when offline", async () => {
+    it("should handle background sync errors silently", async () => {
       // Arrange
-      mockSyncRepository.isOnline.mockResolvedValue(false);
+      const mockError = new Error("Network error");
+      mockSyncRepository.isOnline.mockResolvedValue(true);
+      mockSyncRepository.syncTasks.mockRejectedValue(mockError);
+      mockSyncRepository.getLastSyncTimestamp.mockResolvedValue(new Date());
 
-      // Act
-      const result = await syncService.performBackgroundSync();
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(result.pushedCount).toBe(0);
-      expect(result.pulledCount).toBe(0);
-      expect(mockSyncRepository.syncTasks).not.toHaveBeenCalled();
+      // Act & Assert - метод не должен выбрасывать исключения
+      await expect(
+        syncService.performBackgroundSync()
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -178,7 +221,6 @@ describe("SyncService", () => {
         pushedCount: 1,
         pulledCount: 0,
         conflictsResolved: 0,
-        error: null,
       };
 
       mockSyncRepository.isOnline.mockResolvedValue(true);
@@ -228,13 +270,10 @@ describe("SyncService", () => {
       // Arrange
       const mockError = new Error("Status error");
       mockSyncRepository.getLastSyncTimestamp.mockRejectedValue(mockError);
+      mockSyncRepository.isOnline.mockResolvedValue(true);
 
-      // Act
-      const status = await syncService.getSyncStatus();
-
-      // Assert
-      expect(status.lastSyncAt).toBeNull();
-      expect(status.error?.code).toBe("STATUS_ERROR");
+      // Act & Assert - метод должен выбросить исключение
+      await expect(syncService.getSyncStatus()).rejects.toThrow("Status error");
     });
   });
 });

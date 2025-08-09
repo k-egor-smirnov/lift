@@ -159,7 +159,7 @@ describe("OnboardingService", () => {
       const result = await onboardingService.getUnfinishedTasksFromYesterday();
 
       expect(mockDailySelectionRepository.getTasksForDay).toHaveBeenCalledWith(
-        yesterday
+        expect.objectContaining({ value: yesterday.value })
       );
       expect(mockTaskRepository.findById).toHaveBeenCalledWith(taskId);
       expect(result).toHaveLength(1);
@@ -188,7 +188,7 @@ describe("OnboardingService", () => {
       const result = await onboardingService.getUnfinishedTasksFromYesterday();
 
       expect(mockDailySelectionRepository.getTasksForDay).toHaveBeenCalledWith(
-        yesterday
+        expect.objectContaining({ value: yesterday.value })
       );
       expect(mockTaskRepository.findById).not.toHaveBeenCalled();
       expect(result).toHaveLength(0);
@@ -211,9 +211,8 @@ describe("OnboardingService", () => {
         fixedDate.getTime(),
         fixedDate,
         fixedDate,
-        undefined,
-        fixedDate,
-        new Date() // deletedAt
+        new Date(), // deletedAt
+        fixedDate // inboxEnteredAt
       );
 
       mockDailySelectionRepository.getTasksForDay.mockResolvedValue([

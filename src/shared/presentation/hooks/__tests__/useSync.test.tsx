@@ -9,10 +9,13 @@ import {
 } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useSync } from "../useSync";
-import { syncInitializer } from "../../../infrastructure/sync/SyncInitializer";
+import {
+  getSyncService,
+  getRealtimeService,
+} from "../../infrastructure/di/syncContainer";
 
-// Мокаем SyncInitializer
-vi.mock("../../../infrastructure/sync/SyncInitializer", () => {
+// Мокаем DI контейнер для синхронизации
+vi.mock("../../infrastructure/di/syncContainer", () => {
   const mockSyncService = {
     performSync: vi.fn(),
     performBackgroundSync: vi.fn(),
@@ -21,24 +24,15 @@ vi.mock("../../../infrastructure/sync/SyncInitializer", () => {
   };
 
   const mockRealtimeService = {
-    subscribeToTasks: vi.fn(),
-    unsubscribeFromTasks: vi.fn(),
-    getConnectionStatus: vi.fn(),
+    subscribeToTaskChanges: vi.fn(),
+    unsubscribeFromTaskChanges: vi.fn(),
+    isConnected: vi.fn(),
     disconnect: vi.fn(),
   };
 
-  const mockSyncInitializer = {
+  return {
     getSyncService: vi.fn().mockReturnValue(mockSyncService),
     getRealtimeService: vi.fn().mockReturnValue(mockRealtimeService),
-    enableAutoSync: vi.fn(),
-    disableAutoSync: vi.fn(),
-    enableRealtimeSubscriptions: vi.fn(),
-    disableRealtimeSubscriptions: vi.fn(),
-    getStatus: vi.fn(),
-  };
-
-  return {
-    syncInitializer: mockSyncInitializer,
     mockSyncService,
     mockRealtimeService,
   };
@@ -65,13 +59,14 @@ describe("useSync", () => {
   let mockRealtimeService: any;
 
   beforeAll(async () => {
-    const module = await import("../../../infrastructure/sync/SyncInitializer");
+    const module = await import("../../infrastructure/di/syncContainer");
     mockSyncService = module.mockSyncService;
     mockRealtimeService = module.mockRealtimeService;
   });
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
 
     // Устанавливаем дефолтные возвращаемые значения
     mockSyncService.getSyncStatus.mockResolvedValue({
@@ -79,22 +74,17 @@ describe("useSync", () => {
       error: null,
     });
 
-    mockRealtimeService.getConnectionStatus.mockReturnValue({
+    mockRealtimeService.isConnected.mockReturnValue(false);
+    mockRealtimeService.getConnectionStatus = vi.fn().mockReturnValue({
       isConnected: false,
       activeSubscriptions: 0,
       subscribedUsers: [],
-    });
-
-    vi.mocked(syncInitializer.getStatus).mockReturnValue({
-      isInitialized: true,
-      autoSyncEnabled: false,
-      realtimeEnabled: false,
-      error: null,
     });
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   describe("initialization", () => {
@@ -220,84 +210,6 @@ describe("useSync", () => {
     });
   });
 
-  describe("auto sync control", () => {
-    it("should enable auto sync", async () => {
-      // Arrange
-      vi.mocked(syncInitializer.enableAutoSync).mockResolvedValue({
-        success: true,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useSync());
-
-      // Act
-      await act(async () => {
-        await result.current.enableAutoSync();
-      });
-
-      // Assert
-      expect(syncInitializer.enableAutoSync).toHaveBeenCalled();
-    });
-
-    it("should disable auto sync", async () => {
-      // Arrange
-      vi.mocked(syncInitializer.disableAutoSync).mockResolvedValue({
-        success: true,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useSync());
-
-      // Act
-      await act(async () => {
-        await result.current.disableAutoSync();
-      });
-
-      // Assert
-      expect(syncInitializer.disableAutoSync).toHaveBeenCalled();
-    });
-  });
-
-  describe("realtime control", () => {
-    it("should enable realtime subscriptions", async () => {
-      // Arrange
-      vi.mocked(syncInitializer.enableRealtimeSubscriptions).mockResolvedValue({
-        success: true,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useSync());
-
-      // Act
-      await act(async () => {
-        await result.current.enableRealtime();
-      });
-
-      // Assert
-      expect(syncInitializer.enableRealtimeSubscriptions).toHaveBeenCalled();
-    });
-
-    it("should disable realtime subscriptions", async () => {
-      // Arrange
-      vi.mocked(syncInitializer.disableRealtimeSubscriptions).mockResolvedValue(
-        {
-          success: true,
-          error: null,
-        }
-      );
-
-      const { result } = renderHook(() => useSync());
-
-      // Act
-      await act(async () => {
-        await result.current.disableRealtime();
-      });
-
-      // Assert
-      expect(syncInitializer.disableRealtimeSubscriptions).toHaveBeenCalled();
-    });
-  });
-
   describe("online/offline handling", () => {
     it("should update online status when going offline", () => {
       // Arrange
@@ -337,7 +249,7 @@ describe("useSync", () => {
     });
   });
 
-  describe("status updates", () => {
+  describe("periodic status updates", () => {
     it("should update sync status periodically", async () => {
       // Arrange
       const mockStatus = {
@@ -348,13 +260,15 @@ describe("useSync", () => {
 
       const { result } = renderHook(() => useSync());
 
-      // Act - ждем обновления статуса
+      // Act - симулируем прохождение времени
       await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        vi.advanceTimersByTime(30000); // 30 секунд
+        await vi.runAllTimersAsync();
       });
 
       // Assert
       expect(mockSyncService.getSyncStatus).toHaveBeenCalled();
+      expect(result.current.lastSyncAt).toEqual(mockStatus.lastSyncAt);
     });
 
     it("should update realtime status periodically", async () => {
@@ -368,9 +282,10 @@ describe("useSync", () => {
 
       const { result } = renderHook(() => useSync());
 
-      // Act - ждем обновления статуса
+      // Act - симулируем прохождение времени
       await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        vi.advanceTimersByTime(30000); // 30 секунд
+        await vi.runAllTimersAsync();
       });
 
       // Assert

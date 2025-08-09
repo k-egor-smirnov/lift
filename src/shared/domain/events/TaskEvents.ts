@@ -125,6 +125,27 @@ export class TaskTitleChangedEvent extends DomainEvent {
 }
 
 /**
+ * Event emitted when a task note is changed
+ */
+export class TaskNoteChangedEvent extends DomainEvent {
+  constructor(
+    public readonly taskId: TaskId,
+    public readonly fromNote: string | undefined,
+    public readonly toNote: string | undefined
+  ) {
+    super(DomainEventType.TASK_NOTE_CHANGED);
+  }
+
+  getEventData(): Record<string, any> {
+    return {
+      taskId: this.taskId.value,
+      fromNote: this.fromNote,
+      toNote: this.toNote,
+    };
+  }
+}
+
+/**
  * Event emitted when a task is soft deleted
  */
 export class TaskSoftDeletedEvent extends DomainEvent {

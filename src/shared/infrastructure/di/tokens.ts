@@ -34,6 +34,7 @@ export const CREATE_SYSTEM_LOG_USE_CASE_TOKEN = Symbol(
 );
 export const DEFER_TASK_USE_CASE_TOKEN = Symbol("DeferTaskUseCase");
 export const UNDEFER_TASK_USE_CASE_TOKEN = Symbol("UndeferTaskUseCase");
+export const CHANGE_TASK_NOTE_USE_CASE_TOKEN = Symbol("ChangeTaskNoteUseCase");
 
 // Services
 export const DEFERRED_TASK_SERVICE_TOKEN = Symbol("DeferredTaskService");

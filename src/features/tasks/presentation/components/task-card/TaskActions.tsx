@@ -8,7 +8,13 @@ import {
   Clock,
   Trash2,
   Pencil,
+  FileText,
+  File,
 } from "lucide-react";
+import {
+  parseChecklistProgress,
+  formatChecklistProgress,
+} from "../../../../../shared/utils/checklistUtils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +32,8 @@ interface TaskActionsProps {
   onDelete: (taskId: string) => void;
   onDefer?: () => void;
   onEdit?: () => void;
+  note?: string;
+  onNoteClick?: () => void;
 }
 
 export const TaskActions: React.FC<TaskActionsProps> = ({
@@ -38,9 +46,13 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
   onDelete,
   onDefer,
   onEdit,
+  note,
+  onNoteClick,
 }) => {
   const { t } = useTranslation();
   const isCompleted = status === TaskStatus.COMPLETED;
+
+  const hasNote = note && note.trim().length > 0;
 
   return (
     <div
@@ -48,6 +60,26 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
       role="toolbar"
       aria-label={t("taskCard.taskActions")}
     >
+      {/* Note button - visible on mobile only (hidden on md and up) */}
+      {onNoteClick && (
+        <button
+          onClick={onNoteClick}
+          className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 relative sm:hidden ${
+            hasNote
+              ? "text-blue-600 hover:text-blue-700 hover:bg-blue-50 focus:ring-blue-500"
+              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50 focus:ring-gray-500"
+          }`}
+          title={hasNote ? "Редактировать заметку" : "Добавить заметку"}
+          aria-label={hasNote ? "Редактировать заметку" : "Добавить заметку"}
+        >
+          {hasNote ? (
+            <FileText className="w-4 h-4" />
+          ) : (
+            <File className="w-4 h-4" />
+          )}
+        </button>
+      )}
+
       {/* Complete/Revert button - always visible */}
       {!isCompleted && (
         <button
@@ -94,6 +126,16 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
             >
               <Pencil className="w-4 h-4" />
               {t("taskCard.editTask")}
+            </DropdownMenuItem>
+          )}
+          {/* Note action in dropdown for mobile only */}
+          {onNoteClick && (
+            <DropdownMenuItem
+              onClick={onNoteClick}
+              className="flex items-center gap-2 sm:hidden"
+            >
+              <FileText className="w-4 h-4" />
+              {hasNote ? "Редактировать заметку" : "Добавить заметку"}
             </DropdownMenuItem>
           )}
           {showDeferButton && onDefer && !isCompleted && (

@@ -14,6 +14,7 @@ import {
   createTaskViewModel,
   TaskViewModelDependencies,
 } from "../TaskViewModel";
+import { TestTaskIdUtils } from "../../../../../test/utils/testHelpers";
 
 // Mock Date to ensure consistent test results
 vi.useFakeTimers();
@@ -51,11 +52,21 @@ const mockGetTodayTasksUseCase: GetTodayTasksUseCase = {
   execute: vi.fn(),
 } as any;
 
+const mockDeleteTaskUseCase = {
+  execute: vi.fn(),
+} as any;
+
+const mockChangeTaskNoteUseCase = {
+  execute: vi.fn(),
+} as any;
+
 const dependencies: TaskViewModelDependencies = {
   taskRepository: mockTaskRepository,
   createTaskUseCase: mockCreateTaskUseCase,
   updateTaskUseCase: mockUpdateTaskUseCase,
   completeTaskUseCase: mockCompleteTaskUseCase,
+  deleteTaskUseCase: mockDeleteTaskUseCase,
+  changeTaskNoteUseCase: mockChangeTaskNoteUseCase,
   getTodayTasksUseCase: mockGetTodayTasksUseCase,
 };
 
@@ -160,7 +171,7 @@ describe("TaskViewModel", () => {
   describe("createTask", () => {
     it("should create task successfully", async () => {
       const request = { title: "New Task", category: TaskCategory.SIMPLE };
-      const mockResponse = { taskId: "new-task-id" };
+      const mockResponse = { taskId: TestTaskIdUtils.getValidTaskIdString() };
 
       vi.mocked(mockCreateTaskUseCase.execute).mockResolvedValue(
         ResultUtils.ok(mockResponse)
@@ -191,10 +202,11 @@ describe("TaskViewModel", () => {
 
   describe("completeTask", () => {
     it("should complete task successfully", async () => {
-      const taskId = "task-1";
+      const taskId = TestTaskIdUtils.getValidTaskIdString();
+      const mockResponse = { taskId };
 
       vi.mocked(mockCompleteTaskUseCase.execute).mockResolvedValue(
-        ResultUtils.ok(undefined)
+        ResultUtils.ok(mockResponse)
       );
       vi.mocked(mockTaskRepository.findAll).mockResolvedValue([]);
 
@@ -222,7 +234,10 @@ describe("TaskViewModel", () => {
 
   describe("updateTask", () => {
     it("should update task successfully", async () => {
-      const request = { taskId: "task-1", title: "Updated Task" };
+      const request = {
+        taskId: TestTaskIdUtils.getValidTaskIdString(),
+        title: "Updated Task",
+      };
 
       vi.mocked(mockUpdateTaskUseCase.execute).mockResolvedValue(
         ResultUtils.ok(undefined)
@@ -373,25 +388,30 @@ describe("TaskViewModel", () => {
 
   describe("deleteTask", () => {
     it("should delete task successfully", async () => {
-      const task = createTestTask("Test Task", TaskCategory.SIMPLE);
-      const store = viewModel as any;
-      store.setState({ tasks: [task] });
+      const taskId = TestTaskIdUtils.getValidTaskIdString();
+      const mockResponse = { taskId };
 
-      vi.mocked(mockTaskRepository.save).mockResolvedValue();
+      vi.mocked(mockDeleteTaskUseCase.execute).mockResolvedValue(
+        ResultUtils.ok(mockResponse)
+      );
       vi.mocked(mockTaskRepository.findAll).mockResolvedValue([]);
 
-      const result = await viewModel.getState().deleteTask(task.id.value);
+      const result = await viewModel.getState().deleteTask(taskId);
 
       expect(result).toBe(true);
-      expect(mockTaskRepository.save).toHaveBeenCalled();
+      expect(mockDeleteTaskUseCase.execute).toHaveBeenCalledWith({ taskId });
       expect(mockTaskRepository.findAll).toHaveBeenCalled(); // loadTasks called
     });
 
     it("should handle delete error when task not found", async () => {
-      const store = viewModel as any;
-      store.setState({ tasks: [] });
+      const taskId = TestTaskIdUtils.getValidTaskIdString();
+      const error = { message: "Task not found", code: "TASK_NOT_FOUND" };
 
-      const result = await viewModel.getState().deleteTask("non-existent");
+      vi.mocked(mockDeleteTaskUseCase.execute).mockResolvedValue(
+        ResultUtils.error(error as any)
+      );
+
+      const result = await viewModel.getState().deleteTask(taskId);
 
       expect(result).toBe(false);
       expect(viewModel.getState().error).toBe("Task not found");
@@ -400,7 +420,11 @@ describe("TaskViewModel", () => {
 
   describe("getTodayTaskIds", () => {
     it("should return today task ids successfully", async () => {
-      const expectedTaskIds = ["task-1", "task-2", "task-3"];
+      const expectedTaskIds = [
+        TestTaskIdUtils.getValidTaskIdString(),
+        TestTaskIdUtils.getValidTaskIdString(),
+        TestTaskIdUtils.getValidTaskIdString(),
+      ];
       const mockTasks = expectedTaskIds.map((id) =>
         createTestTask(`Task ${id}`, TaskCategory.SIMPLE)
       );

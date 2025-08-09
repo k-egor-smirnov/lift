@@ -155,7 +155,7 @@ describe("CreateTaskUseCase", () => {
       // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("CREATION_FAILED");
+        expect(result.error.code).toBe("TRANSACTION_FAILED");
         expect(result.error.message).toContain("Database error");
       }
 
@@ -181,7 +181,7 @@ describe("CreateTaskUseCase", () => {
       // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("CREATION_FAILED");
+        expect(result.error.code).toBe("TRANSACTION_FAILED");
         expect(result.error.message).toContain("Event bus error");
       }
 
