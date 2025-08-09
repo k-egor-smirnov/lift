@@ -17,6 +17,7 @@ import {
   TaskReviewedEvent,
   TaskDeferredEvent,
   TaskUndeferredEvent,
+  TaskNoteChangedEvent,
 } from "../../domain/events/TaskEvents";
 
 /**
@@ -59,6 +60,9 @@ export class TaskEventAdapter {
           break;
         case DomainEventType.TASK_TITLE_CHANGED:
           await this.handleTaskTitleChanged(event as TaskTitleChangedEvent);
+          break;
+        case DomainEventType.TASK_NOTE_CHANGED:
+          await this.handleTaskNoteChanged(event as TaskNoteChangedEvent);
           break;
         case DomainEventType.TASK_SOFT_DELETED:
           await this.handleTaskSoftDeleted(event as TaskSoftDeletedEvent);
@@ -154,6 +158,22 @@ export class TaskEventAdapter {
         fromTitle: event.fromTitle.value,
         toTitle: event.toTitle.value,
         action: "title_changed",
+      } as any,
+    });
+  }
+
+  private async handleTaskNoteChanged(
+    event: TaskNoteChangedEvent
+  ): Promise<void> {
+    await taskEventBus.emit({
+      type: TaskEventType.TASK_UPDATED,
+      taskId: event.taskId.value,
+      timestamp: event.occurredAt,
+      data: {
+        note: event.toNote,
+        fromNote: event.fromNote,
+        toNote: event.toNote,
+        action: "note_changed",
       } as any,
     });
   }

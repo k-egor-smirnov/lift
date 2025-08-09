@@ -13,6 +13,7 @@ import {
   TaskSoftDeletedEvent,
   TaskDeferredEvent,
   TaskUndeferredEvent,
+  TaskNoteChangedEvent,
 } from "../events/TaskEvents";
 
 /**
@@ -382,10 +383,11 @@ export class Task {
       return []; // No change needed
     }
 
+    const fromNote = this._note;
     this._note = newNote;
     this._updatedAt = new Date();
 
-    return []; // No specific domain event for note change
+    return [new TaskNoteChangedEvent(this.id, fromNote, newNote)];
   }
 
   /**

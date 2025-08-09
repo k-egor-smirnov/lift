@@ -6,6 +6,7 @@ import {
   TaskCompletedEvent,
   TaskCategoryChangedEvent,
   TaskReviewedEvent,
+  TaskNoteChangedEvent,
 } from "../../../../../shared/domain/events/TaskEvents";
 import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../../../shared/domain/value-objects/NonEmptyTitle";
@@ -112,6 +113,68 @@ describe("TaskLogEventHandler", () => {
         metadata: {
           eventType: event.eventType,
           reviewedAt: reviewedAt.toISOString(),
+        },
+        createdAt: new Date(event.createdAt),
+      });
+    });
+  });
+
+  describe("handleTaskNoteChanged", () => {
+    it("should create system log for note added", async () => {
+      const taskId = TaskId.generate();
+      const event = new TaskNoteChangedEvent(taskId, undefined, "New note");
+
+      await handler.handle(event);
+
+      expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
+        id: `task-note-changed-${event.aggregateId}-${event.createdAt}`,
+        taskId: taskId.value,
+        type: "SYSTEM",
+        message: "Task note added",
+        metadata: {
+          eventType: event.eventType,
+          fromNote: undefined,
+          toNote: "New note",
+        },
+        createdAt: new Date(event.createdAt),
+      });
+    });
+
+    it("should create system log for note removed", async () => {
+      const taskId = TaskId.generate();
+      const event = new TaskNoteChangedEvent(taskId, "Old note", undefined);
+
+      await handler.handle(event);
+
+      expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
+        id: `task-note-changed-${event.aggregateId}-${event.createdAt}`,
+        taskId: taskId.value,
+        type: "SYSTEM",
+        message: "Task note removed",
+        metadata: {
+          eventType: event.eventType,
+          fromNote: "Old note",
+          toNote: undefined,
+        },
+        createdAt: new Date(event.createdAt),
+      });
+    });
+
+    it("should create system log for note changed", async () => {
+      const taskId = TaskId.generate();
+      const event = new TaskNoteChangedEvent(taskId, "Old note", "New note");
+
+      await handler.handle(event);
+
+      expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
+        id: `task-note-changed-${event.aggregateId}-${event.createdAt}`,
+        taskId: taskId.value,
+        type: "SYSTEM",
+        message: "Task note changed",
+        metadata: {
+          eventType: event.eventType,
+          fromNote: "Old note",
+          toNote: "New note",
         },
         createdAt: new Date(event.createdAt),
       });
