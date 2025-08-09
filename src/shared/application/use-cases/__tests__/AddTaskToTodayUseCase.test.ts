@@ -180,9 +180,8 @@ describe("AddTaskToTodayUseCase", () => {
 
     it("should fail with invalid date format", async () => {
       // Arrange
-      const taskId = TaskId.generate();
       const request: AddTaskToTodayRequest = {
-        taskId: taskId.value,
+        taskId: TaskId.generate().value,
         date: "invalid-date",
       };
 

@@ -447,6 +447,7 @@ describe("TodoDatabase", () => {
       });
 
       await db.taskLogs.add({
+        id: "log_test",
         taskId: "task_1",
         type: "SYSTEM",
         message: "Test log",

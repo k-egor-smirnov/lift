@@ -3,80 +3,128 @@ import "@testing-library/jest-dom/vitest";
 import "fake-indexeddb/auto";
 import { vi } from "vitest";
 
+// Mock TaskId
+vi.mock("../shared/domain/value-objects/TaskId", () => {
+  let counter = 0;
+
+  return {
+    TaskId: class MockTaskId {
+      constructor(public value: string) {}
+
+      equals(other: any) {
+        return this.value === (other?.value || other);
+      }
+
+      static generate() {
+        counter++;
+        // Generate unique ULID-like IDs for testing
+        // ULID format: 26 characters, base32 encoded
+        const chars = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+        let result = "";
+
+        // First 10 chars represent timestamp
+        const timestamp = Date.now();
+        let timestampPart = timestamp;
+        for (let i = 0; i < 10; i++) {
+          result = chars[timestampPart % 32] + result;
+          timestampPart = Math.floor(timestampPart / 32);
+        }
+
+        // Last 16 chars represent randomness (using counter for uniqueness)
+        let randomPart = counter;
+        for (let i = 0; i < 16; i++) {
+          result += chars[randomPart % 32];
+          randomPart = Math.floor(randomPart / 32);
+        }
+
+        return new MockTaskId(result.padEnd(26, "0"));
+      }
+
+      static fromString(value: string) {
+        // Simple validation - check if it looks like a ULID
+        if (!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(value)) {
+          throw new Error("Invalid task ID format");
+        }
+        return new MockTaskId(value);
+      }
+    },
+  };
+});
+
+// Mock NonEmptyTitle
+vi.mock("../shared/domain/value-objects/NonEmptyTitle", () => {
+  return {
+    NonEmptyTitle: class MockNonEmptyTitle {
+      constructor(public value: string) {
+        if (!value || value.trim().length === 0) {
+          throw new Error("Title cannot be empty");
+        }
+      }
+
+      equals(other: any) {
+        return this.value === (other?.value || other);
+      }
+
+      static fromString(value: string) {
+        return new MockNonEmptyTitle(value);
+      }
+    },
+  };
+});
+
 // Mock DateOnly
 vi.mock("../shared/domain/value-objects/DateOnly", () => {
   const mockDate = new Date("2023-12-01T12:00:00Z");
   const mockDateString = "2023-12-01";
   const mockYesterdayString = "2023-11-30";
 
-  // Mock Date.now to return fixed timestamp
-  const originalDateNow = Date.now;
-  Date.now = () => new Date("2023-12-01T12:00:00Z").getTime();
-
-  // Store original Date for cleanup
-  const originalDate = global.Date;
-
   return {
     DateOnly: class MockDateOnly {
-      constructor(value) {
+      constructor(value: string) {
         this.value = value;
       }
+
+      value: string;
+
+      equals(other: any) {
+        return this.value === (other?.value || other);
+      }
+
+      daysDifference(other: any) {
+        const thisDate = new Date(this.value);
+        const otherDate = new Date(other?.value || other);
+        const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
+        const days = diffTime / (1000 * 60 * 60 * 24);
+        return days === 0 ? 0 : Math.ceil(days);
+      }
+
       static today() {
-        return {
-          value: mockDateString,
-          daysDifference: (other: any) => {
-            const thisDate = new Date(mockDateString);
-            const otherDate = new Date(other.value || other);
-            const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-            const days = diffTime / (1000 * 60 * 60 * 24);
-            return days === 0 ? 0 : Math.ceil(days);
-          },
-        };
+        return new MockDateOnly(mockDateString);
       }
+
       static yesterday() {
-        return {
-          value: mockYesterdayString,
-          daysDifference: (other: any) => {
-            const thisDate = new Date(mockYesterdayString);
-            const otherDate = new Date(other.value || other);
-            const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-            const days = diffTime / (1000 * 60 * 60 * 24);
-            return days === 0 ? 0 : Math.ceil(days);
-          },
-        };
+        return new MockDateOnly(mockYesterdayString);
       }
+
       getCurrentDate() {
         return mockDate;
       }
+
       static fromDate = (date: Date) => {
         // Use local date formatting to avoid timezone issues
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const day = String(date.getDate()).padStart(2, "0");
         const localDateString = `${year}-${month}-${day}`;
-
-        return {
-          value: localDateString,
-          daysDifference: (other: any) => {
-            const thisDate = new Date(localDateString);
-            const otherDate = new Date(other.value || other);
-            const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-            const days = diffTime / (1000 * 60 * 60 * 24);
-            return days === 0 ? 0 : Math.ceil(days);
-          },
-        };
+        return new MockDateOnly(localDateString);
       };
+
       static fromString = (dateString: string) => {
-        return {
-          value: dateString,
-          daysDifference: (other: any) => {
-            const thisDate = new Date(dateString);
-            const otherDate = new Date(other.value || other);
-            const diffTime = Math.abs(otherDate.getTime() - thisDate.getTime());
-            const days = diffTime / (1000 * 60 * 60 * 24);
-            return days === 0 ? 0 : Math.ceil(days);
-          },
-        };
+        // Validate date format
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+          throw new Error("Invalid date format");
+        }
+        return new MockDateOnly(dateString);
       };
     },
   };

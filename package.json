@@ -63,6 +63,7 @@
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vitejs/plugin-react": "^4.0.3",
+    "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.14",
     "eslint": "^8.45.0",
     "eslint-plugin-react-hooks": "^4.6.0",
@@ -77,7 +78,7 @@
     "typescript": "^5.0.2",
     "vite": "^4.4.5",
     "vite-plugin-pwa": "^0.16.4",
-    "vitest": "^0.34.0"
+    "vitest": "^3.2.4"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write"
