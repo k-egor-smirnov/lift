@@ -52,10 +52,7 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
   const { t } = useTranslation();
   const isCompleted = status === TaskStatus.COMPLETED;
 
-  // Parse checklist progress from note
-  const checklistProgress = note ? parseChecklistProgress(note) : null;
   const hasNote = note && note.trim().length > 0;
-  const hasChecklist = checklistProgress && checklistProgress.total > 0;
 
   return (
     <div
@@ -63,11 +60,11 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
       role="toolbar"
       aria-label={t("taskCard.taskActions")}
     >
-      {/* Note button - always visible if onNoteClick is provided */}
+      {/* Note button - visible on mobile only (hidden on md and up) */}
       {onNoteClick && (
         <button
           onClick={onNoteClick}
-          className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 relative ${
+          className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 relative sm:hidden ${
             hasNote
               ? "text-blue-600 hover:text-blue-700 hover:bg-blue-50 focus:ring-blue-500"
               : "text-gray-400 hover:text-gray-600 hover:bg-gray-50 focus:ring-gray-500"
@@ -79,13 +76,6 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
             <FileText className="w-4 h-4" />
           ) : (
             <File className="w-4 h-4" />
-          )}
-
-          {/* Checklist progress indicator */}
-          {hasChecklist && (
-            <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center leading-none">
-              {formatChecklistProgress(checklistProgress)}
-            </span>
           )}
         </button>
       )}
@@ -136,6 +126,16 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
             >
               <Pencil className="w-4 h-4" />
               {t("taskCard.editTask")}
+            </DropdownMenuItem>
+          )}
+          {/* Note action in dropdown for mobile only */}
+          {onNoteClick && (
+            <DropdownMenuItem
+              onClick={onNoteClick}
+              className="flex items-center gap-2 sm:hidden"
+            >
+              <FileText className="w-4 h-4" />
+              {hasNote ? "Редактировать заметку" : "Добавить заметку"}
             </DropdownMenuItem>
           )}
           {showDeferButton && onDefer && !isCompleted && (
