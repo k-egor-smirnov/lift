@@ -96,6 +96,8 @@ const resources = {
         deferTask: "Defer Task",
         deferTaskWithTitle: "Defer task: {{title}}",
         editTask: "Edit task",
+        editNote: "Edit note",
+        addNote: "Add note",
       },
       logs: {
         actions: {
@@ -218,6 +220,8 @@ const resources = {
         daysAgo: "Несколько дней назад",
         deleteTask: "Удалить",
         editTask: "Редактировать",
+        editNote: "Заметка",
+        addNote: "Заметка",
       },
       tasks: {
         newTask: "Новая задача",
