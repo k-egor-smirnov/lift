@@ -35,8 +35,10 @@ export const CREATE_SYSTEM_LOG_USE_CASE_TOKEN = Symbol(
 export const DEFER_TASK_USE_CASE_TOKEN = Symbol("DeferTaskUseCase");
 export const UNDEFER_TASK_USE_CASE_TOKEN = Symbol("UndeferTaskUseCase");
 export const CHANGE_TASK_NOTE_USE_CASE_TOKEN = Symbol("ChangeTaskNoteUseCase");
+export const SUMMARIZE_LOGS_USE_CASE_TOKEN = Symbol("SummarizeLogsUseCase");
 
 // Services
+export const LLM_SERVICE_TOKEN = Symbol("LLMService");
 export const DEFERRED_TASK_SERVICE_TOKEN = Symbol("DeferredTaskService");
 export const SYNC_SERVICE_TOKEN = Symbol("SyncService");
 export const DEBOUNCED_SYNC_SERVICE_TOKEN = Symbol("DebouncedSyncService");

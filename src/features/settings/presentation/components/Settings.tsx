@@ -17,15 +17,23 @@ import { Badge } from "@/shared/ui/badge";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { useSync } from "@/shared/infrastructure/sync";
 import { useAuth } from "@/shared/presentation/hooks/useAuth";
+import { UserSettingsService } from "@/features/onboarding/application/services/UserSettingsService";
+import { UserSettingsRepositoryImpl } from "@/shared/infrastructure/repositories/UserSettingsRepositoryImpl";
+import { LLMSettings } from "@/shared/domain/entities/LLMSettings";
 import { container } from "tsyringe";
 import { SupabaseClientFactory } from "@/shared/infrastructure/database/SupabaseClient";
-import { SUPABASE_CLIENT_FACTORY_TOKEN } from "@/shared/infrastructure/di/tokens";
+import { TodoDatabase } from "@/shared/infrastructure/database/TodoDatabase";
+import {
+  SUPABASE_CLIENT_FACTORY_TOKEN,
+  DATABASE_TOKEN,
+} from "@/shared/infrastructure/di/tokens";
 import {
   Settings as SettingsIcon,
   User as UserIcon,
   Database,
   Wifi,
   WifiOff,
+  Bot,
 } from "lucide-react";
 
 interface SettingsProps {
@@ -60,6 +68,83 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const [connectionTestResult, setConnectionTestResult] = useState<
     string | null
   >(null);
+
+  // LLM settings
+  const [llmSettings, setLlmSettings] = useState<LLMSettings>({
+    enabled: false,
+    apiUrl: "https://api.openai.com/v1",
+    apiKey: "",
+    model: "gpt-3.5-turbo",
+    maxTokens: 1000,
+    temperature: 0.7,
+  });
+  const [llmTestResult, setLlmTestResult] = useState<string | null>(null);
+
+  // Load LLM settings
+  const loadLLMSettings = async () => {
+    try {
+      const settings = await userSettingsService.getLLMSettings();
+      setLlmSettings(settings);
+    } catch (error) {
+      console.error("Failed to load LLM settings:", error);
+    }
+  };
+
+  // Save LLM settings
+  const saveLLMSettings = async (newSettings: LLMSettings) => {
+    try {
+      await userSettingsService.setLLMSettings(newSettings);
+      setLlmSettings(newSettings);
+    } catch (error) {
+      console.error("Failed to save LLM settings:", error);
+    }
+  };
+
+  const handleTestLLMConnection = async () => {
+    if (!llmSettings.apiUrl || !llmSettings.apiKey) {
+      setLlmTestResult("API URL and API Key are required");
+      return;
+    }
+
+    try {
+      setLlmTestResult("Testing connection...");
+
+      const response = await fetch(`${llmSettings.apiUrl}/models`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${llmSettings.apiKey}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLlmTestResult(
+          `✅ Connection successful! Found ${data.data?.length || 0} models.`
+        );
+      } else {
+        const errorText = await response.text();
+        setLlmTestResult(
+          `❌ Connection failed: ${response.status} ${response.statusText}\n${errorText}`
+        );
+      }
+    } catch (error) {
+      setLlmTestResult(
+        `❌ Connection failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  };
+
+  // User settings service
+  const todoDatabase = container.resolve<TodoDatabase>(DATABASE_TOKEN);
+  const userSettingsService = new UserSettingsService(
+    new UserSettingsRepositoryImpl(todoDatabase)
+  );
+
+  // Load LLM settings on mount
+  useEffect(() => {
+    loadLLMSettings();
+  }, []);
 
   // Get Supabase client
   const supabaseClientFactory = container.resolve<SupabaseClientFactory>(
@@ -246,7 +331,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   return (
     <div className="">
       <Tabs defaultValue="auth" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="auth" className="flex items-center space-x-2">
             <UserIcon className="h-4 w-4" />
             <span>{t("settings.tabs.auth")}</span>
@@ -254,6 +339,10 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
           <TabsTrigger value="sync" className="flex items-center space-x-2">
             <Database className="h-4 w-4" />
             <span>{t("settings.tabs.sync")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="llm" className="flex items-center space-x-2">
+            <Bot className="h-4 w-4" />
+            <span>{t("settings.tabs.llm")}</span>
           </TabsTrigger>
           <TabsTrigger value="app" className="flex items-center space-x-2">
             <SettingsIcon className="h-4 w-4" />
@@ -533,6 +622,194 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                   </Alert>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="llm" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("settings.llm.title")}</CardTitle>
+              <CardDescription>{t("settings.llm.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Enable LLM */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>{t("settings.llm.enabled")}</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t("settings.llm.enabledDescription")}
+                  </p>
+                </div>
+                <Switch
+                  checked={llmSettings.enabled}
+                  onCheckedChange={(enabled) => {
+                    const newSettings = { ...llmSettings, enabled };
+                    saveLLMSettings(newSettings);
+                  }}
+                />
+              </div>
+
+              {llmSettings.enabled && (
+                <>
+                  <Separator />
+
+                  {/* API URL */}
+                  <div className="space-y-2">
+                    <Label htmlFor="llm-api-url">
+                      {t("settings.llm.apiUrl")}
+                    </Label>
+                    <Input
+                      id="llm-api-url"
+                      type="url"
+                      value={llmSettings.apiUrl}
+                      onChange={(e) => {
+                        const newSettings = {
+                          ...llmSettings,
+                          apiUrl: e.target.value,
+                        };
+                        saveLLMSettings(newSettings);
+                      }}
+                      placeholder="https://api.openai.com/v1"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      {t("settings.llm.apiUrlDescription")}
+                    </p>
+                  </div>
+
+                  {/* API Key */}
+                  <div className="space-y-2">
+                    <Label htmlFor="llm-api-key">
+                      {t("settings.llm.apiKey")}
+                    </Label>
+                    <Input
+                      id="llm-api-key"
+                      type="password"
+                      value={llmSettings.apiKey}
+                      onChange={(e) => {
+                        const newSettings = {
+                          ...llmSettings,
+                          apiKey: e.target.value,
+                        };
+                        saveLLMSettings(newSettings);
+                      }}
+                      placeholder="sk-..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      {t("settings.llm.apiKeyDescription")}
+                    </p>
+                  </div>
+
+                  {/* Model */}
+                  <div className="space-y-2">
+                    <Label htmlFor="llm-model">{t("settings.llm.model")}</Label>
+                    <Input
+                      id="llm-model"
+                      value={llmSettings.model}
+                      onChange={(e) => {
+                        const newSettings = {
+                          ...llmSettings,
+                          model: e.target.value,
+                        };
+                        saveLLMSettings(newSettings);
+                      }}
+                      placeholder="gpt-3.5-turbo"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      {t("settings.llm.modelDescription")}
+                    </p>
+                  </div>
+
+                  {/* Advanced Settings */}
+                  <Separator />
+                  <div className="space-y-4">
+                    <Label className="text-base font-medium">
+                      {t("settings.llm.advanced")}
+                    </Label>
+
+                    {/* Max Tokens */}
+                    <div className="space-y-2">
+                      <Label htmlFor="llm-max-tokens">
+                        {t("settings.llm.maxTokens")}
+                      </Label>
+                      <Input
+                        id="llm-max-tokens"
+                        type="number"
+                        min="100"
+                        max="4000"
+                        value={llmSettings.maxTokens}
+                        onChange={(e) => {
+                          const newSettings = {
+                            ...llmSettings,
+                            maxTokens: Number(e.target.value),
+                          };
+                          saveLLMSettings(newSettings);
+                        }}
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        {t("settings.llm.maxTokensDescription")}
+                      </p>
+                    </div>
+
+                    {/* Temperature */}
+                    <div className="space-y-2">
+                      <Label htmlFor="llm-temperature">
+                        {t("settings.llm.temperature")}
+                      </Label>
+                      <Input
+                        id="llm-temperature"
+                        type="number"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value={llmSettings.temperature}
+                        onChange={(e) => {
+                          const newSettings = {
+                            ...llmSettings,
+                            temperature: Number(e.target.value),
+                          };
+                          saveLLMSettings(newSettings);
+                        }}
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        {t("settings.llm.temperatureDescription")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Test Connection */}
+                  <div className="space-y-2">
+                    <Button
+                      onClick={handleTestLLMConnection}
+                      variant="outline"
+                      className="w-full"
+                      disabled={isLoading || !llmSettings.apiKey.trim()}
+                    >
+                      {isLoading
+                        ? "Тестирование..."
+                        : t("settings.llm.testConnection")}
+                    </Button>
+                  </div>
+
+                  {/* Test Results */}
+                  {llmTestResult && (
+                    <Alert className="mt-4">
+                      <AlertDescription>
+                        <div className="space-y-2">
+                          <div className="font-medium">
+                            {t("settings.llm.testResults")}:
+                          </div>
+                          <pre className="text-xs whitespace-pre-wrap font-mono bg-muted p-2 rounded">
+                            {llmTestResult}
+                          </pre>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

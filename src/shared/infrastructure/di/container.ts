@@ -24,9 +24,11 @@ import { CreateSystemLogUseCase } from "../../application/use-cases/CreateSystem
 import { DeferTaskUseCase } from "../../application/use-cases/DeferTaskUseCase";
 import { UndeferTaskUseCase } from "../../application/use-cases/UndeferTaskUseCase";
 import { ChangeTaskNoteUseCase } from "../../application/use-cases/ChangeTaskNoteUseCase";
+import { SummarizeLogsUseCase } from "../../application/use-cases/SummarizeLogsUseCase";
 
 // Import services
 import { DeferredTaskService } from "../../application/services/DeferredTaskService";
+import { LLMService } from "../services/LLMService";
 
 // Import tokens
 import * as tokens from "./tokens";
@@ -115,12 +117,17 @@ export function configureContainer(): void {
     tokens.CHANGE_TASK_NOTE_USE_CASE_TOKEN,
     ChangeTaskNoteUseCase
   );
+  container.registerSingleton(
+    tokens.SUMMARIZE_LOGS_USE_CASE_TOKEN,
+    SummarizeLogsUseCase
+  );
 
   // Register services as singletons
   container.registerSingleton(
     tokens.DEFERRED_TASK_SERVICE_TOKEN,
     DeferredTaskService
   );
+  container.registerSingleton(tokens.LLM_SERVICE_TOKEN, LLMService);
 }
 
 export { container };

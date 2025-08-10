@@ -1,4 +1,5 @@
 import { UserSettingsRepository } from "../../../../shared/domain/repositories/UserSettingsRepository";
+import { LLMSettings } from "../../../../shared/domain/entities/LLMSettings";
 
 /**
  * User settings keys
@@ -6,6 +7,7 @@ import { UserSettingsRepository } from "../../../../shared/domain/repositories/U
 export const USER_SETTINGS_KEYS = {
   INBOX_OVERDUE_DAYS: "inboxOverdueDays",
   KEYBOARD_SHORTCUTS_ENABLED: "keyboardShortcutsEnabled",
+  LLM_SETTINGS: "llmSettings",
 } as const;
 
 /**
@@ -14,6 +16,14 @@ export const USER_SETTINGS_KEYS = {
 export const DEFAULT_USER_SETTINGS = {
   [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]: 3,
   [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: true, // Default enabled on desktop, will be overridden on mobile
+  [USER_SETTINGS_KEYS.LLM_SETTINGS]: {
+    enabled: false,
+    apiUrl: "https://api.openai.com/v1",
+    apiKey: "",
+    model: "gpt-3.5-turbo",
+    maxTokens: 1000,
+    temperature: 0.7,
+  } as LLMSettings,
 } as const;
 
 /**
@@ -22,6 +32,7 @@ export const DEFAULT_USER_SETTINGS = {
 export interface UserSettings {
   inboxOverdueDays: number;
   keyboardShortcutsEnabled: boolean;
+  llmSettings: LLMSettings;
 }
 
 /**
@@ -46,6 +57,9 @@ export class UserSettingsService {
       keyboardShortcutsEnabled:
         settings[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] ??
         this.getDefaultKeyboardShortcutsEnabled(),
+      llmSettings:
+        settings[USER_SETTINGS_KEYS.LLM_SETTINGS] ??
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.LLM_SETTINGS],
     };
 
     return result;
@@ -65,6 +79,10 @@ export class UserSettingsService {
     if (settings.keyboardShortcutsEnabled !== undefined) {
       settingsToUpdate[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] =
         settings.keyboardShortcutsEnabled;
+    }
+
+    if (settings.llmSettings !== undefined) {
+      settingsToUpdate[USER_SETTINGS_KEYS.LLM_SETTINGS] = settings.llmSettings;
     }
 
     await this.userSettingsRepository.setMany(settingsToUpdate);
@@ -116,6 +134,26 @@ export class UserSettingsService {
   }
 
   /**
+   * Get LLM settings
+   */
+  async getLLMSettings(): Promise<LLMSettings> {
+    const value = await this.userSettingsRepository.get<LLMSettings>(
+      USER_SETTINGS_KEYS.LLM_SETTINGS
+    );
+    return value ?? DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.LLM_SETTINGS];
+  }
+
+  /**
+   * Set LLM settings
+   */
+  async setLLMSettings(settings: LLMSettings): Promise<void> {
+    await this.userSettingsRepository.set(
+      USER_SETTINGS_KEYS.LLM_SETTINGS,
+      settings
+    );
+  }
+
+  /**
    * Reset all settings to defaults
    */
   async resetToDefaults(): Promise<void> {
@@ -127,6 +165,8 @@ export class UserSettingsService {
         DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
       [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]:
         this.getDefaultKeyboardShortcutsEnabled(),
+      [USER_SETTINGS_KEYS.LLM_SETTINGS]:
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.LLM_SETTINGS],
     });
   }
 
@@ -146,6 +186,11 @@ export class UserSettingsService {
     if (!(USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED in existingSettings)) {
       settingsToSet[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] =
         this.getDefaultKeyboardShortcutsEnabled();
+    }
+
+    if (!(USER_SETTINGS_KEYS.LLM_SETTINGS in existingSettings)) {
+      settingsToSet[USER_SETTINGS_KEYS.LLM_SETTINGS] =
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.LLM_SETTINGS];
     }
 
     if (Object.keys(settingsToSet).length > 0) {

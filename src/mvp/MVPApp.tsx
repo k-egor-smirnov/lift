@@ -43,8 +43,11 @@ import { DeferTaskUseCase } from "../shared/application/use-cases/DeferTaskUseCa
 import { UndeferTaskUseCase } from "../shared/application/use-cases/UndeferTaskUseCase";
 import { GetTaskLogsUseCase } from "../shared/application/use-cases/GetTaskLogsUseCase";
 import { CreateUserLogUseCase } from "../shared/application/use-cases/CreateUserLogUseCase";
+import { SummarizeLogsUseCase } from "../shared/application/use-cases/SummarizeLogsUseCase";
 import { ChangeTaskNoteUseCase } from "../shared/application/use-cases/ChangeTaskNoteUseCase";
 import { LogViewModelDependencies } from "../features/logs/presentation/view-models/LogViewModel";
+import { UserSettingsService } from "../features/onboarding/application/services/UserSettingsService";
+import { UserSettingsRepositoryImpl } from "../shared/infrastructure/repositories/UserSettingsRepositoryImpl";
 import { toast, Toaster } from "sonner";
 import { Settings } from "../features/settings/presentation/components/Settings";
 import { ContentArea } from "./components/ContentArea";
@@ -124,11 +127,20 @@ export const MVPApp: React.FC = () => {
   const changeTaskNoteUseCase = getService<ChangeTaskNoteUseCase>(
     tokens.CHANGE_TASK_NOTE_USE_CASE_TOKEN
   );
+  const summarizeLogsUseCase = getService<SummarizeLogsUseCase>(
+    tokens.SUMMARIZE_LOGS_USE_CASE_TOKEN
+  );
 
   // Create TaskLogService manually to avoid circular dependency
   const logService = useMemo(
     () => new TaskLogService(getTaskLogsUseCase, createUserLogUseCase),
     [getTaskLogsUseCase, createUserLogUseCase]
+  );
+
+  // Create UserSettingsService manually
+  const userSettingsService = useMemo(
+    () => new UserSettingsService(new UserSettingsRepositoryImpl(database)),
+    [database]
   );
 
   // Create dependencies for view models
@@ -159,8 +171,10 @@ export const MVPApp: React.FC = () => {
     () => ({
       getTaskLogsUseCase,
       createUserLogUseCase,
+      summarizeLogsUseCase,
+      userSettingsService,
     }),
-    []
+    [userSettingsService]
   );
 
   // Create the view model instances
