@@ -4,7 +4,6 @@ import { TaskRepository } from "../../domain/repositories/TaskRepository";
 import { EventBus } from "../../domain/events/EventBus";
 import { Result, ResultUtils } from "../../domain/Result";
 import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
-import { hashTask } from "../../infrastructure/utils/hashUtils";
 import * as tokens from "../../infrastructure/di/tokens";
 
 /**

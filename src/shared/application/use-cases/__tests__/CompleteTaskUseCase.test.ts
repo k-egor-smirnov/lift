@@ -12,7 +12,6 @@ import { NonEmptyTitle } from "../../../domain/value-objects/NonEmptyTitle";
 import { TaskCategory, TaskStatus } from "../../../domain/types";
 import { ResultUtils } from "../../../domain/Result";
 import { DebouncedSyncService } from "../../services/DebouncedSyncService";
-import { TestTaskIdUtils } from "../../../test/utils/testHelpers";
 
 // Mock implementations
 const mockTaskRepository: TaskRepository = {
@@ -28,6 +27,8 @@ const mockTaskRepository: TaskRepository = {
   count: vi.fn(),
   countByCategory: vi.fn(),
   exists: vi.fn(),
+  findTasksCreatedInDateRange: vi.fn(),
+  findTasksCompletedInDateRange: vi.fn(),
 };
 
 const mockEventBus: EventBus = {
@@ -40,9 +41,6 @@ const mockEventBus: EventBus = {
 
 const mockDatabase = {
   transaction: vi.fn(),
-  syncQueue: {
-    add: vi.fn(),
-  },
   eventStore: {},
   tasks: {},
 } as unknown as TodoDatabase;
@@ -58,12 +56,7 @@ describe("CompleteTaskUseCase", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Mock transaction to execute the callback immediately
-    vi.mocked(mockDatabase.transaction).mockImplementation(
-      async (mode, tables, callback) => {
-        return await callback();
-      }
-    );
+    // Mock transaction to execute the callback immediately    vi.mocked(mockDatabase.transaction).mockImplementation(      async (mode, tables, callback) => {        return await callback({} as any);      }    );
 
     useCase = new CompleteTaskUseCase(
       mockTaskRepository,
@@ -280,10 +273,7 @@ describe("CompleteTaskUseCase", () => {
       // Assert
       expect(ResultUtils.isSuccess(result)).toBe(true);
 
-      // Verify the event contains the category at completion
-      const publishedEvents = vi.mocked(mockEventBus.publishAll).mock
-        .calls[0][0];
-      expect(publishedEvents[0].categoryAtCompletion).toBe(TaskCategory.FOCUS);
+      // Verify the event contains the category at completion      const publishedEvents = vi.mocked(mockEventBus.publishAll).mock        .calls[0][0];      expect((publishedEvents[0] as any).categoryAtCompletion).toBe(TaskCategory.FOCUS);
     });
   });
 });

@@ -98,6 +98,43 @@ vi.mock("../shared/domain/value-objects/DateOnly", () => {
         return days === 0 ? 0 : Math.ceil(days);
       }
 
+      addDays(days: number) {
+        const date = new Date(this.value);
+        date.setDate(date.getDate() + days);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return new MockDateOnly(`${year}-${month}-${day}`);
+      }
+
+      subtractDays(days: number) {
+        return this.addDays(-days);
+      }
+
+      toDate() {
+        return new Date(this.value);
+      }
+
+      toString() {
+        return this.value;
+      }
+
+      compareTo(other: any) {
+        const thisDate = new Date(this.value);
+        const otherDate = new Date(other?.value || other);
+        if (thisDate < otherDate) return -1;
+        if (thisDate > otherDate) return 1;
+        return 0;
+      }
+
+      isBefore(other: any) {
+        return this.compareTo(other) < 0;
+      }
+
+      isAfter(other: any) {
+        return this.compareTo(other) > 0;
+      }
+
       static today() {
         return new MockDateOnly(mockDateString);
       }

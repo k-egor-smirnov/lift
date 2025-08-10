@@ -13,7 +13,6 @@ import { DateOnly } from "../../../domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../../domain/types";
 import { ResultUtils } from "../../../domain/Result";
 import { DebouncedSyncService } from "../../services/DebouncedSyncService";
-import { TestTaskIdUtils } from "../../../test/utils/testHelpers";
 
 // Mock implementations
 const mockDailySelectionRepository: DailySelectionRepository = {
@@ -28,6 +27,7 @@ const mockDailySelectionRepository: DailySelectionRepository = {
   clearDay: vi.fn(),
   countTasksForDay: vi.fn(),
   getLastSelectionDateForTask: vi.fn(),
+  removeTaskFromAllDays: vi.fn(),
 };
 
 const mockTaskRepository: TaskRepository = {
@@ -43,6 +43,8 @@ const mockTaskRepository: TaskRepository = {
   count: vi.fn(),
   countByCategory: vi.fn(),
   exists: vi.fn(),
+  findTasksCreatedInDateRange: vi.fn(),
+  findTasksCompletedInDateRange: vi.fn(),
 };
 
 const mockEventBus: EventBus = {

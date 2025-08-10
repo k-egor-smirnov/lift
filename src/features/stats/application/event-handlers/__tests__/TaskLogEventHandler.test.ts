@@ -36,7 +36,7 @@ describe("TaskLogEventHandler", () => {
       await handler.handle(event);
 
       expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
-        id: `task-created-${event.aggregateId}-${event.createdAt}`,
+        id: `task-created-${event.taskId.value}-${event.occurredAt.getTime()}`,
         taskId: taskId.value,
         type: "SYSTEM",
         message: "Task created in SIMPLE category",
@@ -45,7 +45,7 @@ describe("TaskLogEventHandler", () => {
           category: TaskCategory.SIMPLE,
           title: title.value,
         },
-        createdAt: new Date(event.createdAt),
+        createdAt: event.occurredAt,
       });
     });
   });
@@ -58,7 +58,7 @@ describe("TaskLogEventHandler", () => {
       await handler.handle(event);
 
       expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
-        id: `task-completed-${event.aggregateId}-${event.createdAt}`,
+        id: `task-completed-${event.taskId.value}-${event.occurredAt.getTime()}`,
         taskId: taskId.value,
         type: "SYSTEM",
         message: "Task completed in FOCUS category",
@@ -66,7 +66,7 @@ describe("TaskLogEventHandler", () => {
           eventType: event.eventType,
           categoryAtCompletion: TaskCategory.FOCUS,
         },
-        createdAt: new Date(event.createdAt),
+        createdAt: event.occurredAt,
       });
     });
   });
@@ -83,7 +83,7 @@ describe("TaskLogEventHandler", () => {
       await handler.handle(event);
 
       expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
-        id: `task-category-changed-${event.aggregateId}-${event.createdAt}`,
+        id: `task-category-changed-${event.taskId.value}-${event.occurredAt.getTime()}`,
         taskId: taskId.value,
         type: "SYSTEM",
         message: "Task moved from INBOX to SIMPLE",
@@ -92,7 +92,7 @@ describe("TaskLogEventHandler", () => {
           fromCategory: TaskCategory.INBOX,
           toCategory: TaskCategory.SIMPLE,
         },
-        createdAt: new Date(event.createdAt),
+        createdAt: event.occurredAt,
       });
     });
   });
@@ -106,7 +106,7 @@ describe("TaskLogEventHandler", () => {
       await handler.handle(event);
 
       expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
-        id: `task-reviewed-${event.aggregateId}-${event.createdAt}`,
+        id: `task-reviewed-${event.taskId.value}-${event.occurredAt.getTime()}`,
         taskId: taskId.value,
         type: "SYSTEM",
         message: "Task reviewed - moved from INBOX for the first time",
@@ -114,7 +114,7 @@ describe("TaskLogEventHandler", () => {
           eventType: event.eventType,
           reviewedAt: reviewedAt.toISOString(),
         },
-        createdAt: new Date(event.createdAt),
+        createdAt: event.occurredAt,
       });
     });
   });
@@ -127,7 +127,7 @@ describe("TaskLogEventHandler", () => {
       await handler.handle(event);
 
       expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
-        id: `task-note-changed-${event.aggregateId}-${event.createdAt}`,
+        id: `task-note-changed-${event.taskId.value}-${event.occurredAt.getTime()}`,
         taskId: taskId.value,
         type: "SYSTEM",
         message: "Task note added",
@@ -136,7 +136,7 @@ describe("TaskLogEventHandler", () => {
           fromNote: undefined,
           toNote: "New note",
         },
-        createdAt: new Date(event.createdAt),
+        createdAt: event.occurredAt,
       });
     });
 
@@ -147,7 +147,7 @@ describe("TaskLogEventHandler", () => {
       await handler.handle(event);
 
       expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
-        id: `task-note-changed-${event.aggregateId}-${event.createdAt}`,
+        id: `task-note-changed-${event.taskId.value}-${event.occurredAt.getTime()}`,
         taskId: taskId.value,
         type: "SYSTEM",
         message: "Task note removed",
@@ -156,7 +156,7 @@ describe("TaskLogEventHandler", () => {
           fromNote: "Old note",
           toNote: undefined,
         },
-        createdAt: new Date(event.createdAt),
+        createdAt: event.occurredAt,
       });
     });
 
@@ -167,7 +167,7 @@ describe("TaskLogEventHandler", () => {
       await handler.handle(event);
 
       expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
-        id: `task-note-changed-${event.aggregateId}-${event.createdAt}`,
+        id: `task-note-changed-${event.taskId.value}-${event.occurredAt.getTime()}`,
         taskId: taskId.value,
         type: "SYSTEM",
         message: "Task note changed",
@@ -176,7 +176,7 @@ describe("TaskLogEventHandler", () => {
           fromNote: "Old note",
           toNote: "New note",
         },
-        createdAt: new Date(event.createdAt),
+        createdAt: new Date(event.occurredAt),
       });
     });
   });
@@ -196,13 +196,13 @@ describe("TaskLogEventHandler", () => {
       expect(mockDatabase.taskLogs.put).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
-          id: `task-created-${event.aggregateId}-${event.createdAt}`,
+          id: `task-created-${event.taskId.value}-${event.occurredAt.getTime()}`,
         })
       );
       expect(mockDatabase.taskLogs.put).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
-          id: `task-created-${event.aggregateId}-${event.createdAt}`,
+          id: `task-created-${event.taskId.value}-${event.occurredAt.getTime()}`,
         })
       );
     });

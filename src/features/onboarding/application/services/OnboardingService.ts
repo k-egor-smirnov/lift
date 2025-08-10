@@ -5,12 +5,14 @@ import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { UserSettingsService } from "./UserSettingsService";
 import { DailySelectionService } from "../../domain/services/DailySelectionService";
-import { TaskLogService } from "../../../../shared/application/services/TaskLogService";
+
 import { AddTaskToTodayUseCase } from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
 import { RemoveTaskFromTodayUseCase } from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
 import { CreateSystemLogUseCase } from "../../../../shared/application/use-cases/CreateSystemLogUseCase";
 import { EventBus } from "../../../../shared/domain/events/EventBus";
 import { container, tokens } from "../../../../shared/infrastructure/di";
+import { TodoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
+import { DebouncedSyncService } from "../../../../shared/application/services/DebouncedSyncService";
 
 /**
  * Data aggregated for the daily modal
@@ -50,31 +52,40 @@ export class OnboardingService {
   constructor(
     private readonly taskRepository: TaskRepository,
     private readonly dailySelectionRepository: DailySelectionRepository,
-    private readonly logService: TaskLogService,
     private readonly userSettingsService?: UserSettingsService
   ) {
     // Get EventBus from DI container
     const eventBus = container.resolve<EventBus>(tokens.EVENT_BUS_TOKEN);
 
+    // Get dependencies from DI container
+    const database = container.resolve<TodoDatabase>(tokens.DATABASE_TOKEN);
+    const debouncedSyncService = container.resolve<DebouncedSyncService>(
+      tokens.DEBOUNCED_SYNC_SERVICE_TOKEN
+    );
+
     // Create use cases
     const addTaskToTodayUseCase = new AddTaskToTodayUseCase(
       dailySelectionRepository,
       taskRepository,
-      eventBus
+      eventBus,
+      debouncedSyncService
     );
 
     const removeTaskFromTodayUseCase = new RemoveTaskFromTodayUseCase(
       dailySelectionRepository,
-      eventBus
+      eventBus,
+      debouncedSyncService
     );
 
-    this.createSystemLogUseCase = new CreateSystemLogUseCase();
+    this.createSystemLogUseCase = new CreateSystemLogUseCase(
+      database,
+      debouncedSyncService
+    );
 
     // Initialize DailySelectionService for task management
     this.dailySelectionService = new DailySelectionService(
       taskRepository,
       dailySelectionRepository,
-      logService,
       addTaskToTodayUseCase,
       removeTaskFromTodayUseCase,
       this.createSystemLogUseCase

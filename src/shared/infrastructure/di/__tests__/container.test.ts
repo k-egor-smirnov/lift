@@ -29,7 +29,7 @@ describe("DI Container", () => {
   });
 
   it("should resolve log service instance", () => {
-    const logService = container.resolve(tokens.LOG_SERVICE_TOKEN);
+    const logService = container.resolve(tokens.TASK_LOG_SERVICE_TOKEN);
     expect(logService).toBeInstanceOf(TaskLogService);
   });
 
@@ -42,7 +42,7 @@ describe("DI Container", () => {
   it("should inject dependencies correctly", () => {
     const createTaskUseCase = container.resolve(
       tokens.CREATE_TASK_USE_CASE_TOKEN
-    );
+    ) as CreateTaskUseCase;
     expect(createTaskUseCase).toBeDefined();
 
     // The use case should have its dependencies injected

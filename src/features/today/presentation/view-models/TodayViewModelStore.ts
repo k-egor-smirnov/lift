@@ -1,18 +1,10 @@
 import { create } from "zustand";
 import {
   TodayTaskInfo,
-  GetTodayTasksUseCase,
   GetTodayTasksRequest,
 } from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
-import {
-  AddTaskToTodayUseCase,
-  AddTaskToTodayRequest,
-} from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
-import {
-  RemoveTaskFromTodayUseCase,
-  RemoveTaskFromTodayRequest,
-} from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
-import { CompleteTaskUseCase } from "../../../../shared/application/use-cases/CompleteTaskUseCase";
+import { AddTaskToTodayRequest } from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
+import { RemoveTaskFromTodayRequest } from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
 import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
 import { taskEventBus } from "../../../../shared/infrastructure/events/TaskEventBus";
 import {

@@ -20,7 +20,7 @@ import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
 import { NoteModal } from "../../../../shared/ui/components/NoteModal";
-import { Check, FileText, ListChecks, ListTodo } from "lucide-react";
+import { FileText, ListTodo } from "lucide-react";
 import {
   parseChecklistProgress,
   formatChecklistProgress,
@@ -118,11 +118,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   const {
     isOpen: showNoteModal,
-    isSaving,
     openNote: handleOpenNoteModal,
     closeNote: handleCloseNoteModal,
     saveNote: handleSaveNote,
-  } = useTaskNote(task.id.value, task.note, taskViewModel!);
+  } = useTaskNote(task.id.value, taskViewModel!);
 
   // Drag and drop functionality
   const {

@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { describe, it, expect, beforeEach, afterEach, vi, Mock } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useOnboardingViewModel } from "../OnboardingViewModel";
 import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
@@ -131,14 +131,6 @@ describe("OnboardingViewModel", () => {
       const { result } = renderHook(() => useOnboardingViewModel());
 
       // Set up initial state with modal visible and data
-      const mockModalData = {
-        unfinishedTasks: [],
-        overdueInboxTasks: [],
-        regularInboxTasks: [],
-        motivationalMessage: "Test message",
-        shouldShow: true,
-        date: "2023-12-01",
-      };
 
       await act(async () => {
         // Simulate modal being shown

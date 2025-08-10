@@ -1,6 +1,7 @@
 import { injectable } from "tsyringe";
 import Dexie, { Table } from "dexie";
 import { TaskCategory, TaskStatus } from "../../domain/types";
+import { SummaryType, SummaryStatus } from "../../domain/entities/Summary";
 
 // Database record interfaces
 export interface TaskRecord {
@@ -43,18 +44,6 @@ export interface UserSettingsRecord {
   updatedAt: Date;
 }
 
-export interface SyncQueueRecord {
-  id?: number;
-  entityType: "task" | "dailySelectionEntry" | "taskLog";
-  entityId: string;
-  operation: "create" | "update" | "delete";
-  payloadHash: string;
-  attemptCount: number;
-  createdAt: Date;
-  lastAttemptAt?: Date;
-  nextAttemptAt?: number;
-}
-
 export interface StatsDailyRecord {
   date: string; // YYYY-MM-DD format
   simpleCompleted: number;
@@ -88,17 +77,31 @@ export interface LockRecord {
   expiresAt: number; // Date.now() timestamp
 }
 
+export interface SummaryRecord {
+  id: string;
+  type: SummaryType;
+  status: SummaryStatus;
+  dateKey: string;
+  title: string;
+  content?: string;
+  metadata?: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+  processedAt?: Date;
+  error?: string;
+}
+
 @injectable()
 export class TodoDatabase extends Dexie {
   tasks!: Table<TaskRecord>;
   dailySelectionEntries!: Table<DailySelectionEntryRecord>;
   taskLogs!: Table<TaskLogRecord>;
   userSettings!: Table<UserSettingsRecord>;
-  syncQueue!: Table<SyncQueueRecord>;
   statsDaily!: Table<StatsDailyRecord>;
   eventStore!: Table<EventStoreRecord>;
   handledEvents!: Table<HandledEventRecord>;
   locks!: Table<LockRecord>;
+  summaries!: Table<SummaryRecord>;
 
   constructor() {
     super("TodoDatabase");
@@ -135,7 +138,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade((trans) => {
+      .upgrade(() => {
         // Data migration logic if needed
         console.log(
           "Upgrading database to version 2 - adding event store tables"
@@ -196,7 +199,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async () => {
         console.log(
           "Upgrading database to version 4 - adding deferred tasks support"
         );
@@ -221,7 +224,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async () => {
         console.log(
           "Upgrading database to version 5 - adding soft delete support for daily selection entries"
         );
@@ -325,11 +328,135 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async () => {
         console.log(
           "Upgrading database to version 8 - adding note field to tasks"
         );
         // No migration needed for new optional field
+      });
+
+    // Version 9 - Add summaries table
+    this.version(9)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory, note",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        summaries:
+          "id, [date+type], date, type, status, content, createdAt, updatedAt",
+      })
+      .upgrade(async () => {
+        console.log("Upgrading database to version 9 - adding summaries table");
+        // No migration needed for new table
+      });
+
+    // Version 10 - Fix summaries table index to use dateKey instead of date
+    this.version(10)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory, note",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        summaries:
+          "id, [dateKey+type], dateKey, type, status, content, createdAt, updatedAt",
+      })
+      .upgrade(async () => {
+        console.log(
+          "Upgrading database to version 10 - fixing summaries table index"
+        );
+        // No migration needed - just index change
+      });
+
+    // Version 11 - Add retryCount field to summaries table
+    this.version(11)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory, note",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        summaries:
+          "id, [dateKey+type], dateKey, type, status, content, retryCount, createdAt, updatedAt",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 11 - adding retryCount field to summaries"
+        );
+        // Initialize retryCount field for existing summaries
+        const existingSummaries = await trans.table("summaries").toArray();
+        for (const summary of existingSummaries) {
+          if (summary.retryCount === undefined) {
+            await trans.table("summaries").update(summary.id, {
+              retryCount: 0,
+            });
+          }
+        }
+      });
+
+    // Version 12 - Update summaries table schema to match new SummaryRecord interface
+    this.version(12)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory, note",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        summaries:
+          "id, [dateKey+type], dateKey, type, status, title, content, metadata, createdAt, updatedAt, processedAt, error",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 12 - updating summaries table schema"
+        );
+        // Migrate existing summaries to new schema
+        const existingSummaries = await trans.table("summaries").toArray();
+        for (const summary of existingSummaries) {
+          const updates: any = {};
+          if (!summary.title) {
+            updates.title = `Summary for ${summary.dateKey}`;
+          }
+          if (Object.keys(updates).length > 0) {
+            await trans.table("summaries").update(summary.id, updates);
+          }
+        }
       });
 
     // Add hooks for automatic timestamp updates
@@ -369,12 +496,17 @@ export class TodoDatabase extends Dexie {
       }
     );
 
-    this.syncQueue.hook("creating", (_primKey, obj, _trans) => {
+    this.statsDaily.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
 
-    this.statsDaily.hook("creating", (_primKey, obj, _trans) => {
+    this.summaries.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
+      obj.updatedAt = new Date();
+    });
+
+    this.summaries.hook("updating", (modifications, _primKey, _obj, _trans) => {
+      (modifications as any).updatedAt = new Date();
     });
   }
 
@@ -412,22 +544,22 @@ export class TodoDatabase extends Dexie {
         this.dailySelectionEntries,
         this.taskLogs,
         this.userSettings,
-        this.syncQueue,
         this.statsDaily,
         this.eventStore,
         this.handledEvents,
         this.locks,
+        this.summaries,
       ],
       async () => {
         await this.tasks.clear();
         await this.dailySelectionEntries.clear();
         await this.taskLogs.clear();
         await this.userSettings.clear();
-        await this.syncQueue.clear();
         await this.statsDaily.clear();
         await this.eventStore.clear();
         await this.handledEvents.clear();
         await this.locks.clear();
+        await this.summaries.clear();
       }
     );
   }

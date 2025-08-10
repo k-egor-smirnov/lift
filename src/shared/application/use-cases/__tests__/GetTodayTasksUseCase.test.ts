@@ -28,6 +28,7 @@ const mockDailySelectionRepository: DailySelectionRepository = {
   clearDay: vi.fn(),
   countTasksForDay: vi.fn(),
   getLastSelectionDateForTask: vi.fn(),
+  removeTaskFromAllDays: vi.fn(),
 };
 
 const mockTaskRepository: TaskRepository = {
@@ -43,6 +44,8 @@ const mockTaskRepository: TaskRepository = {
   count: vi.fn(),
   countByCategory: vi.fn(),
   exists: vi.fn(),
+  findTasksCreatedInDateRange: vi.fn(),
+  findTasksCompletedInDateRange: vi.fn(),
 };
 
 describe("GetTodayTasksUseCase", () => {
@@ -179,12 +182,7 @@ describe("GetTodayTasksUseCase", () => {
         TaskCategory.SIMPLE,
         TaskStatus.ACTIVE
       );
-      const task2 = new Task(
-        taskId2,
-        NonEmptyTitle.fromString("Completed Task"),
-        TaskCategory.FOCUS,
-        TaskStatus.ACTIVE
-      );
+      // task2 is not used in this test as we only fetch active tasks
 
       const selectionEntries: DailySelectionEntry[] = [
         {

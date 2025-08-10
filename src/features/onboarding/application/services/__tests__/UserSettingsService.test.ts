@@ -4,19 +4,10 @@ import {
   USER_SETTINGS_KEYS,
   DEFAULT_USER_SETTINGS,
 } from "../UserSettingsService";
-import { UserSettingsRepository } from "../../../../../shared/domain/repositories/UserSettingsRepository";
+import { createMockUserSettingsRepository } from "../../../../../test/utils/mockFactories";
 
 // Mock repository
-const mockUserSettingsRepository: jest.Mocked<UserSettingsRepository> = {
-  get: vi.fn(),
-  set: vi.fn(),
-  getMany: vi.fn(),
-  setMany: vi.fn(),
-  has: vi.fn(),
-  remove: vi.fn(),
-  getAll: vi.fn(),
-  clear: vi.fn(),
-};
+const mockUserSettingsRepository = createMockUserSettingsRepository();
 
 describe("UserSettingsService", () => {
   let userSettingsService: UserSettingsService;

@@ -6,13 +6,13 @@ import {
   SupabaseUtils,
 } from "../database/SupabaseClient";
 import { TaskRepository } from "../../domain/repositories/TaskRepository";
-import { DailySelectionRepository } from "../../domain/repositories/DailySelectionRepository";
 import { Task } from "../../domain/entities/Task";
 import { TaskId } from "../../domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../domain/types";
 import { taskEventBus } from "../events/TaskEventBus";
+import { TaskEventType } from "../../domain/events/TaskEvent";
 import * as tokens from "../di/tokens";
 
 /**
@@ -36,9 +36,7 @@ export class SupabaseRealtimeService {
     @inject(tokens.SUPABASE_CLIENT_FACTORY_TOKEN)
     private clientFactory: SupabaseClientFactory,
     @inject(tokens.TASK_REPOSITORY_TOKEN)
-    private taskRepository: TaskRepository,
-    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN)
-    private dailySelectionRepository: DailySelectionRepository
+    private taskRepository: TaskRepository
   ) {
     this.client = this.clientFactory.getClient();
     this.initializeUserId();
@@ -246,7 +244,7 @@ export class SupabaseRealtimeService {
           await this.handleTaskInsert(newRecord);
           break;
         case "UPDATE":
-          await this.handleTaskUpdate(newRecord, oldRecord);
+          await this.handleTaskUpdate(newRecord);
           break;
         case "DELETE":
           await this.handleTaskDelete(oldRecord);
@@ -293,12 +291,26 @@ export class SupabaseRealtimeService {
 
       // Обрабатываем только изменения для сегодняшней даты
       if (recordDate.equals(today)) {
-        // Эмитируем событие для обновления списка задач на сегодня
-        taskEventBus.emit("daily_selection_changed", {
-          type: eventType.toLowerCase(),
-          entry: record,
-          date: recordDate,
-        });
+        // Эмитируем соответствующее событие в зависимости от типа изменения
+        if (eventType === "INSERT" || eventType === "UPDATE") {
+          taskEventBus.emit({
+            type: TaskEventType.TASK_ADDED_TO_TODAY,
+            taskId: record.task_id,
+            timestamp: new Date(),
+            data: {
+              date: recordDate.toString(),
+            },
+          });
+        } else if (eventType === "DELETE") {
+          taskEventBus.emit({
+            type: TaskEventType.TASK_REMOVED_FROM_TODAY,
+            taskId: record.task_id,
+            timestamp: new Date(),
+            data: {
+              date: recordDate.toString(),
+            },
+          });
+        }
 
         console.log(`Daily selection ${eventType} for today:`, record);
       }
@@ -327,8 +339,7 @@ export class SupabaseRealtimeService {
    * Обрабатывает обновление задачи
    */
   private async handleTaskUpdate(
-    newRecord: Database["public"]["Tables"]["tasks"]["Row"],
-    oldRecord: Database["public"]["Tables"]["tasks"]["Row"]
+    newRecord: Database["public"]["Tables"]["tasks"]["Row"]
   ): Promise<void> {
     const taskId = new TaskId(newRecord.id);
     const localTask = await this.taskRepository.findById(taskId);

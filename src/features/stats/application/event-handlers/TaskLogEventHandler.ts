@@ -59,7 +59,7 @@ export class TaskLogEventHandler implements EventHandler {
 
   private async handleTaskCreated(event: TaskCreatedEvent): Promise<void> {
     // Use deterministic ID for idempotency
-    const logId = `task-created-${event.aggregateId}-${event.createdAt}`;
+    const logId = `task-created-${event.taskId.value}-${event.occurredAt.getTime()}`;
 
     await this.database.taskLogs.put({
       id: logId,
@@ -71,12 +71,12 @@ export class TaskLogEventHandler implements EventHandler {
         category: event.category,
         title: event.title.value,
       },
-      createdAt: new Date(event.createdAt),
+      createdAt: event.occurredAt,
     });
   }
 
   private async handleTaskCompleted(event: TaskCompletedEvent): Promise<void> {
-    const logId = `task-completed-${event.aggregateId}-${event.createdAt}`;
+    const logId = `task-completed-${event.taskId.value}-${event.occurredAt.getTime()}`;
 
     await this.database.taskLogs.put({
       id: logId,
@@ -87,14 +87,14 @@ export class TaskLogEventHandler implements EventHandler {
         eventType: event.eventType,
         categoryAtCompletion: event.categoryAtCompletion,
       },
-      createdAt: new Date(event.createdAt),
+      createdAt: event.occurredAt,
     });
   }
 
   private async handleTaskCompletionReverted(
     event: TaskCompletionRevertedEvent
   ): Promise<void> {
-    const logId = `task-completion-reverted-${event.aggregateId}-${event.createdAt}`;
+    const logId = `task-completion-reverted-${event.taskId.value}-${event.occurredAt.getTime()}`;
 
     await this.database.taskLogs.put({
       id: logId,
@@ -105,14 +105,14 @@ export class TaskLogEventHandler implements EventHandler {
         eventType: event.eventType,
         currentCategory: event.currentCategory,
       },
-      createdAt: new Date(event.createdAt),
+      createdAt: event.occurredAt,
     });
   }
 
   private async handleTaskCategoryChanged(
     event: TaskCategoryChangedEvent
   ): Promise<void> {
-    const logId = `task-category-changed-${event.aggregateId}-${event.createdAt}`;
+    const logId = `task-category-changed-${event.taskId.value}-${event.occurredAt.getTime()}`;
 
     await this.database.taskLogs.put({
       id: logId,
@@ -124,12 +124,12 @@ export class TaskLogEventHandler implements EventHandler {
         fromCategory: event.fromCategory,
         toCategory: event.toCategory,
       },
-      createdAt: new Date(event.createdAt),
+      createdAt: event.occurredAt,
     });
   }
 
   private async handleTaskReviewed(event: TaskReviewedEvent): Promise<void> {
-    const logId = `task-reviewed-${event.aggregateId}-${event.createdAt}`;
+    const logId = `task-reviewed-${event.taskId.value}-${event.occurredAt.getTime()}`;
 
     await this.database.taskLogs.put({
       id: logId,
@@ -140,14 +140,14 @@ export class TaskLogEventHandler implements EventHandler {
         eventType: event.eventType,
         reviewedAt: event.reviewedAt.toISOString(),
       },
-      createdAt: new Date(event.createdAt),
+      createdAt: event.occurredAt,
     });
   }
 
   private async handleTaskTitleChanged(
     event: TaskTitleChangedEvent
   ): Promise<void> {
-    const logId = `task-title-changed-${event.aggregateId}-${event.createdAt}`;
+    const logId = `task-title-changed-${event.taskId.value}-${event.occurredAt.getTime()}`;
 
     await this.database.taskLogs.put({
       id: logId,
@@ -159,14 +159,14 @@ export class TaskLogEventHandler implements EventHandler {
         fromTitle: event.fromTitle.value,
         toTitle: event.toTitle.value,
       },
-      createdAt: new Date(event.createdAt),
+      createdAt: event.occurredAt,
     });
   }
 
   private async handleTaskNoteChanged(
     event: TaskNoteChangedEvent
   ): Promise<void> {
-    const logId = `task-note-changed-${event.aggregateId}-${event.createdAt}`;
+    const logId = `task-note-changed-${event.taskId.value}-${event.occurredAt.getTime()}`;
 
     // Determine a concise message based on change type
     const fromEmpty = !event.fromNote || event.fromNote.trim() === "";
@@ -185,14 +185,14 @@ export class TaskLogEventHandler implements EventHandler {
         fromNote: event.fromNote,
         toNote: event.toNote,
       },
-      createdAt: new Date(event.createdAt),
+      createdAt: event.occurredAt,
     });
   }
 
   private async handleTaskSoftDeleted(
     event: TaskSoftDeletedEvent
   ): Promise<void> {
-    const logId = `task-soft-deleted-${event.aggregateId}-${event.createdAt}`;
+    const logId = `task-soft-deleted-${event.taskId.value}-${event.occurredAt.getTime()}`;
 
     await this.database.taskLogs.put({
       id: logId,
@@ -203,7 +203,7 @@ export class TaskLogEventHandler implements EventHandler {
         eventType: event.eventType,
         deletedAt: event.deletedAt.toISOString(),
       },
-      createdAt: new Date(event.createdAt),
+      createdAt: event.occurredAt,
     });
   }
 }

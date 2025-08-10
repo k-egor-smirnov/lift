@@ -42,7 +42,7 @@ describe("StatisticsService", () => {
 
     // Setup default transaction mock
     (mockDatabase.transaction as any).mockImplementation(
-      async (mode: string, tables: any[], callback: () => Promise<any>) => {
+      async (_mode: string, _tables: any[], callback: () => Promise<any>) => {
         return await callback();
       }
     );

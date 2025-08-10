@@ -18,7 +18,7 @@ export class StatsUpdateHandler implements EventHandler {
 
   private statisticsService: StatisticsService;
 
-  constructor(private database: TodoDatabase) {
+  constructor(database: TodoDatabase) {
     this.statisticsService = new StatisticsService(database);
   }
 
@@ -43,7 +43,7 @@ export class StatsUpdateHandler implements EventHandler {
       await this.statisticsService.recordTaskCompletion(
         event.taskId.value,
         event.categoryAtCompletion,
-        new Date(event.createdAt)
+        new Date(event.occurredAt)
       );
     } catch (error) {
       console.error("Failed to update statistics for task completion:", error);
@@ -62,7 +62,7 @@ export class StatsUpdateHandler implements EventHandler {
       await this.statisticsService.revertTaskCompletion(
         event.taskId.value,
         event.currentCategory,
-        new Date(event.createdAt)
+        new Date(event.occurredAt)
       );
     } catch (error) {
       console.error("Failed to revert statistics for task completion:", error);
@@ -74,7 +74,7 @@ export class StatsUpdateHandler implements EventHandler {
     try {
       await this.statisticsService.recordInboxReview(
         event.taskId.value,
-        new Date(event.createdAt)
+        new Date(event.occurredAt)
       );
     } catch (error) {
       console.error("Failed to update statistics for task review:", error);

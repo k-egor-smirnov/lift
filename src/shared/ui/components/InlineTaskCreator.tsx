@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { TaskCategory } from "../../domain/types";
 import { Check } from "lucide-react";
 
@@ -52,13 +52,6 @@ export const InlineTaskCreator: React.FC<InlineTaskCreatorProps> = ({
     } else if (e.key === " ") {
       // Prevent space from triggering drag and drop
       e.stopPropagation();
-    }
-  };
-
-  const handleCancel = () => {
-    setTitle("");
-    if (inputRef.current) {
-      inputRef.current.blur();
     }
   };
 

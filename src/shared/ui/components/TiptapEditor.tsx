@@ -167,7 +167,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
       {/* Editor */}
       <EditorContent editor={editor} className="min-h-[120px]" />
 
-      <style jsx global>{`
+      <style>{`
         .tiptap-editor .ProseMirror {
           outline: none;
         }

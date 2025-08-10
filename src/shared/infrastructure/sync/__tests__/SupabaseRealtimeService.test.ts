@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { container } from "tsyringe";
 import { SupabaseRealtimeService } from "../../services/SupabaseRealtimeService";
-import { SupabaseClientFactory } from "../../database/SupabaseClient";
-import { TaskLogService } from "../../../application/services/TaskLogService";
-import { DailySelectionRepository } from "../../../domain/repositories/DailySelectionRepository";
+import { taskEventBus } from "../../events/TaskEventBus";
 import * as tokens from "../../di/tokens";
 
 // Мокаем Supabase клиент
@@ -70,7 +68,7 @@ describe("SupabaseRealtimeService", () => {
       tokens.SUPABASE_CLIENT_FACTORY_TOKEN,
       mockSupabaseClientFactory
     );
-    container.registerInstance(tokens.LOG_SERVICE_TOKEN, mockLogService);
+    container.registerInstance(tokens.LLM_SERVICE_TOKEN, mockLogService);
     container.registerInstance(
       tokens.DAILY_SELECTION_REPOSITORY_TOKEN,
       mockDailySelectionRepository
@@ -309,8 +307,8 @@ describe("SupabaseRealtimeService", () => {
 
   describe("handleDailySelectionChange", () => {
     beforeEach(() => {
-      // Подписываемся на события
-      realtimeService.on("daily_selection_changed", mockCallback);
+      // Подписываемся на все события через taskEventBus
+      taskEventBus.subscribeToAll(mockCallback);
     });
 
     it("should handle INSERT event for current date", () => {

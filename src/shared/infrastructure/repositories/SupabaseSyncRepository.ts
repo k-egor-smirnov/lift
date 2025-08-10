@@ -1,10 +1,6 @@
 import { injectable, inject } from "tsyringe";
 import type { SyncRepository } from "../../domain/repositories/SyncRepository";
-import {
-  SyncResult,
-  SyncError,
-  ConflictResolutionStrategy,
-} from "../../domain/repositories/SyncRepository";
+import { SyncResult } from "../../domain/repositories/SyncRepository";
 import { TaskRepository } from "../../domain/repositories/TaskRepository";
 import { Task } from "../../domain/entities/Task";
 import { TaskId } from "../../domain/value-objects/TaskId";
@@ -577,8 +573,14 @@ export class SupabaseSyncRepository implements SyncRepository {
         id: row.id,
         taskId: row.task_id || undefined,
         type: row.action as "SYSTEM" | "USER" | "CONFLICT",
-        message: row.details?.message || row.action,
-        metadata: row.details || undefined,
+        message: (typeof row.details === "object" &&
+        row.details &&
+        "message" in row.details
+          ? row.details.message
+          : row.action) as string,
+        metadata: (typeof row.details === "object" && row.details
+          ? row.details
+          : undefined) as Record<string, any> | undefined,
         createdAt: SupabaseUtils.fromISOString(row.timestamp),
       }));
     } catch (error) {

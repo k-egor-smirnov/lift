@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import {
   useStatsViewModel,
-  StatsPeriod,
   formatPeriodLabel,
 } from "../view-models/StatsViewModel";
 import { StatsCards } from "./StatsCards";

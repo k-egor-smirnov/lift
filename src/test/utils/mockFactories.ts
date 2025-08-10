@@ -1,4 +1,4 @@
-import { vi, expect } from "vitest";
+import { vi, expect, Mock } from "vitest";
 import { Task } from "../../shared/domain/entities/Task";
 import { TaskId } from "../../shared/domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../shared/domain/value-objects/NonEmptyTitle";
@@ -8,12 +8,12 @@ import { EventBus } from "../../shared/domain/events/EventBus";
 import { TodoDatabase } from "../../shared/infrastructure/database/TodoDatabase";
 import { DailySelectionRepository } from "../../shared/domain/repositories/DailySelectionRepository";
 import { UserSettingsRepository } from "../../shared/domain/repositories/UserSettingsRepository";
+import { TaskLogService } from "../../shared/application/services/TaskLogService";
+import { UserSettingsService } from "../../features/onboarding/application/services/UserSettingsService";
 
 // Type for mocked objects
 type MockedObject<T> = {
-  [K in keyof T]: T[K] extends (...args: any[]) => any
-    ? ReturnType<typeof vi.fn>
-    : T[K];
+  [K in keyof T]: T[K] extends (...args: any[]) => any ? Mock<any> : T[K];
 };
 
 /**
@@ -72,6 +72,8 @@ export const createMockTaskRepository = (): MockedObject<TaskRepository> => ({
   exists: vi.fn(),
   count: vi.fn(),
   countByCategory: vi.fn(),
+  findTasksCreatedInDateRange: vi.fn(),
+  findTasksCompletedInDateRange: vi.fn(),
 });
 
 /**
@@ -132,7 +134,7 @@ export const createMockDatabase = (): MockedObject<TodoDatabase> => {
 
   // Mock transaction to execute callback immediately
   mockDb.transaction.mockImplementation(
-    async (mode: any, tables: any, callback: any) => {
+    async (_mode: any, _tables: any, callback: any) => {
       return await callback();
     }
   );
@@ -156,6 +158,7 @@ export const createMockDailySelectionRepository =
     clearDay: vi.fn(),
     countTasksForDay: vi.fn(),
     getLastSelectionDateForTask: vi.fn(),
+    removeTaskFromAllDays: vi.fn(),
   });
 
 /**
@@ -172,6 +175,39 @@ export const createMockUserSettingsRepository =
     getAll: vi.fn(),
     clear: vi.fn(),
   });
+
+/**
+ * Factory for creating mock TaskLogService
+ */
+export const createMockTaskLogService = (): MockedObject<TaskLogService> => ({
+  loadTaskLogs: vi.fn(),
+  createLog: vi.fn(),
+  loadLastLogsForTasks: vi.fn(),
+});
+
+/**
+ * Factory for creating mock UserSettingsService
+ */
+export const createMockUserSettingsService = (): UserSettingsService => {
+  const mockUserSettingsRepository = createMockUserSettingsRepository();
+
+  const mock = {
+    userSettingsRepository: mockUserSettingsRepository,
+    getUserSettings: vi.fn(),
+    updateUserSettings: vi.fn(),
+    getInboxOverdueDays: vi.fn(),
+    setInboxOverdueDays: vi.fn(),
+    getKeyboardShortcutsEnabled: vi.fn(),
+    setKeyboardShortcutsEnabled: vi.fn(),
+    getLLMSettings: vi.fn(),
+    setLLMSettings: vi.fn(),
+    resetToDefaults: vi.fn(),
+    initializeDefaults: vi.fn(),
+    getDefaultKeyboardShortcutsEnabled: vi.fn().mockReturnValue(true),
+  } as any;
+
+  return mock;
+};
 
 /**
  * Common test data generators

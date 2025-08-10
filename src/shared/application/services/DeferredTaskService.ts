@@ -4,10 +4,7 @@ import { Task } from "../../domain/entities/Task";
 import { TaskId } from "../../domain/value-objects/TaskId";
 import { TaskCategory } from "../../domain/types";
 import { EventBus } from "../../domain/events/EventBus";
-import {
-  TaskDeferredEvent,
-  TaskUndeferredEvent,
-} from "../../domain/events/TaskEvents";
+
 import {
   TASK_REPOSITORY_TOKEN,
   EVENT_BUS_TOKEN,
@@ -90,7 +87,6 @@ export class DeferredTaskService {
 
   private async getDueTasks(): Promise<Task[]> {
     const deferredTasks = await this.getDeferredTasks();
-    const now = new Date();
 
     return deferredTasks.filter((task) => task.isDeferredAndDue);
   }

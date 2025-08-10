@@ -40,7 +40,7 @@ describe("StatsUpdateHandler", () => {
       expect(mockStatisticsService.recordTaskCompletion).toHaveBeenCalledWith(
         taskId.value,
         TaskCategory.SIMPLE,
-        new Date(event.createdAt)
+        new Date(event.occurredAt)
       );
     });
 
@@ -69,7 +69,7 @@ describe("StatsUpdateHandler", () => {
       expect(mockStatisticsService.revertTaskCompletion).toHaveBeenCalledWith(
         taskId.value,
         TaskCategory.FOCUS,
-        new Date(event.createdAt)
+        new Date(event.occurredAt)
       );
     });
 
@@ -98,7 +98,7 @@ describe("StatsUpdateHandler", () => {
 
       expect(mockStatisticsService.recordInboxReview).toHaveBeenCalledWith(
         taskId.value,
-        new Date(event.createdAt)
+        new Date(event.occurredAt)
       );
     });
 

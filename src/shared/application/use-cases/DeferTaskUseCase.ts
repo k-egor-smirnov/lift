@@ -4,7 +4,6 @@ import { TaskRepository } from "../../domain/repositories/TaskRepository";
 import { EventBus } from "../../domain/events/EventBus";
 import { Result, ResultUtils } from "../../domain/Result";
 import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
-import { hashTask } from "../../infrastructure/utils/hashUtils";
 import { DebouncedSyncService } from "../services/DebouncedSyncService";
 import * as tokens from "../../infrastructure/di/tokens";
 
@@ -96,30 +95,15 @@ export class DeferTaskUseCase {
       // Defer the task (domain logic handles validation and events)
       const events = task.defer(request.deferredUntil);
 
-      // Execute transactional operation including task, syncQueue, and eventStore
+      // Execute transactional operation including task, and eventStore
       await this.database.transaction(
         "rw",
-        [
-          this.database.tasks,
-          this.database.syncQueue,
-          this.database.eventStore,
-        ],
+        [this.database.tasks, this.database.eventStore],
         async () => {
           // 1. Save the updated task
           await this.taskRepository.save(task);
 
-          // 2. Add sync queue entry
-          await this.database.syncQueue.add({
-            entityType: "task",
-            entityId: task.id.value,
-            operation: "update",
-            payloadHash: hashTask(task),
-            attemptCount: 0,
-            createdAt: new Date(),
-            nextAttemptAt: Date.now(),
-          });
-
-          // 3. Publish domain events
+          // 2. Publish domain events
           await this.eventBus.publishAll(events);
         }
       );

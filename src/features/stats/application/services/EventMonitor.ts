@@ -331,18 +331,26 @@ export class EventMonitor {
   // Private helper methods
 
   private async getOldestPendingEvent(): Promise<EventStoreRecord | undefined> {
-    return await this.database.eventStore
+    const pendingEvents = await this.database.eventStore
       .where("status")
       .equals("pending")
-      .orderBy("createdAt")
-      .first();
+      .toArray();
+
+    if (pendingEvents.length === 0) return undefined;
+
+    return pendingEvents.reduce((oldest, current) =>
+      current.createdAt < oldest.createdAt ? current : oldest
+    );
   }
 
   private async getNewestEvent(): Promise<EventStoreRecord | undefined> {
-    return await this.database.eventStore
-      .orderBy("createdAt")
-      .reverse()
-      .first();
+    const allEvents = await this.database.eventStore.toArray();
+
+    if (allEvents.length === 0) return undefined;
+
+    return allEvents.reduce((newest, current) =>
+      current.createdAt > newest.createdAt ? current : newest
+    );
   }
 
   private async calculateAverageProcessingTime(): Promise<number> {

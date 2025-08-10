@@ -62,9 +62,11 @@ describe("GetTaskLogsUseCase", () => {
     };
 
     vi.mocked(mockDatabase.taskLogs.toCollection).mockReturnValue(
-      mockCollection
+      mockCollection as any
     );
-    vi.mocked(mockDatabase.taskLogs.where).mockReturnValue(mockWhereResult);
+    vi.mocked(mockDatabase.taskLogs.where).mockReturnValue(
+      mockWhereResult as any
+    );
 
     useCase = new GetTaskLogsUseCase(mockDatabase);
   });
@@ -74,14 +76,14 @@ describe("GetTaskLogsUseCase", () => {
       // Arrange
       const mockLogs: TaskLogRecord[] = [
         {
-          id: 1,
+          id: "1",
           taskId: "task_1",
           type: "USER",
           message: "User log 1",
           createdAt: new Date("2024-01-15T10:00:00Z"),
         },
         {
-          id: 2,
+          id: "2",
           taskId: "task_2",
           type: "SYSTEM",
           message: "System log 1",
@@ -121,7 +123,7 @@ describe("GetTaskLogsUseCase", () => {
       const taskId = TaskId.generate();
       const mockLogs: TaskLogRecord[] = [
         {
-          id: 1,
+          id: "1",
           taskId: taskId.value,
           type: "USER",
           message: "Task-specific log",
@@ -130,20 +132,18 @@ describe("GetTaskLogsUseCase", () => {
       ];
 
       // Setup the where chain properly
-      const mockWhereResult = vi
-        .mocked(mockDatabase.taskLogs.where)
-        .mockReturnValue({
-          equals: vi.fn().mockReturnValue({
-            count: vi.fn().mockResolvedValue(1),
-            reverse: vi.fn().mockReturnValue({
-              offset: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue({
-                  toArray: vi.fn().mockResolvedValue(mockLogs),
-                }),
+      vi.mocked(mockDatabase.taskLogs.where).mockReturnValue({
+        equals: vi.fn().mockReturnValue({
+          count: vi.fn().mockResolvedValue(1),
+          reverse: vi.fn().mockReturnValue({
+            offset: vi.fn().mockReturnValue({
+              limit: vi.fn().mockReturnValue({
+                toArray: vi.fn().mockResolvedValue(mockLogs),
               }),
             }),
           }),
-        } as any);
+        }),
+      } as any);
 
       const request: GetTaskLogsRequest = {
         taskId: taskId.value,
@@ -166,7 +166,7 @@ describe("GetTaskLogsUseCase", () => {
       // Arrange
       const mockLogs: TaskLogRecord[] = [
         {
-          id: 1,
+          id: "1",
           type: "SYSTEM",
           message: "System log",
           createdAt: new Date("2024-01-15T10:00:00Z"),
@@ -197,7 +197,7 @@ describe("GetTaskLogsUseCase", () => {
       // Arrange
       const mockLogs: TaskLogRecord[] = [
         {
-          id: 3,
+          id: "3",
           type: "USER",
           message: "Page 2 log",
           createdAt: new Date("2024-01-15T10:00:00Z"),
@@ -330,7 +330,7 @@ describe("GetTaskLogsUseCase", () => {
       // Arrange
       const mockLogs: TaskLogRecord[] = [
         {
-          id: 1,
+          id: "1",
           taskId: "task_1",
           type: "USER",
           message: "Test message",
@@ -349,7 +349,7 @@ describe("GetTaskLogsUseCase", () => {
       expect(ResultUtils.isSuccess(result)).toBe(true);
       if (ResultUtils.isSuccess(result)) {
         const logEntry = result.data.logs[0];
-        expect(logEntry.id).toBe(1);
+        expect(logEntry.id).toBe("1");
         expect(logEntry.taskId).toBe("task_1");
         expect(logEntry.type).toBe("USER");
         expect(logEntry.message).toBe("Test message");

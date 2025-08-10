@@ -33,7 +33,6 @@ describe("TodoDatabase", () => {
       await expect(db.dailySelectionEntries.toArray()).resolves.toEqual([]);
       await expect(db.taskLogs.toArray()).resolves.toEqual([]);
       await expect(db.userSettings.toArray()).resolves.toEqual([]);
-      await expect(db.syncQueue.toArray()).resolves.toEqual([]);
       await expect(db.statsDaily.toArray()).resolves.toEqual([]);
     });
   });
@@ -45,6 +44,7 @@ describe("TodoDatabase", () => {
         title: "Test Task",
         category: TaskCategory.SIMPLE,
         status: TaskStatus.ACTIVE,
+        order: 1,
         createdAt: new Date(), // Will be overridden by hook
         updatedAt: new Date(), // Will be overridden by hook
       };
@@ -66,6 +66,7 @@ describe("TodoDatabase", () => {
         title: "Test Task",
         category: TaskCategory.SIMPLE,
         status: TaskStatus.ACTIVE,
+        order: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -95,6 +96,7 @@ describe("TodoDatabase", () => {
           title: "Simple Task",
           category: TaskCategory.SIMPLE,
           status: TaskStatus.ACTIVE,
+          order: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -103,6 +105,7 @@ describe("TodoDatabase", () => {
           title: "Focus Task",
           category: TaskCategory.FOCUS,
           status: TaskStatus.ACTIVE,
+          order: 2,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -111,6 +114,7 @@ describe("TodoDatabase", () => {
           title: "Inbox Task",
           category: TaskCategory.INBOX,
           status: TaskStatus.ACTIVE,
+          order: 3,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -138,6 +142,7 @@ describe("TodoDatabase", () => {
           title: "Active Task",
           category: TaskCategory.SIMPLE,
           status: TaskStatus.ACTIVE,
+          order: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -146,6 +151,7 @@ describe("TodoDatabase", () => {
           title: "Completed Task",
           category: TaskCategory.SIMPLE,
           status: TaskStatus.COMPLETED,
+          order: 2,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -175,6 +181,7 @@ describe("TodoDatabase", () => {
         taskId: "task_123",
         completedFlag: false,
         createdAt: new Date(), // Will be overridden by hook
+        updatedAt: new Date(), // Will be overridden by hook
       };
 
       const id = await db.dailySelectionEntries.add(entryData);
@@ -194,6 +201,7 @@ describe("TodoDatabase", () => {
         taskId: "task_123",
         completedFlag: false,
         createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       await db.dailySelectionEntries.add(entryData);
@@ -216,6 +224,7 @@ describe("TodoDatabase", () => {
           taskId: "task_1",
           completedFlag: false,
           createdAt: new Date(),
+          updatedAt: new Date(),
         },
         {
           id: "entry_2",
@@ -223,6 +232,7 @@ describe("TodoDatabase", () => {
           taskId: "task_2",
           completedFlag: true,
           createdAt: new Date(),
+          updatedAt: new Date(),
         },
         {
           id: "entry_3",
@@ -230,6 +240,7 @@ describe("TodoDatabase", () => {
           taskId: "task_3",
           completedFlag: false,
           createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ]);
 
@@ -382,27 +393,6 @@ describe("TodoDatabase", () => {
     });
   });
 
-  describe("Sync Queue Table", () => {
-    it("should create sync queue entry", async () => {
-      const queueData = {
-        entityType: "task" as const,
-        entityId: "task_123",
-        operation: "create" as const,
-        payloadHash: "hash123",
-        attemptCount: 0,
-        createdAt: new Date(),
-      };
-
-      const id = await db.syncQueue.add(queueData);
-
-      const savedEntry = await db.syncQueue.get(id);
-      expect(savedEntry).toBeDefined();
-      expect(savedEntry!.entityType).toBe("task");
-      expect(savedEntry!.operation).toBe("create");
-      expect(savedEntry!.attemptCount).toBe(0);
-    });
-  });
-
   describe("Stats Daily Table", () => {
     it("should create daily stats entry", async () => {
       const statsData = {
@@ -442,6 +432,7 @@ describe("TodoDatabase", () => {
         title: "Test Task",
         category: TaskCategory.SIMPLE,
         status: TaskStatus.ACTIVE,
+        order: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
