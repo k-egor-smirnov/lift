@@ -7,11 +7,12 @@ export const DATABASE_TOKEN = Symbol("Database");
 export const EVENT_BUS_TOKEN = Symbol("EventBus");
 export const TASK_EVENT_ADAPTER_TOKEN = Symbol("TaskEventAdapter");
 
-// Repositories
+// Repository tokens
 export const TASK_REPOSITORY_TOKEN = Symbol("TaskRepository");
 export const DAILY_SELECTION_REPOSITORY_TOKEN = Symbol(
   "DailySelectionRepository"
 );
+export const SUMMARY_REPOSITORY_TOKEN = Symbol("SummaryRepository");
 
 // Use Cases
 export const CREATE_TASK_USE_CASE_TOKEN = Symbol("CreateTaskUseCase");
@@ -36,10 +37,24 @@ export const DEFER_TASK_USE_CASE_TOKEN = Symbol("DeferTaskUseCase");
 export const UNDEFER_TASK_USE_CASE_TOKEN = Symbol("UndeferTaskUseCase");
 export const CHANGE_TASK_NOTE_USE_CASE_TOKEN = Symbol("ChangeTaskNoteUseCase");
 export const SUMMARIZE_LOGS_USE_CASE_TOKEN = Symbol("SummarizeLogsUseCase");
+export const GET_SUMMARY_DATA_USE_CASE_TOKEN = Symbol("GetSummaryDataUseCase");
+export const CREATE_SUMMARY_USE_CASE_TOKEN = Symbol("CreateSummaryUseCase");
+export const GET_SYNC_HISTORY_USE_CASE_TOKEN = Symbol("GetSyncHistoryUseCase");
+export const PROCESS_SUMMARY_USE_CASE_TOKEN = Symbol("ProcessSummaryUseCase");
+export const FORCE_SUMMARIZATION_USE_CASE_TOKEN = Symbol(
+  "ForceSummarizationUseCase"
+);
+export const FORCE_WEEKLY_SUMMARY_USE_CASE_TOKEN = Symbol(
+  "ForceWeeklySummaryUseCase"
+);
+export const LLM_SUMMARIZATION_SERVICE_TOKEN = Symbol(
+  "LLMSummarizationService"
+);
 
 // Services
 export const LLM_SERVICE_TOKEN = Symbol("LLMService");
 export const DEFERRED_TASK_SERVICE_TOKEN = Symbol("DeferredTaskService");
+export const TASK_LOG_SERVICE_TOKEN = Symbol("TaskLogService");
 export const SYNC_SERVICE_TOKEN = Symbol("SyncService");
 export const DEBOUNCED_SYNC_SERVICE_TOKEN = Symbol("DebouncedSyncService");
 export const SUPABASE_REALTIME_SERVICE_TOKEN = Symbol(

@@ -4,15 +4,17 @@ import { Task } from "../../shared/domain/entities/Task";
 import { TaskList } from "../../features/tasks/presentation/components/TaskList";
 import { TodayView } from "../../features/today/presentation/components/TodayView";
 import { AllLogsView } from "../../features/logs/presentation/components";
+import { SyncHistoryView } from "../../features/sync/presentation/components/SyncHistoryView";
 import { Settings } from "../../features/settings/presentation/components/Settings";
 import { TodayViewModelDependencies } from "../../features/today/presentation/view-models/TodayViewModel";
 import { LogViewModelDependencies } from "../../features/logs/presentation/view-models/LogViewModel";
+import { SyncHistoryViewModelDependencies } from "../../features/sync/presentation/view-models/SyncHistoryViewModel";
 import { TaskViewModel } from "../../features/tasks/presentation/view-models/TaskViewModel";
 import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { ViewContainer } from "./ViewContainer";
 
 interface ContentAreaProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
+  activeView: "today" | "logs" | "sync" | "settings" | TaskCategory;
   loading: boolean;
 
   // Today view props
@@ -20,6 +22,9 @@ interface ContentAreaProps {
 
   // Logs view props
   logDependencies: LogViewModelDependencies;
+
+  // Sync view props
+  syncDependencies: SyncHistoryViewModelDependencies;
 
   // Task view model
   taskViewModel: TaskViewModel;
@@ -48,6 +53,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   loading,
   todayDependencies,
   logDependencies,
+  syncDependencies,
   taskViewModel,
   tasks,
   currentCategory,
@@ -97,6 +103,13 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
       return (
         <ViewContainer>
           <AllLogsView dependencies={logDependencies} />
+        </ViewContainer>
+      );
+
+    case "sync":
+      return (
+        <ViewContainer>
+          <SyncHistoryView dependencies={syncDependencies} />
         </ViewContainer>
       );
 

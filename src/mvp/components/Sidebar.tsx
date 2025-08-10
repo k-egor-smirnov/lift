@@ -7,6 +7,7 @@ import {
   Clock,
   FileText,
   Settings,
+  RefreshCw,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
@@ -15,8 +16,10 @@ import { cn } from "../../shared/lib/utils";
 import LiftLogo from "../../../assets/icon.png";
 
 interface SidebarProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
-  onViewChange: (view: "today" | "logs" | "settings" | TaskCategory) => void;
+  activeView: "today" | "logs" | "sync" | "settings" | TaskCategory;
+  onViewChange: (
+    view: "today" | "logs" | "sync" | "settings" | TaskCategory
+  ) => void;
   taskCounts: Record<TaskCategory, number>;
   hasOverdueTasks: boolean;
   isMobileMenuOpen: boolean;
@@ -67,6 +70,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       name: t("navigation.logs", "Logs"),
       count: null,
     },
+    {
+      id: "sync" as const,
+      icon: RefreshCw,
+      name: t("navigation.sync", "Синхронизация"),
+      count: null,
+    },
   ];
 
   const settingsItem = {
@@ -77,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleItemClick = (
-    viewId: "today" | "logs" | "settings" | TaskCategory
+    viewId: "today" | "logs" | "sync" | "settings" | TaskCategory
   ) => {
     onViewChange(viewId);
     onMobileMenuClose();

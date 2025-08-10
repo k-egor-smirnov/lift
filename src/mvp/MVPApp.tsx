@@ -45,7 +45,9 @@ import { GetTaskLogsUseCase } from "../shared/application/use-cases/GetTaskLogsU
 import { CreateUserLogUseCase } from "../shared/application/use-cases/CreateUserLogUseCase";
 import { SummarizeLogsUseCase } from "../shared/application/use-cases/SummarizeLogsUseCase";
 import { ChangeTaskNoteUseCase } from "../shared/application/use-cases/ChangeTaskNoteUseCase";
+import { GetSyncHistoryUseCase } from "../shared/application/use-cases/GetSyncHistoryUseCase";
 import { LogViewModelDependencies } from "../features/logs/presentation/view-models/LogViewModel";
+import { SyncHistoryViewModelDependencies } from "../features/sync/presentation/view-models/SyncHistoryViewModel";
 import { UserSettingsService } from "../features/onboarding/application/services/UserSettingsService";
 import { UserSettingsRepositoryImpl } from "../shared/infrastructure/repositories/UserSettingsRepositoryImpl";
 import { toast, Toaster } from "sonner";
@@ -57,7 +59,7 @@ export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [activeView, setActiveView] = useState<
-    "today" | "logs" | "settings" | TaskCategory
+    "today" | "logs" | "sync" | "settings" | TaskCategory
   >("today");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
@@ -130,6 +132,9 @@ export const MVPApp: React.FC = () => {
   const summarizeLogsUseCase = getService<SummarizeLogsUseCase>(
     tokens.SUMMARIZE_LOGS_USE_CASE_TOKEN
   );
+  const getSyncHistoryUseCase = getService<GetSyncHistoryUseCase>(
+    tokens.GET_SYNC_HISTORY_USE_CASE_TOKEN
+  );
 
   // Create TaskLogService manually to avoid circular dependency
   const logService = useMemo(
@@ -175,6 +180,13 @@ export const MVPApp: React.FC = () => {
       userSettingsService,
     }),
     [userSettingsService]
+  );
+
+  const syncDependencies: SyncHistoryViewModelDependencies = useMemo(
+    () => ({
+      getSyncHistoryUseCase,
+    }),
+    [getSyncHistoryUseCase]
   );
 
   // Create the view model instances
@@ -269,7 +281,7 @@ export const MVPApp: React.FC = () => {
     });
 
     return unsubscribe;
-  }, [loadTodayTaskIds]);
+  }, []); // Убираем loadTodayTaskIds из зависимостей
 
   // Register keyboard shortcuts
   useEffect(() => {
@@ -857,6 +869,7 @@ export const MVPApp: React.FC = () => {
             loading={loading}
             todayDependencies={todayDependencies}
             logDependencies={logDependencies}
+            syncDependencies={syncDependencies}
             taskViewModel={taskViewModel}
             tasks={getFilteredTasks()}
             currentCategory={currentCategory}

@@ -49,7 +49,7 @@ export const AllLogsView: React.FC<AllLogsViewProps> = ({ dependencies }) => {
       sortOrder: "desc",
     };
     loadLogs(initialRequest);
-  }, [loadLogs]);
+  }, []); // Убираем loadLogs из зависимостей
 
   // Handle filter change
   const handleFilterChange = (filter: LogTypeFilter) => {

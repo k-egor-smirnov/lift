@@ -70,17 +70,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
   // Initialize store with dependencies
   useEffect(() => {
     initialize(dependencies);
-  }, [dependencies, initialize]);
+  }, [dependencies]); // Убираем initialize из зависимостей
 
   // Enable auto-refresh to listen for task events
   useEffect(() => {
     enableAutoRefresh();
-  }, [enableAutoRefresh]);
+  }, []); // Убираем enableAutoRefresh из зависимостей
 
   // Load today's tasks on component mount
   useEffect(() => {
     loadTodayTasks();
-  }, [loadTodayTasks]);
+  }, []); // Убираем loadTodayTasks из зависимостей
 
   // Note: Removed __todayViewRefresh as it's replaced by event bus auto-refresh
 
@@ -96,7 +96,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
     // Check every minute for day change
     const interval = setInterval(checkForNewDay, 60000);
     return () => clearInterval(interval);
-  }, [isToday, loadTodayTasks]);
+  }, []); // Убираем isToday и loadTodayTasks из зависимостей
 
   const handleCompleteTask = async (taskId: string) => {
     try {

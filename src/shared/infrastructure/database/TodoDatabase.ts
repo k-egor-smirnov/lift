@@ -1,6 +1,11 @@
 import { injectable } from "tsyringe";
 import Dexie, { Table } from "dexie";
 import { TaskCategory, TaskStatus } from "../../domain/types";
+import {
+  Summary,
+  SummaryType,
+  SummaryStatus,
+} from "../../domain/entities/Summary";
 
 // Database record interfaces
 export interface TaskRecord {
@@ -88,6 +93,16 @@ export interface LockRecord {
   expiresAt: number; // Date.now() timestamp
 }
 
+export interface SummaryRecord {
+  id: string;
+  date: string; // YYYY-MM-DD format
+  type: SummaryType;
+  status: SummaryStatus;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 @injectable()
 export class TodoDatabase extends Dexie {
   tasks!: Table<TaskRecord>;
@@ -99,6 +114,7 @@ export class TodoDatabase extends Dexie {
   eventStore!: Table<EventStoreRecord>;
   handledEvents!: Table<HandledEventRecord>;
   locks!: Table<LockRecord>;
+  summaries!: Table<SummaryRecord>;
 
   constructor() {
     super("TodoDatabase");
@@ -332,6 +348,58 @@ export class TodoDatabase extends Dexie {
         // No migration needed for new optional field
       });
 
+    // Version 9 - Add summaries table
+    this.version(9)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory, note",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        summaries:
+          "id, [date+type], date, type, status, content, createdAt, updatedAt",
+      })
+      .upgrade(async (trans) => {
+        console.log("Upgrading database to version 9 - adding summaries table");
+        // No migration needed for new table
+      });
+
+    // Version 10 - Fix summaries table index to use dateKey instead of date
+    this.version(10)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory, note",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        summaries:
+          "id, [dateKey+type], dateKey, type, status, content, createdAt, updatedAt",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 10 - fixing summaries table index"
+        );
+        // No migration needed - just index change
+      });
+
     // Add hooks for automatic timestamp updates
     this.tasks.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
@@ -376,6 +444,15 @@ export class TodoDatabase extends Dexie {
     this.statsDaily.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
+
+    this.summaries.hook("creating", (_primKey, obj, _trans) => {
+      obj.createdAt = new Date();
+      obj.updatedAt = new Date();
+    });
+
+    this.summaries.hook("updating", (modifications, _primKey, _obj, _trans) => {
+      (modifications as any).updatedAt = new Date();
+    });
   }
 
   // Connection management
@@ -417,6 +494,7 @@ export class TodoDatabase extends Dexie {
         this.eventStore,
         this.handledEvents,
         this.locks,
+        this.summaries,
       ],
       async () => {
         await this.tasks.clear();
@@ -428,6 +506,7 @@ export class TodoDatabase extends Dexie {
         await this.eventStore.clear();
         await this.handledEvents.clear();
         await this.locks.clear();
+        await this.summaries.clear();
       }
     );
   }
