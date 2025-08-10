@@ -254,7 +254,7 @@ export class LogRetentionService {
   private async cleanupCustomLogs(stats: LogCleanupStats): Promise<void> {
     const customLogs = await this.database.taskLogs
       .where("taskId")
-      .equals(undefined)
+      .equals(null as any)
       .reverse()
       .sortBy("createdAt");
 

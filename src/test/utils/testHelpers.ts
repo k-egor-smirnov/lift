@@ -232,7 +232,6 @@ export class TestTaskIdUtils {
    * Reset counter for deterministic testing
    */
   static resetCounter(): void {
-    this.counter = 0;
     this.TEST_TASK_IDS.length = 0;
   }
 }

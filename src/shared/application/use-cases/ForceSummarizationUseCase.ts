@@ -1,5 +1,4 @@
 import { injectable, inject } from "tsyringe";
-import { UseCase } from "../interfaces/UseCase";
 import { Result, ResultFactory } from "../../domain/Result";
 import {
   CreateSummaryUseCase,
@@ -12,6 +11,7 @@ import {
 import { SummaryType } from "../../domain/entities/Summary";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import * as tokens from "../../infrastructure/di/tokens";
+import { UseCase } from "../UseCase";
 
 export interface ForceSummarizationRequest {
   type: SummaryType;

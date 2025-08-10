@@ -60,21 +60,6 @@ const getStatusIcon = (status: SummaryStatus) => {
   }
 };
 
-const formatSummaryDate = (summary: Summary) => {
-  if (summary.type === SummaryType.DAILY) {
-    return summary.dateKey;
-  } else if (
-    summary.type === SummaryType.WEEKLY &&
-    summary.weekStart &&
-    summary.weekEnd
-  ) {
-    return `${summary.weekStart.toString()} - ${summary.weekEnd.toString()}`;
-  } else if (summary.type === SummaryType.MONTHLY && summary.month) {
-    return summary.month;
-  }
-  return summary.dateKey;
-};
-
 export const SyncHistoryList: React.FC<SyncHistoryListProps> = ({
   summaries,
   loading,

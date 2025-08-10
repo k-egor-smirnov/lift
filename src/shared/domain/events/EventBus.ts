@@ -488,8 +488,8 @@ export class PersistentEventBusImpl implements PersistentEventBus {
         }
 
         // Process each aggregate's events in order
-        for (const [aggregateId, events] of eventsByAggregate) {
-          await this.processAggregateEvents(aggregateId, events);
+        for (const events of eventsByAggregate.values()) {
+          await this.processAggregateEvents(events);
         }
       });
     } finally {
@@ -497,40 +497,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     }
   }
 
-  private async processEventsDirectly(): Promise<void> {
-    // Get pending events, grouped by aggregateId for ordered processing
-    const pendingEvents = await this.database.eventStore
-      .where("status")
-      .equals("pending")
-      .or("status")
-      .equals("processing")
-      .and(
-        (record) => !record.nextAttemptAt || record.nextAttemptAt <= Date.now()
-      )
-      .limit(this.PROCESSING_BATCH_SIZE)
-      .toArray();
-
-    if (pendingEvents.length === 0) {
-      return;
-    }
-
-    // Group by aggregateId to ensure ordered processing per aggregate
-    const eventsByAggregate = new Map<string, EventStoreRecord[]>();
-    for (const event of pendingEvents) {
-      if (!eventsByAggregate.has(event.aggregateId)) {
-        eventsByAggregate.set(event.aggregateId, []);
-      }
-      eventsByAggregate.get(event.aggregateId)!.push(event);
-    }
-
-    // Process each aggregate's events in order
-    for (const [aggregateId, events] of eventsByAggregate) {
-      await this.processAggregateEvents(aggregateId, events);
-    }
-  }
-
   private async processAggregateEvents(
-    aggregateId: string,
     events: EventStoreRecord[]
   ): Promise<void> {
     // Sort events by creation time to ensure proper ordering

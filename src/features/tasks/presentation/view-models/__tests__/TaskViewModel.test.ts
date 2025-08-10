@@ -34,6 +34,8 @@ const mockTaskRepository: TaskRepository = {
   count: vi.fn(),
   countByCategory: vi.fn(),
   exists: vi.fn(),
+  findTasksCreatedInDateRange: vi.fn(),
+  findTasksCompletedInDateRange: vi.fn(),
 };
 
 const mockCreateTaskUseCase: CreateTaskUseCase = {
@@ -203,10 +205,9 @@ describe("TaskViewModel", () => {
   describe("completeTask", () => {
     it("should complete task successfully", async () => {
       const taskId = TestTaskIdUtils.getValidTaskIdString();
-      const mockResponse = { taskId };
 
       vi.mocked(mockCompleteTaskUseCase.execute).mockResolvedValue(
-        ResultUtils.ok(mockResponse)
+        ResultUtils.ok(undefined)
       );
       vi.mocked(mockTaskRepository.findAll).mockResolvedValue([]);
 

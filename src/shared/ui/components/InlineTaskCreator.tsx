@@ -55,13 +55,6 @@ export const InlineTaskCreator: React.FC<InlineTaskCreatorProps> = ({
     }
   };
 
-  const handleCancel = () => {
-    setTitle("");
-    if (inputRef.current) {
-      inputRef.current.blur();
-    }
-  };
-
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
       <div className="flex items-center gap-2">

@@ -5,6 +5,7 @@ import { Task } from "../../../domain/entities/Task";
 import { TaskId } from "../../../domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../domain/value-objects/NonEmptyTitle";
 import * as tokens from "../../di/tokens";
+import { TaskCategory, TaskStatus } from "@/shared/domain/types";
 
 // Мокаем зависимости
 const mockTaskRepository = {
@@ -54,7 +55,7 @@ describe("SyncService", () => {
       tokens.SYNC_REPOSITORY_TOKEN,
       mockSyncRepository
     );
-    container.registerInstance(tokens.LOG_SERVICE_TOKEN, mockLogService);
+    container.registerInstance(tokens.TASK_LOG_SERVICE_TOKEN, mockLogService);
 
     // Создаем экземпляр сервиса
     syncService = container.resolve(SyncService);
@@ -101,7 +102,7 @@ describe("SyncService", () => {
         mockDailyResult
       );
       mockSyncRepository.syncTaskLogs.mockResolvedValue(mockLogsResult);
-      mockSyncRepository.setLastSyncTimestamp.mockResolvedValue();
+      mockSyncRepository.setLastSyncTimestamp.mockResolvedValue(undefined);
 
       // Act
       const result = await syncService.performSync();
@@ -126,9 +127,7 @@ describe("SyncService", () => {
 
       // Assert
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual([
-        { message: "Нет подключения к сети", type: "network" },
-      ]);
+      expect(result.error?.message).toBe("Нет подключения к сети");
       expect(mockSyncRepository.syncTasks).not.toHaveBeenCalled();
     });
 
@@ -174,7 +173,7 @@ describe("SyncService", () => {
         conflictsResolved: 0,
       });
       mockSyncRepository.getLastSyncTimestamp.mockResolvedValue(new Date());
-      mockSyncRepository.setLastSyncTimestamp.mockResolvedValue();
+      mockSyncRepository.setLastSyncTimestamp.mockResolvedValue(undefined);
 
       // Act
       await syncService.performBackgroundSync();
@@ -205,8 +204,8 @@ describe("SyncService", () => {
         new Task(
           new TaskId("1"),
           new NonEmptyTitle("Test Task"),
-          "inbox",
-          "active",
+          TaskCategory.INBOX,
+          TaskStatus.ACTIVE,
           0,
           new Date(),
           new Date()

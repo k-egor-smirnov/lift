@@ -8,7 +8,6 @@ import {
 } from "../../domain/entities/Summary";
 import { SummaryRepository } from "../../domain/repositories/SummaryRepository";
 import { EventBus } from "../../domain/events/EventBus";
-import { SummaryUpdatedEvent } from "../../domain/events/SummaryEvents";
 import { GetSummaryDataUseCase, SummaryData } from "./GetSummaryDataUseCase";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import * as tokens from "../../infrastructure/di/tokens";
@@ -103,15 +102,10 @@ export class ForceWeeklySummaryUseCase
       }
 
       // Mark as processing
-      const processingResult = summary.startProcessing();
-      if (processingResult.isFailure()) {
-        return ResultUtils.error(processingResult.error);
-      }
+      const events = summary.startProcessing();
 
       await this.summaryRepository.save(summary);
-      await this.eventBus.publish(
-        new SummaryUpdatedEvent(summary.id, SummaryStatus.PROCESSING)
-      );
+      await this.eventBus.publishAll(events);
 
       try {
         // Get data for summarization
@@ -138,19 +132,13 @@ export class ForceWeeklySummaryUseCase
         }
 
         // Complete summary
-        const completeResult = summary.complete(
+        const events = summary.complete(
           llmResult.data.fullSummary,
           llmResult.data.shortSummary
         );
-        if (completeResult.isFailure()) {
-          await this.handleProcessingError(summary, completeResult.error);
-          return ResultUtils.error(completeResult.error);
-        }
 
         await this.summaryRepository.save(summary);
-        await this.eventBus.publish(
-          new SummaryUpdatedEvent(summary.id, SummaryStatus.DONE)
-        );
+        await this.eventBus.publishAll(events);
 
         return ResultUtils.ok({
           success: true,
@@ -246,7 +234,7 @@ export class ForceWeeklySummaryUseCase
     );
 
     let current = weekStart;
-    while (current.compareTo(weekEnd) <= 0) {
+    while (!current.isAfter(weekEnd)) {
       if (!existingDates.has(current.toString())) {
         missingDays.push(current);
       }
@@ -264,9 +252,18 @@ export class ForceWeeklySummaryUseCase
         "Tasks: " + data.tasks.map((task) => task.title).join(", ") + ". ";
     }
 
-    if (data.logs && data.logs.length > 0) {
+    if (data.taskLogs && data.taskLogs.length > 0) {
       content +=
-        "Logs: " + data.logs.map((log) => log.content).join("; ") + ". ";
+        "Task Logs: " +
+        data.taskLogs.map((log) => log.message).join("; ") +
+        ". ";
+    }
+
+    if (data.systemLogs && data.systemLogs.length > 0) {
+      content +=
+        "System Logs: " +
+        data.systemLogs.map((log) => log.message).join("; ") +
+        ". ";
     }
 
     return content || "No activity recorded";
@@ -284,13 +281,9 @@ export class ForceWeeklySummaryUseCase
     error: Error
   ): Promise<void> {
     try {
-      const failResult = summary.markAsFailed(error.message);
-      if (failResult.isSuccess()) {
-        await this.summaryRepository.save(summary);
-        await this.eventBus.publish(
-          new SummaryUpdatedEvent(summary.id, SummaryStatus.FAILED)
-        );
-      }
+      const events = summary.markAsFailed(error.message);
+      await this.summaryRepository.save(summary);
+      await this.eventBus.publishAll(events);
     } catch (saveError) {
       // Log error but don't throw to avoid masking original error
       console.error("Failed to save error state:", saveError);

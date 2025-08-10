@@ -3,7 +3,7 @@ import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepos
 import { DailySelectionRepository } from "../../../../shared/domain/repositories/DailySelectionRepository";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
-import { TaskLogService } from "../../../../shared/application/services/TaskLogService";
+
 import { AddTaskToTodayUseCase } from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
 import { RemoveTaskFromTodayUseCase } from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
 import { CreateSystemLogUseCase } from "../../../../shared/application/use-cases/CreateSystemLogUseCase";
@@ -15,7 +15,6 @@ export class DailySelectionService {
   constructor(
     private taskRepository: TaskRepository,
     private dailySelectionRepository: DailySelectionRepository,
-    private logService: TaskLogService,
     private addTaskToTodayUseCase: AddTaskToTodayUseCase,
     private removeTaskFromTodayUseCase: RemoveTaskFromTodayUseCase,
     private createSystemLogUseCase: CreateSystemLogUseCase

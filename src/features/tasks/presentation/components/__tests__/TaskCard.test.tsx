@@ -37,7 +37,7 @@ const createMockTask = (overrides: Partial<any> = {}): Task => {
 
 // Mock log entry
 const createMockLog = (overrides: Partial<LogEntry> = {}): LogEntry => ({
-  id: 1,
+  id: "1",
   taskId: "task-1",
   type: "USER",
   message: "Test log message",
@@ -140,8 +140,8 @@ describe.skip("TaskCard", () => {
       const onLoadTaskLogs = vi
         .fn()
         .mockResolvedValue([
-          createMockLog({ id: 1, message: "Log 1" }),
-          createMockLog({ id: 2, message: "Log 2" }),
+          createMockLog({ id: "1", message: "Log 1" }),
+          createMockLog({ id: "2", message: "Log 2" }),
         ]);
       const lastLog = createMockLog();
 
@@ -171,8 +171,8 @@ describe.skip("TaskCard", () => {
 
     it("should display log history when loaded", async () => {
       const mockLogs = [
-        createMockLog({ id: 1, message: "First log", type: "SYSTEM" }),
-        createMockLog({ id: 2, message: "Second log", type: "USER" }),
+        createMockLog({ id: "1", message: "First log", type: "SYSTEM" }),
+        createMockLog({ id: "2", message: "Second log", type: "USER" }),
       ];
       const onLoadTaskLogs = vi.fn().mockResolvedValue(mockLogs);
       const lastLog = createMockLog();

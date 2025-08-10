@@ -7,9 +7,7 @@ import { UserSettingsService } from "../../application/services/UserSettingsServ
 import { UserSettingsRepositoryImpl } from "../../../../shared/infrastructure/repositories/UserSettingsRepositoryImpl";
 import { todoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 import { container, tokens } from "../../../../shared/infrastructure/di";
-import { TaskLogService } from "../../../../shared/application/services/TaskLogService";
-import { GetTaskLogsUseCase } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
-import { CreateUserLogUseCase } from "../../../../shared/application/use-cases/CreateUserLogUseCase";
+
 import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepository";
 import { DailySelectionRepository } from "../../../../shared/domain/repositories/DailySelectionRepository";
 import { taskEventBus } from "../../../../shared/infrastructure/events/TaskEventBus";
@@ -57,16 +55,6 @@ const createOnboardingService = () => {
     tokens.DAILY_SELECTION_REPOSITORY_TOKEN
   );
   // Create TaskLogService manually to avoid circular dependency
-  const getTaskLogsUseCase = container.resolve<GetTaskLogsUseCase>(
-    tokens.GET_TASK_LOGS_USE_CASE_TOKEN
-  );
-  const createUserLogUseCase = container.resolve<CreateUserLogUseCase>(
-    tokens.CREATE_USER_LOG_USE_CASE_TOKEN
-  );
-  const logService = new TaskLogService(
-    getTaskLogsUseCase,
-    createUserLogUseCase
-  );
 
   // UserSettings repository is not in DI container, create manually
   const userSettingsRepository = new UserSettingsRepositoryImpl(todoDatabase);
@@ -75,7 +63,6 @@ const createOnboardingService = () => {
   return new OnboardingService(
     taskRepository,
     dailySelectionRepository,
-    logService,
     userSettingsService
   );
 };

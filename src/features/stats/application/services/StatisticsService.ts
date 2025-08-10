@@ -44,7 +44,7 @@ export class StatisticsService {
    * Called when a task is completed to track completion by category
    */
   async recordTaskCompletion(
-    taskId: string,
+    _taskId: string,
     category: TaskCategory,
     completedAt: Date = new Date()
   ): Promise<void> {
@@ -92,7 +92,7 @@ export class StatisticsService {
    * Called when a task is moved from INBOX for the first time
    */
   async recordInboxReview(
-    taskId: string,
+    _taskId: string,
     reviewedAt: Date = new Date()
   ): Promise<void> {
     const dateKey = this.formatDateKey(reviewedAt);
@@ -126,7 +126,7 @@ export class StatisticsService {
    * Revert a task completion (when task completion is undone)
    */
   async revertTaskCompletion(
-    taskId: string,
+    _taskId: string,
     category: TaskCategory,
     completedAt: Date
   ): Promise<void> {
@@ -407,7 +407,9 @@ export class StatisticsService {
       .and((log) => log.type === "SYSTEM" && log.message.includes("completed"))
       .toArray();
 
-    const taskIds = completionLogs.map((log) => log.taskId).filter(Boolean);
+    const taskIds = completionLogs
+      .map((log) => log.taskId)
+      .filter((id): id is string => Boolean(id));
 
     if (taskIds.length === 0) return [];
 

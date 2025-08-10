@@ -1,5 +1,4 @@
 import { injectable, inject } from "tsyringe";
-import { UseCase } from "../../domain/UseCase";
 import type { Result } from "../../domain/Result";
 import { ResultFactory } from "../../domain/Result";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
@@ -13,6 +12,7 @@ import {
   MonthlySummarizationRequestedEvent,
 } from "../../domain/events/SummaryEvents";
 import * as tokens from "../../infrastructure/di/tokens";
+import { UseCase } from "../UseCase";
 
 export interface ScheduleSummariesRequest {
   upToDate?: DateOnly; // Schedule up to this date (default: today)
@@ -212,8 +212,8 @@ export class ScheduleSummariesUseCase
     // Find missing monthly summaries
     const missingMonthsResult =
       await this.summaryRepository.findMissingMonthlySummaries(
-        startDate,
-        upToDate
+        startDate.value,
+        upToDate.value
       );
 
     if (missingMonthsResult.isFailure()) {
@@ -360,12 +360,5 @@ export class ScheduleSummariesUseCase
     const dayOfWeek = date.toDate().getDay();
     const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 0, Monday = 1
     return date.addDays(-daysToSubtract);
-  }
-
-  private formatMonth(date: DateOnly): string {
-    const jsDate = date.toDate();
-    const year = jsDate.getFullYear();
-    const month = (jsDate.getMonth() + 1).toString().padStart(2, "0");
-    return `${year}-${month}`;
   }
 }

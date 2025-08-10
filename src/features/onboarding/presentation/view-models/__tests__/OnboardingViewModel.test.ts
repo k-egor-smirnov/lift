@@ -131,14 +131,6 @@ describe("OnboardingViewModel", () => {
       const { result } = renderHook(() => useOnboardingViewModel());
 
       // Set up initial state with modal visible and data
-      const mockModalData = {
-        unfinishedTasks: [],
-        overdueInboxTasks: [],
-        regularInboxTasks: [],
-        motivationalMessage: "Test message",
-        shouldShow: true,
-        date: "2023-12-01",
-      };
 
       await act(async () => {
         // Simulate modal being shown

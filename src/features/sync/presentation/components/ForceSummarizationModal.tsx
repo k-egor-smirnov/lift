@@ -22,7 +22,9 @@ export const ForceSummarizationModal: React.FC<
   const { isLoading, error, isSuccess, forceSummarization, clearError, reset } =
     viewModel;
 
-  const [summaryType, setSummaryType] = useState<SummaryType>("DAILY");
+  const [summaryType, setSummaryType] = useState<SummaryType>(
+    SummaryType.DAILY
+  );
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );

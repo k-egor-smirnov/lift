@@ -121,7 +121,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     openNote: handleOpenNoteModal,
     closeNote: handleCloseNoteModal,
     saveNote: handleSaveNote,
-  } = useTaskNote(task.id.value, task.note, taskViewModel!);
+  } = useTaskNote(task.id.value, taskViewModel!);
 
   // Drag and drop functionality
   const {

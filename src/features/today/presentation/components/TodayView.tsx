@@ -7,7 +7,6 @@ import { TodayViewModelDependencies } from "../view-models/TodayViewModel";
 import { useTodayViewModelStore } from "../view-models/TodayViewModelStore";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory } from "../../../../shared/domain/types";
-import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
 import { toast } from "sonner";
 import { getService, tokens } from "../../../../shared/infrastructure/di";
 import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-cases/RevertTaskCompletionUseCase";
@@ -176,31 +175,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   const activeTasks = getActiveTasks();
   const completedTasks = getCompletedTasks();
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString + "T00:00:00");
-    const today = DateOnly.getCurrentDate();
-    const todayString = today.toISOString().split("T")[0];
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    if (dateString === todayString) {
-      return "Today";
-    } else if (dateString === yesterday.toISOString().split("T")[0]) {
-      return "Yesterday";
-    } else if (dateString === tomorrow.toISOString().split("T")[0]) {
-      return "Tomorrow";
-    } else {
-      return date.toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    }
-  };
 
   return (
     <div className="max-w-4xl mx-auto">

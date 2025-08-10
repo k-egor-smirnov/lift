@@ -44,18 +44,6 @@ export interface UserSettingsRecord {
   updatedAt: Date;
 }
 
-export interface SyncQueueRecord {
-  id?: number;
-  entityType: "task" | "dailySelectionEntry" | "taskLog";
-  entityId: string;
-  operation: "create" | "update" | "delete";
-  payloadHash: string;
-  attemptCount: number;
-  createdAt: Date;
-  lastAttemptAt?: Date;
-  nextAttemptAt?: number;
-}
-
 export interface StatsDailyRecord {
   date: string; // YYYY-MM-DD format
   simpleCompleted: number;
@@ -109,7 +97,6 @@ export class TodoDatabase extends Dexie {
   dailySelectionEntries!: Table<DailySelectionEntryRecord>;
   taskLogs!: Table<TaskLogRecord>;
   userSettings!: Table<UserSettingsRecord>;
-  syncQueue!: Table<SyncQueueRecord>;
   statsDaily!: Table<StatsDailyRecord>;
   eventStore!: Table<EventStoreRecord>;
   handledEvents!: Table<HandledEventRecord>;
@@ -151,7 +138,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade((trans) => {
+      .upgrade(() => {
         // Data migration logic if needed
         console.log(
           "Upgrading database to version 2 - adding event store tables"
@@ -212,7 +199,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async () => {
         console.log(
           "Upgrading database to version 4 - adding deferred tasks support"
         );
@@ -237,7 +224,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async () => {
         console.log(
           "Upgrading database to version 5 - adding soft delete support for daily selection entries"
         );
@@ -341,7 +328,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async () => {
         console.log(
           "Upgrading database to version 8 - adding note field to tasks"
         );
@@ -368,7 +355,7 @@ export class TodoDatabase extends Dexie {
         summaries:
           "id, [date+type], date, type, status, content, createdAt, updatedAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async () => {
         console.log("Upgrading database to version 9 - adding summaries table");
         // No migration needed for new table
       });
@@ -393,7 +380,7 @@ export class TodoDatabase extends Dexie {
         summaries:
           "id, [dateKey+type], dateKey, type, status, content, createdAt, updatedAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async () => {
         console.log(
           "Upgrading database to version 10 - fixing summaries table index"
         );
@@ -509,10 +496,6 @@ export class TodoDatabase extends Dexie {
       }
     );
 
-    this.syncQueue.hook("creating", (_primKey, obj, _trans) => {
-      obj.createdAt = new Date();
-    });
-
     this.statsDaily.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
@@ -561,7 +544,6 @@ export class TodoDatabase extends Dexie {
         this.dailySelectionEntries,
         this.taskLogs,
         this.userSettings,
-        this.syncQueue,
         this.statsDaily,
         this.eventStore,
         this.handledEvents,
@@ -573,7 +555,6 @@ export class TodoDatabase extends Dexie {
         await this.dailySelectionEntries.clear();
         await this.taskLogs.clear();
         await this.userSettings.clear();
-        await this.syncQueue.clear();
         await this.statsDaily.clear();
         await this.eventStore.clear();
         await this.handledEvents.clear();

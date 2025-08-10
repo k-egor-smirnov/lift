@@ -19,7 +19,7 @@ import { useSync } from "@/shared/infrastructure/sync";
 import { useAuth } from "@/shared/presentation/hooks/useAuth";
 import { UserSettingsService } from "@/features/onboarding/application/services/UserSettingsService";
 import { UserSettingsRepositoryImpl } from "@/shared/infrastructure/repositories/UserSettingsRepositoryImpl";
-import { LLMSettings } from "@/shared/domain/entities/LLMSettings";
+import { LLMSettings } from "@/shared/domain/types/LLMSettings";
 import { container } from "tsyringe";
 import { SupabaseClientFactory } from "@/shared/infrastructure/database/SupabaseClient";
 import { TodoDatabase } from "@/shared/infrastructure/database/TodoDatabase";
@@ -40,7 +40,7 @@ interface SettingsProps {
   onClose?: () => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
+export const Settings: React.FC<SettingsProps> = () => {
   const { t, i18n } = useTranslation();
   const {
     isOnline,
@@ -54,7 +54,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   } = useSync();
 
   // Auth state
-  const { user, loading, signIn, signUp, signOut } = useAuth();
+  const { user, signIn, signUp, signOut } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -253,7 +253,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
 
         // Тест 3: Проверка подключения к Supabase
         try {
-          const { data, error } = await supabase
+          const { data: _data, error } = await supabase
             .from("tasks")
             .select("count")
             .limit(1);
@@ -284,7 +284,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
 
         // Тест 5: Проверка таблицы sync_metadata
         try {
-          const { data, error } = await supabase
+          const { data: _data, error } = await supabase
             .from("sync_metadata")
             .select("*")
             .limit(1);

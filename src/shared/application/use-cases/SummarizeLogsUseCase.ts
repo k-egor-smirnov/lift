@@ -7,7 +7,6 @@ import {
 } from "../../infrastructure/services/LLMService";
 import { LLMSettings } from "../../domain/types/LLMSettings";
 import { LogEntry } from "./GetTaskLogsUseCase";
-import { Task } from "../../domain/entities/Task";
 import { TaskStatus, TaskCategory } from "../../domain/types";
 import * as tokens from "../../infrastructure/di/tokens";
 
@@ -167,12 +166,12 @@ export class SummarizeLogsUseCase {
     // Filter and categorize logs
     const userLogs: LogEntry[] = [];
     const systemLogs: LogEntry[] = [];
-    const createdTasks: Task[] = [];
-    const completedTasks: Task[] = [];
+    const createdTasks: any[] = [];
+    const completedTasks: any[] = [];
 
     for (const log of allLogs) {
       const logEntry: LogEntry = {
-        id: log.id!,
+        id: log.id,
         taskId: log.taskId,
         type: log.type,
         message: log.message,
@@ -191,7 +190,7 @@ export class SummarizeLogsUseCase {
           request.includeTaskCreation &&
           log.message.includes("Task created")
         ) {
-          const task = tasksMap.get(log.taskId!);
+          const task = log.taskId ? tasksMap.get(log.taskId) : undefined;
           if (task && task.createdAt >= dateFrom && task.createdAt <= dateTo) {
             // Convert TaskRecord to Task domain object if needed
             // For now, skip since we're working with TaskRecord
@@ -203,7 +202,7 @@ export class SummarizeLogsUseCase {
           request.includeTaskCompletion &&
           log.message.includes("Task completed")
         ) {
-          const task = tasksMap.get(log.taskId!);
+          const task = log.taskId ? tasksMap.get(log.taskId) : undefined;
           if (task && task.status === TaskStatus.COMPLETED) {
             // Convert TaskRecord to Task domain object if needed
             // For now, skip since we're working with TaskRecord
@@ -215,12 +214,11 @@ export class SummarizeLogsUseCase {
 
     // Also check for tasks created/completed in the period (in case logs are missing)
     if (request.includeTaskCreation) {
-      const additionalCreatedTasks = allTasks.filter(
-        (task) =>
-          task.createdAt >= dateFrom &&
-          task.createdAt <= dateTo &&
-          !createdTasks.some((ct) => ct.id.value === task.id)
-      );
+      // const additionalCreatedTasks = allTasks.filter(
+      //   (task) =>
+      //     task.createdAt >= dateFrom &&
+      //     task.createdAt <= dateTo
+      // );
       // Convert TaskRecord to Task domain objects if needed
       // For now, skip since we're working with TaskRecord
       // createdTasks.push(...additionalCreatedTasks);
@@ -239,8 +237,8 @@ export class SummarizeLogsUseCase {
     data: {
       userLogs: LogEntry[];
       systemLogs: LogEntry[];
-      createdTasks: Task[];
-      completedTasks: Task[];
+      createdTasks: any[];
+      completedTasks: any[];
     },
     dateFrom: Date,
     dateTo: Date
@@ -254,7 +252,7 @@ export class SummarizeLogsUseCase {
       content += `СОЗДАННЫЕ ЗАДАЧИ (${data.createdTasks.length}):\n`;
       data.createdTasks.forEach((task) => {
         const categoryName = this.getCategoryDisplayName(task.category);
-        content += `- "${task.title.value}" (${categoryName})\n`;
+        content += `- "${task.title}" (${categoryName})\n`;
       });
       content += "\n";
     }
@@ -264,7 +262,7 @@ export class SummarizeLogsUseCase {
       content += `ВЫПОЛНЕННЫЕ ЗАДАЧИ (${data.completedTasks.length}):\n`;
       data.completedTasks.forEach((task) => {
         const categoryName = this.getCategoryDisplayName(task.category);
-        content += `- "${task.title.value}" (${categoryName})\n`;
+        content += `- "${task.title}" (${categoryName})\n`;
       });
       content += "\n";
     }
@@ -327,9 +325,9 @@ export class SummarizeLogsUseCase {
     if (!taskId) return null;
 
     const task =
-      data.createdTasks.find((t: Task) => t.id.value === taskId) ||
-      data.completedTasks.find((t: Task) => t.id.value === taskId);
+      data.createdTasks.find((t: any) => t.id === taskId) ||
+      data.completedTasks.find((t: any) => t.id === taskId);
 
-    return task ? task.title.value : null;
+    return task ? task.title : null;
   }
 }

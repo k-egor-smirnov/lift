@@ -2,17 +2,13 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
 import { TaskId } from "../shared/domain/value-objects/TaskId";
-import { TodayMobileView } from "../features/today/presentation/components/TodayMobileView";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import {
   createTaskViewModel,
   TaskViewModelDependencies,
 } from "../features/tasks/presentation/view-models/TaskViewModel";
-import {
-  TodayViewModelDependencies,
-  createTodayViewModel,
-} from "../features/today/presentation/view-models/TodayViewModel";
+import { TodayViewModelDependencies } from "../features/today/presentation/view-models/TodayViewModel";
 import { useKeyboardShortcuts } from "../shared/infrastructure/services/useKeyboardShortcuts";
 import { DailyModalContainer } from "../features/onboarding";
 import { LogEntry } from "../shared/application/use-cases/GetTaskLogsUseCase";
@@ -50,8 +46,6 @@ import { ContentArea } from "./components/ContentArea";
 import { ResultUtils } from "@/shared/domain/Result";
 
 export const MVPApp: React.FC = () => {
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
   const [activeView, setActiveView] = useState<
     "today" | "logs" | "sync" | "settings" | TaskCategory
   >("today");
@@ -60,21 +54,6 @@ export const MVPApp: React.FC = () => {
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
   const [lastLogs, setLastLogs] = useState<Record<string, LogEntry>>({});
   const [todayTaskIds, setTodayTaskIds] = useState<string[]>([]);
-
-  // Check if device is mobile and in development mode
-  const isMobile = () => {
-    return (
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      ) || window.innerWidth <= 768
-    );
-  };
-
-  const shouldUseMobileView =
-    false &&
-    process.env.NODE_ENV === "development" &&
-    isMobile() &&
-    activeView === "today";
 
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
@@ -188,10 +167,6 @@ export const MVPApp: React.FC = () => {
     () => createTaskViewModel(taskDependencies),
     []
   );
-  const todayViewModel = useMemo(
-    () => createTodayViewModel(todayDependencies),
-    []
-  );
 
   // Initialize keyboard shortcuts
   const { registerShortcut, unregisterShortcut, isEnabled } =
@@ -211,9 +186,6 @@ export const MVPApp: React.FC = () => {
     clearError,
     getTodayTaskIds: getTaskViewModelTodayTaskIds,
   } = taskViewModel();
-
-  // Subscribe to today view model for getting today task IDs
-  const { getTodayTaskIds } = todayViewModel();
 
   // Initialize database and load tasks on component mount
   useEffect(() => {
@@ -280,30 +252,6 @@ export const MVPApp: React.FC = () => {
   // Register keyboard shortcuts
   useEffect(() => {
     if (!isEnabled) return;
-
-    // Task creation shortcut (Ctrl+N)
-    registerShortcut("create-task", {
-      key: "n",
-      ctrlKey: true,
-      handler: (event) => {
-        event.preventDefault();
-        setIsCreateModalOpen(true);
-      },
-      description: "Create new task",
-      category: "tasks",
-    });
-
-    // Custom log shortcut (Ctrl+L)
-    registerShortcut("create-log", {
-      key: "l",
-      ctrlKey: true,
-      handler: (event) => {
-        event.preventDefault();
-        setIsCreateModalOpen(true);
-      },
-      description: "Create custom log",
-      category: "logs",
-    });
 
     // Category navigation shortcuts
     registerShortcut("nav-simple", {
@@ -387,8 +335,6 @@ export const MVPApp: React.FC = () => {
     async (title: string, category: TaskCategory): Promise<boolean> => {
       const success = await createTask({ title, category });
       if (success) {
-        setIsCreateModalOpen(false);
-
         // If we're on the Today view, automatically add the newly created task to today
         if (activeView === "today") {
           try {
@@ -677,38 +623,6 @@ export const MVPApp: React.FC = () => {
     [reorderTasksUseCase, loadTasks]
   );
 
-  // Note: Removed handleTodayRefresh as it's replaced by event bus auto-refresh
-
-  const handleMobileCreateTask = useCallback(
-    async (title: string): Promise<void> => {
-      try {
-        const success = await createTask({
-          title,
-          category: TaskCategory.INBOX,
-        });
-        if (success) {
-          // Get the newly created task and add it to today
-          const tasks = await taskRepository.findAll();
-          const newestTask = tasks.sort(
-            (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-          )[0];
-
-          if (newestTask) {
-            const result = await addTaskToTodayUseCase.execute({
-              taskId: newestTask.id.value,
-            });
-            if (result.success) {
-              // Note: Event bus will handle UI updates automatically
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error creating task from mobile view:", error);
-      }
-    },
-    [createTask, taskRepository, addTaskToTodayUseCase]
-  );
-
   const tasksByCategory = getTasksByCategory();
   const { getOverdueCount } = taskViewModel();
   const overdueCount = getOverdueCount();
@@ -747,29 +661,6 @@ export const MVPApp: React.FC = () => {
       ? TaskCategory.INBOX
       : activeView;
   // Removed unused hideCategorySelection variable
-
-  // Adapter for TodayMobileView onUndefer to convert TaskId to string
-  const handleUndeferForMobileView = async (taskId: TaskId) => {
-    await handleUndeferTask(taskId);
-  };
-
-  // If mobile view should be used, render it directly without sidebar/header
-  if (shouldUseMobileView) {
-    return (
-      <TodayMobileView
-        dependencies={todayDependencies}
-        onEditTask={handleEditTask}
-        onDeleteTask={handleDeleteTask}
-        onDefer={handleDeferTask}
-        onUndefer={handleUndeferForMobileView}
-        onReorderTasks={handleReorderTasks}
-        onLoadTaskLogs={loadTaskLogs}
-        onCreateLog={handleCreateTaskLog}
-        lastLogs={lastLogs}
-        onCreateTask={handleMobileCreateTask}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">

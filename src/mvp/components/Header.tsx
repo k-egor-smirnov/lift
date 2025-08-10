@@ -94,14 +94,12 @@ export const Header: React.FC<HeaderProps> = ({
   onMobileMenuToggle,
 }) => {
   const { t } = useTranslation();
-  const [scrollY, setScrollY] = useState(0);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const IconComponent = getViewIcon(activeView);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      setScrollY(currentScrollY);
 
       // Collapse header when scrolling down on mobile
       const isMobile = window.innerWidth <= 768;

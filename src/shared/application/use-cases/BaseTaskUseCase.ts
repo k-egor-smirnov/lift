@@ -5,7 +5,6 @@ import { TaskRepository } from "../../domain/repositories/TaskRepository";
 import { EventBus } from "../../domain/events/EventBus";
 import { Result, ResultUtils } from "../../domain/Result";
 import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
-import { hashTask } from "../../infrastructure/utils/hashUtils";
 import { DomainEvent } from "../../domain/events/DomainEvent";
 import { DebouncedSyncService } from "../services/DebouncedSyncService";
 import * as tokens from "../../infrastructure/di/tokens";
@@ -91,7 +90,6 @@ export abstract class BaseTaskUseCase {
         "rw",
         [
           this.database.tasks,
-          this.database.syncQueue,
           this.database.eventStore,
           this.database.dailySelectionEntries,
         ],
@@ -103,18 +101,7 @@ export abstract class BaseTaskUseCase {
             await this.taskRepository.delete(task.id);
           }
 
-          // 2. Add sync queue entry
-          await this.database.syncQueue.add({
-            entityType: "task",
-            entityId: task.id.value,
-            operation,
-            payloadHash: operation !== "delete" ? hashTask(task) : "",
-            attemptCount: 0,
-            createdAt: new Date(),
-            nextAttemptAt: Date.now(),
-          });
-
-          // 3. Execute additional operations if provided
+          // 2. Execute additional operations if provided
           if (additionalOperations) {
             const additionalResult = await additionalOperations();
             if (additionalResult !== undefined) {

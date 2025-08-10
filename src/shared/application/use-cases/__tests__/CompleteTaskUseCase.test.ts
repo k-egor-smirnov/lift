@@ -41,9 +41,6 @@ const mockEventBus: EventBus = {
 
 const mockDatabase = {
   transaction: vi.fn(),
-  syncQueue: {
-    add: vi.fn(),
-  },
   eventStore: {},
   tasks: {},
 } as unknown as TodoDatabase;

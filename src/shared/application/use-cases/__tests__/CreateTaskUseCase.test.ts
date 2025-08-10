@@ -35,9 +35,6 @@ const mockEventBus: EventBus = {
 
 const mockDatabase = {
   transaction: vi.fn(),
-  syncQueue: {
-    add: vi.fn(),
-  },
   eventStore: {},
   tasks: {},
 } as unknown as TodoDatabase;
@@ -55,7 +52,7 @@ describe("CreateTaskUseCase", () => {
 
     // Mock transaction to execute the callback immediately
     vi.mocked(mockDatabase.transaction).mockImplementation(
-      (mode, tables, callback) => {
+      (_mode, _tables, callback) => {
         const result = callback({} as any);
         const mockPromise = {
           then: (onFulfilled?: any, onRejected?: any) =>

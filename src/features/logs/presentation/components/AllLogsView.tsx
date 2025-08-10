@@ -30,7 +30,6 @@ export const AllLogsView: React.FC<AllLogsViewProps> = ({ dependencies }) => {
     loadNextPage,
     setFilter,
     clearError,
-    refreshLogs,
     hasLogs,
     createUserLog,
     // Summarization state and actions
@@ -57,11 +56,6 @@ export const AllLogsView: React.FC<AllLogsViewProps> = ({ dependencies }) => {
     const logType =
       filter === "ALL" ? undefined : (filter as "SYSTEM" | "USER" | "CONFLICT");
     setFilter({ logType });
-  };
-
-  // Handle refresh
-  const handleRefresh = () => {
-    refreshLogs();
   };
 
   // Handle load more

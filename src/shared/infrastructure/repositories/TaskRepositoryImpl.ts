@@ -163,7 +163,7 @@ export class TaskRepositoryImpl implements TaskRepository {
       return ResultFactory.success(tasks);
     } catch (error) {
       return ResultFactory.failure(
-        `Failed to find tasks created in date range: ${error}`
+        new Error(`Failed to find tasks created in date range: ${error}`)
       );
     }
   }
@@ -179,7 +179,7 @@ export class TaskRepositoryImpl implements TaskRepository {
       const records = await this.db.tasks
         .filter((record) => {
           if (record.deletedAt) return false;
-          if (record.status !== TaskStatus.DONE) return false;
+          if (record.status !== TaskStatus.COMPLETED) return false;
           const updatedTime = record.updatedAt.getTime();
           return updatedTime >= startTime && updatedTime <= endTime;
         })
@@ -189,7 +189,7 @@ export class TaskRepositoryImpl implements TaskRepository {
       return ResultFactory.success(tasks);
     } catch (error) {
       return ResultFactory.failure(
-        `Failed to find tasks completed in date range: ${error}`
+        new Error(`Failed to find tasks completed in date range: ${error}`)
       );
     }
   }

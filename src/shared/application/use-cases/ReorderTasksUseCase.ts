@@ -4,7 +4,6 @@ import { TaskRepository } from "../../domain/repositories/TaskRepository";
 import { EventBus } from "../../domain/events/EventBus";
 import { Result, ResultUtils } from "../../domain/Result";
 import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
-import { hashTask } from "../../infrastructure/utils/hashUtils";
 import * as tokens from "../../infrastructure/di/tokens";
 import { Task } from "@/shared/domain/entities/Task";
 
@@ -80,26 +79,11 @@ export class ReorderTasksUseCase {
       // Execute transactional operation
       await this.database.transaction(
         "rw",
-        [
-          this.database.tasks,
-          this.database.syncQueue,
-          this.database.eventStore,
-        ],
+        [this.database.tasks, this.database.eventStore],
         async () => {
           // Save all updated tasks
           for (const task of tasks) {
             await this.taskRepository.save(task);
-
-            // Add sync queue entry for each task
-            await this.database.syncQueue.add({
-              entityType: "task",
-              entityId: task.id.value,
-              operation: "update",
-              payloadHash: hashTask(task),
-              attemptCount: 0,
-              createdAt: new Date(),
-              nextAttemptAt: Date.now(),
-            });
           }
 
           // Publish domain events

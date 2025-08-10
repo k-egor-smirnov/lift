@@ -1,5 +1,5 @@
 import { UserSettingsRepository } from "../../../../shared/domain/repositories/UserSettingsRepository";
-import { LLMSettings } from "../../../../shared/domain/entities/LLMSettings";
+import { LLMSettings } from "../../../../shared/domain/types/LLMSettings";
 
 /**
  * User settings keys
