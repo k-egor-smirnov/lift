@@ -43,7 +43,9 @@ import { TaskLogService } from "../services/TaskLogService";
 import * as tokens from "./tokens";
 
 /**
- * Configure the DI container with all dependencies
+ * Registers all application dependencies as singletons in the DI container.
+ *
+ * This includes database, event bus, repositories, use cases for task and summary management, and supporting services.
  */
 export function configureContainer(): void {
   // Register database as singleton
