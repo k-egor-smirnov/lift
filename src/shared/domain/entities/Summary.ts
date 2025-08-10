@@ -44,6 +44,7 @@ export class Summary {
   private _updatedAt: Date;
   private _relatedSummaryIds: string[];
   private _errorMessage?: string;
+  private _retryCount: number;
 
   constructor(
     public readonly id: string,
@@ -58,7 +59,8 @@ export class Summary {
     public readonly createdAt: Date = new Date(),
     updatedAt: Date = new Date(),
     relatedSummaryIds: string[] = [],
-    errorMessage?: string
+    errorMessage?: string,
+    retryCount: number = 0
   ) {
     this.validateSummaryData();
 
@@ -68,6 +70,7 @@ export class Summary {
     this._updatedAt = updatedAt;
     this._relatedSummaryIds = [...relatedSummaryIds];
     this._errorMessage = errorMessage;
+    this._retryCount = retryCount;
   }
 
   // Getters
@@ -93,6 +96,10 @@ export class Summary {
 
   get errorMessage(): string | undefined {
     return this._errorMessage;
+  }
+
+  get retryCount(): number {
+    return this._retryCount;
   }
 
   get isProcessing(): boolean {
@@ -159,7 +166,7 @@ export class Summary {
     this._updatedAt = new Date();
     this._errorMessage = undefined;
 
-    return [];
+    return [new SummaryUpdatedEvent(this.id, SummaryStatus.PROCESSING)];
   }
 
   /**
@@ -217,6 +224,7 @@ export class Summary {
     this._status = SummaryStatus.NEW;
     this._updatedAt = new Date();
     this._errorMessage = undefined;
+    this._retryCount += 1;
 
     return [];
   }

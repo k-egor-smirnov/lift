@@ -1,11 +1,7 @@
 import { injectable } from "tsyringe";
 import Dexie, { Table } from "dexie";
 import { TaskCategory, TaskStatus } from "../../domain/types";
-import {
-  Summary,
-  SummaryType,
-  SummaryStatus,
-} from "../../domain/entities/Summary";
+import { SummaryType, SummaryStatus } from "../../domain/entities/Summary";
 
 // Database record interfaces
 export interface TaskRecord {
@@ -95,12 +91,16 @@ export interface LockRecord {
 
 export interface SummaryRecord {
   id: string;
-  date: string; // YYYY-MM-DD format
   type: SummaryType;
   status: SummaryStatus;
-  content: string;
+  dateKey: string;
+  title: string;
+  content?: string;
+  metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
+  processedAt?: Date;
+  error?: string;
 }
 
 @injectable()
@@ -398,6 +398,78 @@ export class TodoDatabase extends Dexie {
           "Upgrading database to version 10 - fixing summaries table index"
         );
         // No migration needed - just index change
+      });
+
+    // Version 11 - Add retryCount field to summaries table
+    this.version(11)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory, note",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        summaries:
+          "id, [dateKey+type], dateKey, type, status, content, retryCount, createdAt, updatedAt",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 11 - adding retryCount field to summaries"
+        );
+        // Initialize retryCount field for existing summaries
+        const existingSummaries = await trans.table("summaries").toArray();
+        for (const summary of existingSummaries) {
+          if (summary.retryCount === undefined) {
+            await trans.table("summaries").update(summary.id, {
+              retryCount: 0,
+            });
+          }
+        }
+      });
+
+    // Version 12 - Update summaries table schema to match new SummaryRecord interface
+    this.version(12)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory, note",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        summaries:
+          "id, [dateKey+type], dateKey, type, status, title, content, metadata, createdAt, updatedAt, processedAt, error",
+      })
+      .upgrade(async (trans) => {
+        console.log(
+          "Upgrading database to version 12 - updating summaries table schema"
+        );
+        // Migrate existing summaries to new schema
+        const existingSummaries = await trans.table("summaries").toArray();
+        for (const summary of existingSummaries) {
+          const updates: any = {};
+          if (!summary.title) {
+            updates.title = `Summary for ${summary.dateKey}`;
+          }
+          if (Object.keys(updates).length > 0) {
+            await trans.table("summaries").update(summary.id, updates);
+          }
+        }
       });
 
     // Add hooks for automatic timestamp updates

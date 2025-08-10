@@ -1,11 +1,8 @@
 import { UseCase } from "../UseCase";
-import { Result, ResultFactory } from "../../domain/Result";
+import type { Result } from "../../domain/Result";
+import { ResultFactory } from "../../domain/Result";
 import { SummaryRepository } from "../../domain/repositories/SummaryRepository";
-import {
-  Summary,
-  SummaryType,
-  SummaryStatus,
-} from "../../domain/entities/Summary";
+import { Summary, SummaryType } from "../../domain/entities/Summary";
 import { injectable, inject } from "tsyringe";
 import * as tokens from "../../infrastructure/di/tokens";
 

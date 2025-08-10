@@ -1,6 +1,7 @@
 import React from "react";
 import { TaskCategory } from "../../shared/domain/types";
 import { Task } from "../../shared/domain/entities/Task";
+import { TaskId } from "../../shared/domain/value-objects/TaskId";
 import { TaskList } from "../../features/tasks/presentation/components/TaskList";
 import { TodayView } from "../../features/today/presentation/components/TodayView";
 import { AllLogsView } from "../../features/logs/presentation/components";
@@ -31,19 +32,19 @@ interface ContentAreaProps {
 
   // Task list props
   tasks: Task[];
-  currentCategory: TaskCategory;
+  currentCategory: TaskCategory | "today" | "logs" | "sync" | "settings";
   todayTaskIds: string[];
   lastLogs: Record<string, LogEntry>;
 
   // Event handlers
-  onCreateTask: (title: string, category: TaskCategory) => Promise<void>;
+  onCreateTask: (title: string, category: TaskCategory) => Promise<boolean>;
   onCompleteTask: (taskId: string) => Promise<void>;
   onEditTask: (taskId: string, newTitle: string) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   onAddToToday: (taskId: string) => Promise<void>;
-  onReorderTasks: (taskIds: string[]) => Promise<void>;
-  onLoadTaskLogs: (taskId: string) => Promise<void>;
-  onCreateTaskLog: (taskId: string, content: string) => Promise<void>;
+  onReorderTasks: (reorderedTasks: Task[]) => Promise<void>;
+  onLoadTaskLogs: (taskId: string) => Promise<LogEntry[]>;
+  onCreateTaskLog: (taskId: string, content: string) => Promise<boolean>;
   onDeferTask: (taskId: string, deferredUntil: Date) => Promise<void>;
   onUndeferTask: (taskId: string) => Promise<void>;
 }
@@ -81,6 +82,41 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
     );
   }
 
+  // Adapter for onUndeferTask to convert string to TaskId for TodayView
+  const handleUndeferForTodayView = async (taskId: TaskId) => {
+    await onUndeferTask(taskId.value);
+  };
+
+  // Adapter for onCreateTask to match TodayView signature
+  const handleCreateTaskForTodayView = async (
+    title: string,
+    category: TaskCategory
+  ): Promise<boolean> => {
+    return await onCreateTask(title, category);
+  };
+
+  // Adapter for onCreateTask to match TaskList signature
+  const handleCreateTaskForTaskList = async (
+    title: string,
+    category: TaskCategory
+  ): Promise<boolean> => {
+    return await onCreateTask(title, category);
+  };
+
+  // Adapter for onUndefer to convert TaskId to string for TaskList
+  const handleUndeferForTaskList = async (taskId: TaskId) => {
+    await onUndeferTask(taskId.value);
+  };
+
+  // Get proper category for TaskList
+  const taskListCategory =
+    currentCategory === "today" ||
+    currentCategory === "logs" ||
+    currentCategory === "sync" ||
+    currentCategory === "settings"
+      ? undefined
+      : currentCategory;
+
   switch (activeView) {
     case "today":
       return (
@@ -90,9 +126,9 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             onEditTask={onEditTask}
             onDeleteTask={onDeleteTask}
             onDefer={onDeferTask}
-            onUndefer={onUndeferTask}
+            onUndefer={handleUndeferForTodayView}
             onLoadTaskLogs={onLoadTaskLogs}
-            onCreateTask={onCreateTask}
+            onCreateTask={handleCreateTaskForTodayView}
             onCreateLog={onCreateTaskLog}
             lastLogs={lastLogs}
           />
@@ -128,8 +164,8 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             tasks={tasks}
             groupByCategory={false}
             showTodayButton={true}
-            onCreateTask={onCreateTask}
-            currentCategory={currentCategory}
+            onCreateTask={handleCreateTaskForTaskList}
+            currentCategory={taskListCategory}
             onComplete={onCompleteTask}
             onEdit={onEditTask}
             onDelete={onDeleteTask}
@@ -142,7 +178,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             todayTaskIds={todayTaskIds}
             showDeferButton={true}
             onDefer={onDeferTask}
-            onUndefer={onUndeferTask}
+            onUndefer={handleUndeferForTaskList}
             taskViewModel={taskViewModel}
           />
         </ViewContainer>

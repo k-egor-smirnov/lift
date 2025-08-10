@@ -21,6 +21,8 @@ const mockTaskRepository: TaskRepository = {
   count: vi.fn(),
   countByCategory: vi.fn(),
   exists: vi.fn(),
+  findTasksCreatedInDateRange: vi.fn(),
+  findTasksCompletedInDateRange: vi.fn(),
 };
 
 const mockEventBus: EventBus = {
@@ -53,8 +55,19 @@ describe("CreateTaskUseCase", () => {
 
     // Mock transaction to execute the callback immediately
     vi.mocked(mockDatabase.transaction).mockImplementation(
-      async (mode, tables, callback) => {
-        return await callback();
+      (mode, tables, callback) => {
+        const result = callback({} as any);
+        const mockPromise = {
+          then: (onFulfilled?: any, onRejected?: any) =>
+            Promise.resolve(result).then(onFulfilled, onRejected),
+          catch: (onRejected?: any) =>
+            Promise.resolve(result).catch(onRejected),
+          finally: (onFinally?: any) =>
+            Promise.resolve(result).finally(onFinally),
+          timeout: vi.fn().mockReturnThis(),
+          [Symbol.toStringTag]: "Promise",
+        };
+        return mockPromise as any;
       }
     );
 

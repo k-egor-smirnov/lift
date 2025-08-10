@@ -77,9 +77,9 @@ export class GetSummaryDataUseCase
       }
 
       const summaryData: SummaryData = {
-        tasks: tasksResult.value,
-        taskLogs: taskLogsResult.value,
-        systemLogs: systemLogsResult.value,
+        tasks: tasksResult.data,
+        taskLogs: taskLogsResult.data,
+        systemLogs: systemLogsResult.data,
         dateRange: {
           start: request.startDate,
           end: request.endDate,
@@ -103,6 +103,8 @@ export class GetSummaryDataUseCase
       return ResultFactory.failure(createdTasksResult.error);
     }
 
+    console.log(createdTasksResult, startDate, endDate);
+
     // Get tasks completed in date range
     const completedTasksResult =
       await this.taskRepository.findTasksCompletedInDateRange(
@@ -114,10 +116,7 @@ export class GetSummaryDataUseCase
     }
 
     // Combine and deduplicate tasks
-    const allTasks = [
-      ...createdTasksResult.value,
-      ...completedTasksResult.value,
-    ];
+    const allTasks = [...createdTasksResult.data, ...completedTasksResult.data];
     const uniqueTasks = this.deduplicateTasks(allTasks);
 
     return ResultFactory.success(uniqueTasks);
@@ -152,7 +151,7 @@ export class GetSummaryDataUseCase
   }
 
   private deduplicateTasks(tasks: Task[]): Task[] {
-    const taskMap = new Map<string, Task>();
+    const taskMap = new Map<Task["id"], Task>();
 
     for (const task of tasks) {
       taskMap.set(task.id, task);

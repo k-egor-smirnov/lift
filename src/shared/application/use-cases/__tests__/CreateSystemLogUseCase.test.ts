@@ -8,7 +8,6 @@ import {
   TaskLogRecord,
 } from "../../../infrastructure/database/TodoDatabase";
 import { TaskId } from "../../../domain/value-objects/TaskId";
-import { TaskCategory } from "../../../domain/types";
 import { ResultUtils } from "../../../domain/Result";
 import { DebouncedSyncService } from "../../services/DebouncedSyncService";
 

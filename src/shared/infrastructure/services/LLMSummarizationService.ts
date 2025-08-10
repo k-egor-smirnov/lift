@@ -28,9 +28,9 @@ export class LLMSummarizationServiceImpl implements LLMSummarizationService {
       // Get LLM settings (for now, use default settings)
       const settings: LLMSettings = {
         enabled: true,
-        provider: "openai",
-        apiKey: process.env.OPENAI_API_KEY || "",
-        model: "gpt-3.5-turbo",
+        apiKey: "sk-123",
+        apiUrl: "http://localhost:11434/v1",
+        model: "gemma3:4b",
         maxTokens: 1000,
         temperature: 0.7,
       };
@@ -54,7 +54,7 @@ export class LLMSummarizationServiceImpl implements LLMSummarizationService {
 
       // For now, use the same summary for both full and short
       // In a real implementation, you might want to generate different lengths
-      const summary = result.value.summary;
+      const summary = result.data.summary;
       const shortSummary = this.createShortSummary(summary);
 
       return ResultFactory.success({
@@ -121,12 +121,8 @@ export class LLMSummarizationServiceImpl implements LLMSummarizationService {
       });
     }
 
-    if (data.logs && data.logs.length > 0) {
-      content += "\nLogs:\n";
-      data.logs.forEach((log) => {
-        content += `- ${log.timestamp}: ${log.message}\n`;
-      });
-    }
+    // Note: SummaryData doesn't have logs property in current implementation
+    // This would need to be added to SummaryData interface if needed
 
     return content;
   }

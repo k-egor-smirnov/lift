@@ -1,1 +1,1 @@
-export { SyncHistoryViewModel } from "./SyncHistoryViewModel";
+export type { SyncHistoryViewModel } from "./SyncHistoryViewModel";

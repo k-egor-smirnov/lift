@@ -5,27 +5,28 @@ import {
   Target,
   Inbox,
   FileText,
-  Plus,
   Menu,
   Clock,
   Settings,
+  RefreshCw,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
 
 interface HeaderProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
+  activeView: "today" | "logs" | "settings" | "sync" | TaskCategory;
   onMobileMenuToggle: () => void;
 }
 
 const getViewTitle = (
-  view: "today" | "logs" | "settings" | TaskCategory,
+  view: "today" | "logs" | "settings" | "sync" | TaskCategory,
   t: any
 ) => {
   if (view === "today") return t("navigation.today");
   if (view === "logs") return t("logs.title", "Activity Logs");
   if (view === "settings") return t("settings.title");
+  if (view === "sync") return t("navigation.sync", "Синхронизация");
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -42,13 +43,15 @@ const getViewTitle = (
 };
 
 const getViewDescription = (
-  view: "today" | "logs" | "settings" | TaskCategory,
+  view: "today" | "logs" | "settings" | "sync" | TaskCategory,
   t: any
 ) => {
   if (view === "today") return t("navigation.descriptions.today");
   if (view === "logs")
     return t("logs.subtitle", "View all system and user activity");
   if (view === "settings") return t("settings.app.description");
+  if (view === "sync")
+    return t("sync.description", "Управление синхронизацией данных");
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -64,10 +67,13 @@ const getViewDescription = (
   }
 };
 
-const getViewIcon = (view: "today" | "logs" | "settings" | TaskCategory) => {
+const getViewIcon = (
+  view: "today" | "logs" | "settings" | "sync" | TaskCategory
+) => {
   if (view === "today") return Sun;
   if (view === "logs") return FileText;
   if (view === "settings") return Settings;
+  if (view === "sync") return RefreshCw;
 
   switch (view) {
     case TaskCategory.SIMPLE:

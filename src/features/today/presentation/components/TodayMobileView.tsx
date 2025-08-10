@@ -44,7 +44,6 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
 
   // Use global store
   const {
-    tasks,
     loading,
     refreshing,
     error,
@@ -52,7 +51,6 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     loadTodayTasks,
     removeTaskFromToday,
     completeTask,
-    refreshToday,
     clearError,
     getActiveTasks,
     getCompletedTasks,
@@ -115,9 +113,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     }
   };
 
-  const handleRemoveFromToday = async (taskId: string) => {
-    await removeTaskFromToday(taskId);
-  };
+  // Removed unused handleRemoveFromToday function
 
   const handleToggleToday = async (taskId: string) => {
     await removeTaskFromToday(taskId);

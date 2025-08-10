@@ -3,15 +3,10 @@ import { TaskViewModel } from "../../../view-models/TaskViewModel";
 
 interface UseTaskNoteProps {
   taskId: string;
-  initialNote?: string;
   taskViewModel: TaskViewModel;
 }
 
-export const useTaskNote = ({
-  taskId,
-  initialNote = "",
-  taskViewModel,
-}: UseTaskNoteProps) => {
+export const useTaskNote = ({ taskId, taskViewModel }: UseTaskNoteProps) => {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { changeTaskNote } = taskViewModel();

@@ -39,6 +39,9 @@ export const CHANGE_TASK_NOTE_USE_CASE_TOKEN = Symbol("ChangeTaskNoteUseCase");
 export const SUMMARIZE_LOGS_USE_CASE_TOKEN = Symbol("SummarizeLogsUseCase");
 export const GET_SUMMARY_DATA_USE_CASE_TOKEN = Symbol("GetSummaryDataUseCase");
 export const CREATE_SUMMARY_USE_CASE_TOKEN = Symbol("CreateSummaryUseCase");
+export const SCHEDULE_SUMMARIES_USE_CASE_TOKEN = Symbol(
+  "ScheduleSummariesUseCase"
+);
 export const GET_SYNC_HISTORY_USE_CASE_TOKEN = Symbol("GetSyncHistoryUseCase");
 export const PROCESS_SUMMARY_USE_CASE_TOKEN = Symbol("ProcessSummaryUseCase");
 export const FORCE_SUMMARIZATION_USE_CASE_TOKEN = Symbol(
@@ -55,6 +58,7 @@ export const LLM_SUMMARIZATION_SERVICE_TOKEN = Symbol(
 export const LLM_SERVICE_TOKEN = Symbol("LLMService");
 export const DEFERRED_TASK_SERVICE_TOKEN = Symbol("DeferredTaskService");
 export const TASK_LOG_SERVICE_TOKEN = Symbol("TaskLogService");
+export const SUMMARY_SERVICE_TOKEN = Symbol("SummaryService");
 export const SYNC_SERVICE_TOKEN = Symbol("SyncService");
 export const DEBOUNCED_SYNC_SERVICE_TOKEN = Symbol("DebouncedSyncService");
 export const SUPABASE_REALTIME_SERVICE_TOKEN = Symbol(

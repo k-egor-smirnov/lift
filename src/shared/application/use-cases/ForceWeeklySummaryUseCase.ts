@@ -73,7 +73,7 @@ export class ForceWeeklySummaryUseCase
         return ResultUtils.error(summaryResult.error);
       }
 
-      const summary = summaryResult.value;
+      const summary = summaryResult.data;
       if (!summary) {
         return ResultUtils.error(
           new Error(`Summary not found: ${request.summaryId}`)
@@ -127,7 +127,7 @@ export class ForceWeeklySummaryUseCase
         // Process with LLM
         const llmRequest: LLMSummarizationRequest = {
           type: summary.type,
-          data: dataResult.value,
+          data: dataResult.data,
           context: this.buildContext(summary),
         };
 
@@ -139,8 +139,8 @@ export class ForceWeeklySummaryUseCase
 
         // Complete summary
         const completeResult = summary.complete(
-          llmResult.value.fullSummary,
-          llmResult.value.shortSummary
+          llmResult.data.fullSummary,
+          llmResult.data.shortSummary
         );
         if (completeResult.isFailure()) {
           await this.handleProcessingError(summary, completeResult.error);
@@ -186,7 +186,7 @@ export class ForceWeeklySummaryUseCase
       return ResultUtils.error(dailySummariesResult.error);
     }
 
-    const dailySummaries = dailySummariesResult.value;
+    const dailySummaries = dailySummariesResult.data;
 
     if (ignoreFailedDailies) {
       // Include completed summaries and use raw data for missing/failed days
@@ -207,8 +207,8 @@ export class ForceWeeklySummaryUseCase
           endDate: date,
         });
 
-        if (rawDataResult.isSuccess() && rawDataResult.value) {
-          return `Raw data for ${date.toString()}: ${this.formatRawData(rawDataResult.value)}`;
+        if (rawDataResult.isSuccess() && rawDataResult.data) {
+          return `Raw data for ${date.toString()}: ${this.formatRawData(rawDataResult.data)}`;
         }
         return `No data available for ${date.toString()}`;
       });

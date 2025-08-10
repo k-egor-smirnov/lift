@@ -1,5 +1,7 @@
-import { UseCase } from "../UseCase";
-import { Result } from "../../domain/Result";
+import { injectable, inject } from "tsyringe";
+import { UseCase } from "../../domain/UseCase";
+import type { Result } from "../../domain/Result";
+import { ResultFactory } from "../../domain/Result";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import { SummaryRepository } from "../../domain/repositories/SummaryRepository";
 import { EventBus } from "../../domain/events/EventBus";
@@ -10,6 +12,7 @@ import {
   WeeklySummarizationRequestedEvent,
   MonthlySummarizationRequestedEvent,
 } from "../../domain/events/SummaryEvents";
+import * as tokens from "../../infrastructure/di/tokens";
 
 export interface ScheduleSummariesRequest {
   upToDate?: DateOnly; // Schedule up to this date (default: today)
@@ -30,12 +33,16 @@ interface WeekRange {
 /**
  * Use case for scheduling missing summaries in correct order
  */
+@injectable()
 export class ScheduleSummariesUseCase
   implements UseCase<ScheduleSummariesRequest, ScheduleSummariesResponse>
 {
   constructor(
+    @inject(tokens.SUMMARY_REPOSITORY_TOKEN)
     private readonly summaryRepository: SummaryRepository,
+    @inject(tokens.CREATE_SUMMARY_USE_CASE_TOKEN)
     private readonly createSummaryUseCase: CreateSummaryUseCase,
+    @inject(tokens.EVENT_BUS_TOKEN)
     private readonly eventBus: EventBus
   ) {}
 
@@ -52,33 +59,33 @@ export class ScheduleSummariesUseCase
       // Step 1: Schedule missing daily summaries
       const dailyResult = await this.scheduleMissingDailySummaries(upToDate);
       if (dailyResult.isFailure()) {
-        return Result.failure(dailyResult.error);
+        return ResultFactory.failure(dailyResult.error);
       }
-      scheduledDaily = dailyResult.value;
+      scheduledDaily = dailyResult.data;
 
       // Step 2: Schedule missing weekly summaries (only for complete weeks)
       const weeklyResult = await this.scheduleMissingWeeklySummaries(upToDate);
       if (weeklyResult.isFailure()) {
-        return Result.failure(weeklyResult.error);
+        return ResultFactory.failure(weeklyResult.error);
       }
-      scheduledWeekly = weeklyResult.value;
+      scheduledWeekly = weeklyResult.data;
 
       // Step 3: Schedule missing monthly summaries (only for complete months)
       const monthlyResult =
         await this.scheduleMissingMonthlySummaries(upToDate);
       if (monthlyResult.isFailure()) {
-        return Result.failure(monthlyResult.error);
+        return ResultFactory.failure(monthlyResult.error);
       }
-      scheduledMonthly = monthlyResult.value;
+      scheduledMonthly = monthlyResult.data;
 
-      return Result.success({
+      return ResultFactory.success({
         scheduledDaily,
         scheduledWeekly,
         scheduledMonthly,
         totalScheduled: scheduledDaily + scheduledWeekly + scheduledMonthly,
       });
     } catch (error) {
-      return Result.failure(error as Error);
+      return ResultFactory.failure(error as Error);
     }
   }
 
@@ -96,10 +103,14 @@ export class ScheduleSummariesUseCase
       );
 
     if (missingDatesResult.isFailure()) {
-      return Result.failure(missingDatesResult.error);
+      return ResultFactory.failure(missingDatesResult.error);
     }
 
-    const missingDates = missingDatesResult.value;
+    const missingDates = missingDatesResult.data;
+    if (!missingDates) {
+      return ResultFactory.success(0);
+    }
+
     let scheduled = 0;
 
     // Create summaries for missing dates
@@ -114,14 +125,14 @@ export class ScheduleSummariesUseCase
         await this.eventBus.publish(
           new DailyDataCollectionRequestedEvent(
             date,
-            createResult.value.summaryId
+            createResult.data.summaryId
           )
         );
         scheduled++;
       }
     }
 
-    return Result.success(scheduled);
+    return ResultFactory.success(scheduled);
   }
 
   private async scheduleMissingWeeklySummaries(
@@ -137,10 +148,14 @@ export class ScheduleSummariesUseCase
       );
 
     if (missingWeeksResult.isFailure()) {
-      return Result.failure(missingWeeksResult.error);
+      return ResultFactory.failure(missingWeeksResult.error);
     }
 
-    const missingWeeks = missingWeeksResult.value;
+    const missingWeeks = missingWeeksResult.data;
+    if (!missingWeeks) {
+      return ResultFactory.success(0);
+    }
+
     let scheduled = 0;
 
     // Create summaries for missing weeks (only if all daily summaries are complete)
@@ -160,11 +175,11 @@ export class ScheduleSummariesUseCase
           week.weekEnd
         );
 
-      if (dailySummariesResult.isFailure()) {
+      if (dailySummariesResult.isFailure() || !dailySummariesResult.data) {
         continue; // Skip this week on error
       }
 
-      const relatedSummaryIds = dailySummariesResult.value.map((s) => s.id);
+      const relatedSummaryIds = dailySummariesResult.data.map((s) => s.id);
 
       const createResult = await this.createSummaryUseCase.execute({
         type: SummaryType.WEEKLY,
@@ -179,35 +194,37 @@ export class ScheduleSummariesUseCase
           new WeeklySummarizationRequestedEvent(
             week.weekStart,
             week.weekEnd,
-            createResult.value.summaryId
+            createResult.data.summaryId
           )
         );
         scheduled++;
       }
     }
 
-    return Result.success(scheduled);
+    return ResultFactory.success(scheduled);
   }
 
   private async scheduleMissingMonthlySummaries(
     upToDate: DateOnly
   ): Promise<Result<number, Error>> {
     const startDate = this.getEarliestSummaryDate(upToDate);
-    const startMonth = this.formatMonth(startDate);
-    const endMonth = this.formatMonth(upToDate);
 
     // Find missing monthly summaries
     const missingMonthsResult =
       await this.summaryRepository.findMissingMonthlySummaries(
-        startMonth,
-        endMonth
+        startDate,
+        upToDate
       );
 
     if (missingMonthsResult.isFailure()) {
-      return Result.failure(missingMonthsResult.error);
+      return ResultFactory.failure(missingMonthsResult.error);
     }
 
-    const missingMonths = missingMonthsResult.value;
+    const missingMonths = missingMonthsResult.data;
+    if (!missingMonths) {
+      return ResultFactory.success(0);
+    }
+
     let scheduled = 0;
 
     // Create summaries for missing months (only if all weekly summaries are complete)
@@ -221,11 +238,11 @@ export class ScheduleSummariesUseCase
       const weeklySummariesResult =
         await this.summaryRepository.findWeeklySummariesForMonth(month);
 
-      if (weeklySummariesResult.isFailure()) {
+      if (weeklySummariesResult.isFailure() || !weeklySummariesResult.data) {
         continue; // Skip this month on error
       }
 
-      const relatedSummaryIds = weeklySummariesResult.value.map((s) => s.id);
+      const relatedSummaryIds = weeklySummariesResult.data.map((s) => s.id);
 
       const createResult = await this.createSummaryUseCase.execute({
         type: SummaryType.MONTHLY,
@@ -238,14 +255,14 @@ export class ScheduleSummariesUseCase
         await this.eventBus.publish(
           new MonthlySummarizationRequestedEvent(
             month,
-            createResult.value.summaryId
+            createResult.data.summaryId
           )
         );
         scheduled++;
       }
     }
 
-    return Result.success(scheduled);
+    return ResultFactory.success(scheduled);
   }
 
   private async canCreateWeeklySummary(
@@ -258,11 +275,11 @@ export class ScheduleSummariesUseCase
         weekEnd
       );
 
-    if (dailySummariesResult.isFailure()) {
+    if (dailySummariesResult.isFailure() || !dailySummariesResult.data) {
       return false;
     }
 
-    const dailySummaries = dailySummariesResult.value;
+    const dailySummaries = dailySummariesResult.data;
     const expectedDays = this.getDaysBetween(weekStart, weekEnd);
 
     // Check if we have a summary for each day and all are completed
@@ -276,11 +293,11 @@ export class ScheduleSummariesUseCase
     const weeklySummariesResult =
       await this.summaryRepository.findWeeklySummariesForMonth(month);
 
-    if (weeklySummariesResult.isFailure()) {
+    if (weeklySummariesResult.isFailure() || !weeklySummariesResult.data) {
       return false;
     }
 
-    const weeklySummaries = weeklySummariesResult.value;
+    const weeklySummaries = weeklySummariesResult.data;
     const expectedWeeks = this.getWeeksInMonth(month);
 
     // Check if we have a summary for each week and all are completed
@@ -312,8 +329,16 @@ export class ScheduleSummariesUseCase
 
   private getWeeksInMonth(month: string): WeekRange[] {
     const [year, monthNum] = month.split("-").map(Number);
-    const firstDay = new DateOnly(year, monthNum, 1);
-    const lastDay = new DateOnly(year, monthNum + 1, 0); // Last day of month
+    const firstDay = DateOnly.fromString(
+      `${year}-${String(monthNum).padStart(2, "0")}-01`
+    );
+    // Get last day of month by going to first day of next month and subtracting 1 day
+    const nextMonth = monthNum === 12 ? 1 : monthNum + 1;
+    const nextYear = monthNum === 12 ? year + 1 : year;
+    const firstDayNextMonth = DateOnly.fromString(
+      `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`
+    );
+    const lastDay = firstDayNextMonth.subtractDays(1);
 
     const weeks: WeekRange[] = [];
     let current = this.getWeekStart(firstDay);

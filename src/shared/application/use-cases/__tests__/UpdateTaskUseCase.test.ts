@@ -9,7 +9,6 @@ import { NonEmptyTitle } from "../../../domain/value-objects/NonEmptyTitle";
 import { TaskCategory, TaskStatus } from "../../../domain/types";
 import { ResultUtils } from "../../../domain/Result";
 import { DebouncedSyncService } from "../../services/DebouncedSyncService";
-import { TestTaskIdUtils } from "../../../test/utils/testHelpers";
 
 // Mock implementations
 const mockTaskRepository: TaskRepository = {
@@ -25,6 +24,8 @@ const mockTaskRepository: TaskRepository = {
   count: vi.fn(),
   countByCategory: vi.fn(),
   exists: vi.fn(),
+  findTasksCreatedInDateRange: vi.fn(),
+  findTasksCompletedInDateRange: vi.fn(),
 };
 
 const mockEventBus: EventBus = {
@@ -57,8 +58,19 @@ describe("UpdateTaskUseCase", () => {
 
     // Mock transaction to execute the callback immediately
     vi.mocked(mockDatabase.transaction).mockImplementation(
-      async (mode, tables, callback) => {
-        return await callback();
+      (mode, tables, callback) => {
+        const result = callback({} as any);
+        const mockPromise = {
+          then: (onFulfilled?: any, onRejected?: any) =>
+            Promise.resolve(result).then(onFulfilled, onRejected),
+          catch: (onRejected?: any) =>
+            Promise.resolve(result).catch(onRejected),
+          finally: (onFinally?: any) =>
+            Promise.resolve(result).finally(onFinally),
+          timeout: vi.fn().mockReturnThis(),
+          [Symbol.toStringTag]: "Promise",
+        };
+        return mockPromise as any;
       }
     );
 

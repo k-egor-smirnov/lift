@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { TaskCategory } from "../../domain/types";
 import { Check } from "lucide-react";
 

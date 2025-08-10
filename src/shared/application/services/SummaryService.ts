@@ -1,4 +1,6 @@
-import { Result, ResultFactory } from "../../domain/Result";
+import { injectable, inject } from "tsyringe";
+import type { Result } from "../../domain/Result";
+import { ResultFactory } from "../../domain/Result";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import {
   Summary,
@@ -9,11 +11,14 @@ import { SummaryRepository } from "../../domain/repositories/SummaryRepository";
 import { ScheduleSummariesUseCase } from "../use-cases/ScheduleSummariesUseCase";
 import { CreateSummaryUseCase } from "../use-cases/CreateSummaryUseCase";
 import { ProcessSummaryUseCase } from "../use-cases/ProcessSummaryUseCase";
+import * as tokens from "../../infrastructure/di/tokens";
 
 export interface SummaryServiceConfig {
   autoScheduleEnabled: boolean;
   maxRetries: number;
   retryDelayMs: number;
+  autoProcessEnabled: boolean;
+  processIntervalMs: number;
 }
 
 export interface SummaryOverview {
@@ -29,13 +34,20 @@ export interface SummaryOverview {
 /**
  * Service for managing the summarization system
  */
+@injectable()
 export class SummaryService {
   private readonly config: SummaryServiceConfig;
+  private processIntervalId?: NodeJS.Timeout;
+  private isProcessing = false;
 
   constructor(
+    @inject(tokens.SUMMARY_REPOSITORY_TOKEN)
     private readonly summaryRepository: SummaryRepository,
+    @inject(tokens.SCHEDULE_SUMMARIES_USE_CASE_TOKEN)
     private readonly scheduleSummariesUseCase: ScheduleSummariesUseCase,
+    @inject(tokens.CREATE_SUMMARY_USE_CASE_TOKEN)
     private readonly createSummaryUseCase: CreateSummaryUseCase,
+    @inject(tokens.PROCESS_SUMMARY_USE_CASE_TOKEN)
     private readonly processSummaryUseCase: ProcessSummaryUseCase,
     config?: Partial<SummaryServiceConfig>
   ) {
@@ -43,6 +55,8 @@ export class SummaryService {
       autoScheduleEnabled: true,
       maxRetries: 3,
       retryDelayMs: 5000,
+      autoProcessEnabled: true,
+      processIntervalMs: 10000, // 10 seconds
       ...config,
     };
   }
@@ -62,6 +76,10 @@ export class SummaryService {
           );
           // Don't fail initialization, just log the error
         }
+      }
+
+      if (this.config.autoProcessEnabled) {
+        this.startAutoProcessing();
       }
 
       return ResultFactory.success(undefined);
@@ -84,7 +102,7 @@ export class SummaryService {
       return ResultFactory.failure(result.error);
     }
 
-    console.log(`Scheduled summaries:`, result.value);
+    console.log(`Scheduled summaries:`, result.data);
     return ResultFactory.success(undefined);
   }
 
@@ -109,7 +127,7 @@ export class SummaryService {
       return ResultFactory.failure(result.error);
     }
 
-    return ResultFactory.success(result.value.summaryId);
+    return ResultFactory.success(result.data.summaryId);
   }
 
   /**
@@ -136,7 +154,7 @@ export class SummaryService {
       return ResultFactory.failure(failedSummariesResult.error);
     }
 
-    const failedSummaries = failedSummariesResult.value;
+    const failedSummaries = failedSummariesResult.data;
     let retriedCount = 0;
 
     for (const summary of failedSummaries) {
@@ -144,8 +162,9 @@ export class SummaryService {
         continue; // Skip summaries that have exceeded max retries
       }
 
-      const retryResult = summary.retry();
-      if (retryResult.isFailure()) {
+      try {
+        summary.retry();
+      } catch (error) {
         continue; // Skip if retry is not allowed
       }
 
@@ -189,13 +208,9 @@ export class SummaryService {
    * Get weekly summary for a specific week
    */
   async getWeeklySummary(
-    weekStart: DateOnly,
-    weekEnd: DateOnly
+    weekStart: DateOnly
   ): Promise<Result<Summary | null, Error>> {
-    return await this.summaryRepository.findWeeklySummaryByRange(
-      weekStart,
-      weekEnd
-    );
+    return await this.summaryRepository.findWeeklySummaryByRange(weekStart);
   }
 
   /**
@@ -236,10 +251,10 @@ export class SummaryService {
     try {
       const statsResult = await this.summaryRepository.getStatistics();
       if (statsResult.isFailure()) {
-        return Result.failure(statsResult.error);
+        return ResultFactory.failure(statsResult.error);
       }
 
-      const stats = statsResult.value;
+      const stats = statsResult.data;
       const overview: SummaryOverview = {
         totalSummaries: stats.totalSummaries,
         completedSummaries: stats.completedSummaries,
@@ -259,9 +274,9 @@ export class SummaryService {
           today
         );
       if (dailySummariesResult.isSuccess()) {
-        const completedDaily = dailySummariesResult.value
+        const completedDaily = dailySummariesResult.data
           .filter((s) => s.status === SummaryStatus.DONE)
-          .sort((a, b) => b.date!.compareTo(a.date!));
+          .sort((a, b) => b.date!.toString().localeCompare(a.date!.toString()));
         if (completedDaily.length > 0) {
           overview.lastDailySummary = completedDaily[0].date!;
         }
@@ -275,9 +290,11 @@ export class SummaryService {
           today
         );
       if (weeklySummariesResult.isSuccess()) {
-        const completedWeekly = weeklySummariesResult.value
+        const completedWeekly = weeklySummariesResult.data
           .filter((s) => s.status === SummaryStatus.DONE)
-          .sort((a, b) => b.weekStart!.compareTo(a.weekStart!));
+          .sort((a, b) =>
+            b.weekStart!.toString().localeCompare(a.weekStart!.toString())
+          );
         if (completedWeekly.length > 0) {
           const lastWeekly = completedWeekly[0];
           overview.lastWeeklySummary = {
@@ -295,7 +312,7 @@ export class SummaryService {
           today
         );
       if (monthlySummariesResult.isSuccess()) {
-        const completedMonthly = monthlySummariesResult.value
+        const completedMonthly = monthlySummariesResult.data
           .filter((s) => s.status === SummaryStatus.DONE)
           .sort((a, b) => b.month!.localeCompare(a.month!));
         if (completedMonthly.length > 0) {
@@ -303,9 +320,9 @@ export class SummaryService {
         }
       }
 
-      return Result.success(overview);
+      return ResultFactory.success(overview);
     } catch (error) {
-      return Result.failure(error as Error);
+      return ResultFactory.failure(error as Error);
     }
   }
 
@@ -314,6 +331,152 @@ export class SummaryService {
    */
   async deleteSummary(id: string): Promise<Result<void, Error>> {
     return await this.summaryRepository.delete(id);
+  }
+
+  /**
+   * Start automatic processing of pending summaries
+   */
+  private startAutoProcessing(): void {
+    if (this.processIntervalId) {
+      return; // Already started
+    }
+
+    console.log("Starting automatic summary processing...");
+    this.processIntervalId = setInterval(() => {
+      this.processQueue().catch((error) => {
+        console.error("Error in automatic summary processing:", error);
+      });
+    }, this.config.processIntervalMs);
+
+    // Process immediately on start
+    this.processQueue().catch((error) => {
+      console.error("Error in initial summary processing:", error);
+    });
+  }
+
+  /**
+   * Stop automatic processing
+   */
+  stopAutoProcessing(): void {
+    if (this.processIntervalId) {
+      clearInterval(this.processIntervalId);
+      this.processIntervalId = undefined;
+      console.log("Stopped automatic summary processing");
+    }
+  }
+
+  /**
+   * Process pending summaries in the queue
+   */
+  private async processQueue(): Promise<void> {
+    if (this.isProcessing) {
+      return; // Already processing
+    }
+
+    this.isProcessing = true;
+    try {
+      const pendingResult = await this.summaryRepository.findPendingSummaries();
+      if (pendingResult.isFailure()) {
+        console.error("Failed to get pending summaries:", pendingResult.error);
+        return;
+      }
+
+      const pendingSummaries = pendingResult.data;
+      if (!pendingSummaries || pendingSummaries.length === 0) {
+        return; // No pending summaries
+      }
+
+      console.log(`Processing ${pendingSummaries.length} pending summaries...`);
+
+      for (const summary of pendingSummaries) {
+        // Skip summaries that have exceeded max retries
+        if (summary.retryCount >= this.config.maxRetries) {
+          // Mark as permanently failed if not already done
+          if (summary.status !== SummaryStatus.FAILED) {
+            summary.markAsFailed("Exceeded maximum retry attempts");
+            await this.summaryRepository.save(summary);
+          }
+          continue;
+        }
+
+        try {
+          console.log(
+            `Processing summary ${summary.id} (attempt ${summary.retryCount + 1}/${this.config.maxRetries})`
+          );
+
+          const processResult = await this.processSummary(summary.id);
+          if (processResult.isSuccess()) {
+            console.log(`Successfully processed summary ${summary.id}`);
+          } else {
+            console.error(
+              `Failed to process summary ${summary.id}:`,
+              processResult.error
+            );
+
+            // Increment retry count and save
+            const updatedSummary = await this.summaryRepository.findById(
+              summary.id
+            );
+            if (updatedSummary.isSuccess() && updatedSummary.data) {
+              try {
+                updatedSummary.data.retry();
+                await this.summaryRepository.save(updatedSummary.data);
+              } catch (error) {
+                // Retry failed, skip
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing summary ${summary.id}:`, error);
+
+          // Increment retry count on error
+          const updatedSummary = await this.summaryRepository.findById(
+            summary.id
+          );
+          if (updatedSummary.isSuccess() && updatedSummary.data) {
+            try {
+              updatedSummary.data.retry();
+              await this.summaryRepository.save(updatedSummary.data);
+            } catch (error) {
+              // Retry failed, skip
+            }
+          }
+        }
+
+        // Add delay between processing attempts
+        if (this.config.retryDelayMs > 0) {
+          await this.delay(this.config.retryDelayMs);
+        }
+      }
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Manually trigger queue processing
+   */
+  async triggerQueueProcessing(): Promise<Result<void, Error>> {
+    try {
+      await this.processQueue();
+      return ResultFactory.success(undefined);
+    } catch (error) {
+      return ResultFactory.failure(error as Error);
+    }
+  }
+
+  /**
+   * Get queue processing status
+   */
+  getProcessingStatus(): {
+    isProcessing: boolean;
+    autoProcessEnabled: boolean;
+  } {
+    return {
+      isProcessing: this.isProcessing,
+      autoProcessEnabled:
+        this.config.autoProcessEnabled && !!this.processIntervalId,
+    };
   }
 
   private delay(ms: number): Promise<void> {

@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { container } from "tsyringe";
 import { SupabaseRealtimeService } from "../../services/SupabaseRealtimeService";
-import { SupabaseClientFactory } from "../../database/SupabaseClient";
-import { TaskLogService } from "../../../application/services/TaskLogService";
-import { DailySelectionRepository } from "../../../domain/repositories/DailySelectionRepository";
 import * as tokens from "../../di/tokens";
 
 // Мокаем Supabase клиент

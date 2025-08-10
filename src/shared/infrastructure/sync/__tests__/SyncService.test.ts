@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { container } from "tsyringe";
 import { SyncService } from "../../../application/services/SyncService";
-import { TaskRepository } from "../../../domain/repositories/TaskRepository";
-import type { SyncRepository } from "../../../domain/repositories/SyncRepository";
-import { TaskLogService } from "../../../application/services/TaskLogService";
 import { Task } from "../../../domain/entities/Task";
 import { TaskId } from "../../../domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../domain/value-objects/NonEmptyTitle";

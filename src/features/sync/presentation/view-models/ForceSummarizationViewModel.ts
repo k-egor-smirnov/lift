@@ -29,7 +29,7 @@ export const createForceSummarizationViewModel = (
 ) => {
   const { forceSummarizationUseCase } = dependencies;
 
-  return create<ForceSummarizationState>((set, get) => ({
+  return create<ForceSummarizationState>((set, _) => ({
     // Initial state
     isLoading: false,
     error: null,

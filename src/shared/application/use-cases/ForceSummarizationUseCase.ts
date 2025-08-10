@@ -66,7 +66,7 @@ export class ForceSummarizationUseCase
         return ResultFactory.failure(createResult.error);
       }
 
-      const summaryId = createResult.value.summaryId;
+      const summaryId = createResult.data.summaryId;
       let created = true; // Assume created unless we detect it was existing
 
       // Process the summary
@@ -91,8 +91,8 @@ export class ForceSummarizationUseCase
         summaryId,
         created,
         processing: true,
-        fullSummary: processResult.value.fullSummary,
-        shortSummary: processResult.value.shortSummary,
+        fullSummary: processResult.data.fullSummary,
+        shortSummary: processResult.data.shortSummary,
       });
     } catch (error) {
       return ResultFactory.failure(

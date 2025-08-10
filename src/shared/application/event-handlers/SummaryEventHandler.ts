@@ -1,6 +1,6 @@
 import { DomainEventHandler } from "../DomainEventHandler";
 import { DomainEvent } from "../../domain/events/DomainEvent";
-import { Result } from "../../domain/Result";
+import { Result, ResultFactory } from "../../domain/Result";
 import {
   SummaryCreatedEvent,
   SummaryProcessingRequestedEvent,
@@ -54,21 +54,35 @@ export class SummaryEventHandler implements DomainEventHandler {
           );
 
         default:
-          return Result.failure(
+          return ResultFactory.failure(
             new Error(`Unhandled event type: ${event.eventType}`)
           );
       }
     } catch (error) {
-      return Result.failure(error as Error);
+      return ResultFactory.failure(error as Error);
     }
   }
 
   private async handleSummaryCreated(
     event: SummaryCreatedEvent
   ): Promise<Result<void, Error>> {
-    // Summary created - no immediate action needed
-    // Processing will be triggered by specific events
-    return Result.success(undefined);
+    // Automatically start processing the newly created summary
+    console.log(`Auto-processing newly created summary: ${event.summaryId}`);
+
+    const result = await this.processSummaryUseCase.execute({
+      summaryId: event.summaryId,
+    });
+
+    if (result.isFailure()) {
+      console.error(
+        `Failed to auto-process summary ${event.summaryId}:`,
+        result.error
+      );
+      // Don't return failure to avoid blocking other event handlers
+      // The summary will be retried by the automatic queue processing
+    }
+
+    return ResultFactory.success(undefined);
   }
 
   private async handleSummaryProcessingRequested(
@@ -84,10 +98,10 @@ export class SummaryEventHandler implements DomainEventHandler {
         `Failed to process summary ${event.summaryId}:`,
         result.error
       );
-      return Result.failure(result.error);
+      return ResultFactory.failure(result.error);
     }
 
-    return Result.success(undefined);
+    return ResultFactory.success(undefined);
   }
 
   private async handleDailyDataCollectionRequested(
@@ -103,10 +117,10 @@ export class SummaryEventHandler implements DomainEventHandler {
         `Failed to process daily summary ${event.summaryId}:`,
         result.error
       );
-      return Result.failure(result.error);
+      return ResultFactory.failure(result.error);
     }
 
-    return Result.success(undefined);
+    return ResultFactory.success(undefined);
   }
 
   private async handleWeeklySummarizationRequested(
@@ -122,10 +136,10 @@ export class SummaryEventHandler implements DomainEventHandler {
         `Failed to process weekly summary ${event.summaryId}:`,
         result.error
       );
-      return Result.failure(result.error);
+      return ResultFactory.failure(result.error);
     }
 
-    return Result.success(undefined);
+    return ResultFactory.success(undefined);
   }
 
   private async handleMonthlySummarizationRequested(
@@ -141,9 +155,9 @@ export class SummaryEventHandler implements DomainEventHandler {
         `Failed to process monthly summary ${event.summaryId}:`,
         result.error
       );
-      return Result.failure(result.error);
+      return ResultFactory.failure(result.error);
     }
 
-    return Result.success(undefined);
+    return ResultFactory.success(undefined);
   }
 }

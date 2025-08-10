@@ -1,6 +1,7 @@
 import { injectable, inject } from "tsyringe";
 import { UseCase } from "../UseCase";
-import { Result, ResultUtils } from "../../domain/Result";
+import type { Result } from "../../domain/Result";
+import { ResultUtils } from "../../domain/Result";
 import {
   Summary,
   SummaryType,
@@ -8,8 +9,9 @@ import {
 } from "../../domain/entities/Summary";
 import { SummaryRepository } from "../../domain/repositories/SummaryRepository";
 import { EventBus } from "../../domain/events/EventBus";
-import { SummaryUpdatedEvent } from "../../domain/events/SummaryEvents";
-import { GetSummaryDataUseCase, SummaryData } from "./GetSummaryDataUseCase";
+import { GetSummaryDataUseCase } from "./GetSummaryDataUseCase";
+import type { SummaryData } from "./GetSummaryDataUseCase";
+import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import * as tokens from "../../infrastructure/di/tokens";
 
@@ -54,7 +56,8 @@ export class ProcessSummaryUseCase
     private readonly getSummaryDataUseCase: GetSummaryDataUseCase,
     @inject(tokens.LLM_SUMMARIZATION_SERVICE_TOKEN)
     private readonly llmService: LLMSummarizationService,
-    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus
+    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
+    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
   ) {}
 
   async execute(
@@ -69,7 +72,7 @@ export class ProcessSummaryUseCase
         return ResultUtils.error(summaryResult.error);
       }
 
-      const summary = summaryResult.value;
+      const summary = summaryResult.data;
       if (!summary) {
         return ResultUtils.error(
           new Error(`Summary not found: ${request.summaryId}`)
@@ -91,15 +94,16 @@ export class ProcessSummaryUseCase
         });
       }
 
-      // Mark as processing
-      const processingResult = summary.startProcessing();
-      if (processingResult.isFailure()) {
-        return ResultUtils.error(processingResult.error);
-      }
+      // Mark as processing and save in transaction
+      const processingEvents = summary.startProcessing();
 
-      await this.summaryRepository.save(summary);
-      await this.eventBus.publish(
-        new SummaryUpdatedEvent(summary.id, SummaryStatus.PROCESSING)
+      await this.database.transaction(
+        "rw",
+        [this.database.summaries, this.database.eventStore],
+        async () => {
+          await this.summaryRepository.save(summary);
+          await this.eventBus.publishAll(processingEvents);
+        }
       );
 
       try {
@@ -113,7 +117,7 @@ export class ProcessSummaryUseCase
         // Process with LLM
         const llmRequest: LLMSummarizationRequest = {
           type: summary.type,
-          data: dataResult.value,
+          data: dataResult.data,
           context: this.buildContext(summary),
         };
 
@@ -123,19 +127,19 @@ export class ProcessSummaryUseCase
           return ResultUtils.error(llmResult.error);
         }
 
-        // Complete summary
-        const completeResult = summary.complete(
-          llmResult.value.fullSummary,
-          llmResult.value.shortSummary
+        // Complete summary and save in transaction
+        const completeEvents = summary.complete(
+          llmResult.data.fullSummary,
+          llmResult.data.shortSummary
         );
-        if (completeResult.isFailure()) {
-          await this.handleProcessingError(summary, completeResult.error);
-          return ResultUtils.error(completeResult.error);
-        }
 
-        await this.summaryRepository.save(summary);
-        await this.eventBus.publish(
-          new SummaryUpdatedEvent(summary.id, SummaryStatus.DONE)
+        await this.database.transaction(
+          "rw",
+          [this.database.summaries, this.database.eventStore],
+          async () => {
+            await this.summaryRepository.save(summary);
+            await this.eventBus.publishAll(completeEvents);
+          }
         );
 
         return ResultUtils.ok({
@@ -191,7 +195,7 @@ export class ProcessSummaryUseCase
       return ResultUtils.error(dailySummariesResult.error);
     }
 
-    const dailySummaries = dailySummariesResult.value;
+    const dailySummaries = dailySummariesResult.data;
     const shortSummaries = dailySummaries
       .filter((s) => s.status === SummaryStatus.DONE)
       .map((s) => s.shortSummary || "No summary available")
@@ -210,7 +214,7 @@ export class ProcessSummaryUseCase
       return ResultUtils.error(weeklySummariesResult.error);
     }
 
-    const weeklySummaries = weeklySummariesResult.value;
+    const weeklySummaries = weeklySummariesResult.data;
     const shortSummaries = weeklySummaries
       .filter((s) => s.status === SummaryStatus.DONE)
       .map((s) => s.shortSummary || "No summary available")
@@ -243,13 +247,16 @@ export class ProcessSummaryUseCase
     error: Error
   ): Promise<void> {
     try {
-      const failResult = summary.markAsFailed(error.message);
-      if (failResult.isSuccess()) {
-        await this.summaryRepository.save(summary);
-        await this.eventBus.publish(
-          new SummaryUpdatedEvent(summary.id, SummaryStatus.FAILED)
-        );
-      }
+      const failedEvents = summary.markAsFailed(error.message);
+
+      await this.database.transaction(
+        "rw",
+        [this.database.summaries, this.database.eventStore],
+        async () => {
+          await this.summaryRepository.save(summary);
+          await this.eventBus.publishAll(failedEvents);
+        }
+      );
     } catch (saveError) {
       // Log error but don't throw to avoid masking original error
       console.error("Failed to save error state:", saveError);

@@ -1,10 +1,6 @@
 import { injectable, inject } from "tsyringe";
 import type { SyncRepository } from "../../domain/repositories/SyncRepository";
-import {
-  SyncResult,
-  SyncError,
-  ConflictResolutionStrategy,
-} from "../../domain/repositories/SyncRepository";
+import { SyncResult } from "../../domain/repositories/SyncRepository";
 import { TaskRepository } from "../../domain/repositories/TaskRepository";
 import { Task } from "../../domain/entities/Task";
 import { TaskId } from "../../domain/value-objects/TaskId";

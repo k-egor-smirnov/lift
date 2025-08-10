@@ -9,10 +9,6 @@ import {
 } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useSync } from "../useSync";
-import {
-  getSyncService,
-  getRealtimeService,
-} from "../../infrastructure/di/syncContainer";
 
 // Мокаем DI контейнер для синхронизации
 vi.mock("../../infrastructure/di/syncContainer", () => {

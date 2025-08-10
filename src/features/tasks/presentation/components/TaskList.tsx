@@ -45,7 +45,7 @@ interface TaskListProps {
   onReorder?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
-  onCreateTask?: (title: string, category: TaskCategory) => Promise<void>;
+  onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
   emptyMessage?: string;
   currentCategory?: TaskCategory;
@@ -150,13 +150,9 @@ export const TaskList: React.FC<TaskListProps> = ({
     ) {
       // Get the actual DOM element to calculate its bounding rect
       const element = document.querySelector(`#task-${active.id}`);
-      // Get the DndContext container to account for its position
-      const dndContainer =
-        element?.closest("[data-dnd-context]") || document.body;
 
       if (element) {
         const rect = element.getBoundingClientRect();
-        const containerRect = dndContainer.getBoundingClientRect();
 
         // Calculate simple offset from click point to element's top-left corner
         setDragOffset({

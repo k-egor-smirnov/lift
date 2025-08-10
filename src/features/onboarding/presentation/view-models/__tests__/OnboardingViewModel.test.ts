@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { describe, it, expect, beforeEach, afterEach, vi, Mock } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useOnboardingViewModel } from "../OnboardingViewModel";
 import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";

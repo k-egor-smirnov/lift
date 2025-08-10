@@ -1,5 +1,5 @@
-import React, { useEffect, useId } from "react";
-import { Sun, FileText, Zap, Check } from "lucide-react";
+import React, { useEffect } from "react";
+import { Sun, Zap, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskList } from "../../../tasks/presentation/components/TaskList";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -44,20 +44,14 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   // Use global store
   const {
-    tasks,
     loading,
-    refreshing,
     error,
-    currentDate,
     totalCount,
     completedCount,
-    activeCount,
     initialize,
     loadTodayTasks,
-    addTaskToToday,
     removeTaskFromToday,
     completeTask,
-    refreshToday,
     clearError,
     getActiveTasks,
     getCompletedTasks,
@@ -65,7 +59,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
     isToday,
     enableAutoRefresh,
   } = useTodayViewModelStore();
-  const id = useId();
 
   // Initialize store with dependencies
   useEffect(() => {
@@ -155,9 +148,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
     }
   };
 
-  const handleRemoveFromToday = async (taskId: string) => {
-    await removeTaskFromToday(taskId);
-  };
+  // Removed unused handleRemoveFromToday function
 
   const handleToggleToday = async (taskId: string) => {
     // In TodayView, all displayed tasks are already in today's selection

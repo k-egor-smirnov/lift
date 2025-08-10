@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import {
-  PersistentEventBusImpl,
-  PersistentEventHandler,
-  EventProcessingStats,
-} from "../EventBus";
+import { PersistentEventBusImpl, PersistentEventHandler } from "../EventBus";
 import { TodoDatabase } from "../../../infrastructure/database/TodoDatabase";
 import { DomainEvent } from "../DomainEvent";
 import { DomainEventType } from "../../types";

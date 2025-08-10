@@ -49,7 +49,7 @@ const getTypeIcon = (type: SummaryType) => {
 
 const getStatusIcon = (status: SummaryStatus) => {
   switch (status) {
-    case SummaryStatus.COMPLETED:
+    case SummaryStatus.DONE:
       return CheckCircle;
     case SummaryStatus.FAILED:
       return AlertCircle;
@@ -65,12 +65,12 @@ const formatSummaryDate = (summary: Summary) => {
     return summary.dateKey;
   } else if (
     summary.type === SummaryType.WEEKLY &&
-    summary.metadata?.weekStart &&
-    summary.metadata?.weekEnd
+    summary.weekStart &&
+    summary.weekEnd
   ) {
-    return `${summary.metadata.weekStart} - ${summary.metadata.weekEnd}`;
-  } else if (summary.type === SummaryType.MONTHLY && summary.metadata?.month) {
-    return summary.metadata.month;
+    return `${summary.weekStart.toString()} - ${summary.weekEnd.toString()}`;
+  } else if (summary.type === SummaryType.MONTHLY && summary.month) {
+    return summary.month;
   }
   return summary.dateKey;
 };
@@ -116,9 +116,6 @@ export const SyncHistoryList: React.FC<SyncHistoryListProps> = ({
                     <h3 className="text-lg font-medium text-gray-900">
                       {typeInfo.label}
                     </h3>
-                    <span className="text-sm text-gray-500">
-                      {formatSummaryDate(summary)}
-                    </span>
                   </div>
 
                   {/* Status Badge */}
@@ -133,30 +130,38 @@ export const SyncHistoryList: React.FC<SyncHistoryListProps> = ({
                 </div>
 
                 {/* Summary Title */}
-                {summary.title && (
+                {summary.shortSummary && (
                   <p className="text-sm font-medium text-gray-700 mb-2">
-                    {summary.title}
+                    {summary.shortSummary}
                   </p>
                 )}
 
                 {/* Summary Content */}
-                {summary.content && (
+                {summary.fullSummary && (
                   <div className="text-sm text-gray-600 mb-3">
                     <div className="bg-gray-50 rounded-lg p-3 max-h-32 overflow-y-auto">
-                      <pre className="whitespace-pre-wrap font-sans">
-                        {summary.content}
-                      </pre>
+                      <div className="whitespace-pre-wrap font-sans">
+                        {summary.fullSummary
+                          .replace(/\*\*(.*?)\*\*/g, "$1") // Remove markdown bold
+                          .replace(/\*(.*?)\*/g, "$1") // Remove markdown italic
+                          .replace(
+                            /^.*?Daily Summary.*?\d{4}-\d{2}-\d{2}.*?$/gm,
+                            ""
+                          ) // Remove date headers
+                          .replace(/^\s*$/gm, "") // Remove empty lines
+                          .trim()}
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {/* Error Message */}
-                {summary.error && (
+                {summary.errorMessage && (
                   <div className="text-sm text-red-600 mb-3">
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                       <div className="flex items-start space-x-2">
                         <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                        <span>{summary.error}</span>
+                        <span>{summary.errorMessage}</span>
                       </div>
                     </div>
                   </div>
@@ -172,10 +177,10 @@ export const SyncHistoryList: React.FC<SyncHistoryListProps> = ({
                         locale: ru,
                       })}
                     </span>
-                    {summary.processedAt && (
+                    {summary.updatedAt && (
                       <span>
-                        {t("sync.processed", "Обработано")}:{" "}
-                        {formatDistanceToNow(summary.processedAt, {
+                        {t("sync.updated", "Обновлено")}:{" "}
+                        {formatDistanceToNow(summary.updatedAt, {
                           addSuffix: true,
                           locale: ru,
                         })}

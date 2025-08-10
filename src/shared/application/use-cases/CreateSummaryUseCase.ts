@@ -1,6 +1,7 @@
 import { injectable, inject } from "tsyringe";
 import { UseCase } from "../UseCase";
-import { Result, ResultFactory } from "../../domain/Result";
+import type { Result } from "../../domain/Result";
+import { ResultFactory } from "../../domain/Result";
 import { Summary, SummaryType } from "../../domain/entities/Summary";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import { SummaryRepository } from "../../domain/repositories/SummaryRepository";
@@ -56,8 +57,8 @@ export class CreateSummaryUseCase
         return ResultFactory.failure(existingResult.error);
       }
 
-      if (existingResult.value) {
-        return ResultFactory.success({ summaryId: existingResult.value.id });
+      if (existingResult.data) {
+        return ResultFactory.success({ summaryId: existingResult.data.id });
       }
 
       // Create new summary
@@ -70,7 +71,9 @@ export class CreateSummaryUseCase
       }
 
       // Emit domain event
-      await this.eventBus.publish(new SummaryCreatedEvent(summary));
+      await this.eventBus.publish(
+        new SummaryCreatedEvent(summary.id, summary.type, summary.date)
+      );
 
       // Emit processing event based on summary type
       await this.emitProcessingEvent(summary, request);
@@ -139,8 +142,7 @@ export class CreateSummaryUseCase
 
       case SummaryType.WEEKLY:
         return await this.summaryRepository.findWeeklySummaryByRange(
-          request.weekStart!,
-          request.weekEnd!
+          request.weekStart!
         );
 
       case SummaryType.MONTHLY:
@@ -161,7 +163,10 @@ export class CreateSummaryUseCase
         const dailyResult = Summary.create(
           summaryId,
           SummaryType.DAILY,
-          request.date!
+          request.date!,
+          undefined,
+          undefined,
+          undefined
         );
         return dailyResult.summary;
       }

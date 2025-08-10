@@ -2,7 +2,7 @@ import { Task } from "../entities/Task";
 import { TaskId } from "../value-objects/TaskId";
 import { TaskCategory, TaskStatus } from "../types";
 import { DateOnly } from "../value-objects/DateOnly";
-import { Result } from "../Result";
+import type { Result } from "../Result";
 
 /**
  * Repository interface for Task entity operations

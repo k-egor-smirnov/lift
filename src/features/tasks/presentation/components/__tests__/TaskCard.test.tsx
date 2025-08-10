@@ -1,4 +1,3 @@
-import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskCard } from "../TaskCard";
@@ -280,7 +279,7 @@ describe.skip("TaskCard", () => {
       render(<TaskCard {...mockProps} task={completedTask} />);
 
       expect(
-        screen.getAllByText((content, element) => {
+        screen.getAllByText((_, element) => {
           return element?.textContent?.includes("↩️ Revert") || false;
         })[0]
       ).toBeInTheDocument();
@@ -306,7 +305,7 @@ describe.skip("TaskCard", () => {
       render(<TaskCard {...mockProps} lastLog={lastLog} />);
 
       expect(
-        screen.getAllByText((content, element) => {
+        screen.getAllByText((_, element) => {
           return element?.textContent?.includes("5m ago") || false;
         })[0]
       ).toBeInTheDocument();
@@ -320,7 +319,7 @@ describe.skip("TaskCard", () => {
       render(<TaskCard {...mockProps} lastLog={lastLog} />);
 
       expect(
-        screen.getAllByText((content, element) => {
+        screen.getAllByText((_, element) => {
           return element?.textContent?.includes("Just now") || false;
         })[0]
       ).toBeInTheDocument();

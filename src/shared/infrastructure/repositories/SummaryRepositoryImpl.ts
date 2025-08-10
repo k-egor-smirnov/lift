@@ -6,8 +6,11 @@ import {
   SummaryStatus,
 } from "../../domain/entities/Summary";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
-import { Result, ResultFactory } from "../../domain/Result";
+import type { Result } from "../../domain/Result";
+import { ResultFactory } from "../../domain/Result";
 import { TodoDatabase } from "../database/TodoDatabase";
+import { TaskRepository } from "../../domain/repositories/TaskRepository";
+import { TaskLogService } from "../services/TaskLogService";
 import * as tokens from "../di/tokens";
 
 interface SummaryRecord {
@@ -29,7 +32,13 @@ interface SummaryRecord {
  */
 @injectable()
 export class SummaryRepositoryImpl implements SummaryRepository {
-  constructor(@inject(tokens.DATABASE_TOKEN) private db: TodoDatabase) {}
+  constructor(
+    @inject(tokens.DATABASE_TOKEN) private db: TodoDatabase,
+    @inject(tokens.TASK_REPOSITORY_TOKEN)
+    private taskRepository: TaskRepository,
+    @inject(tokens.TASK_LOG_SERVICE_TOKEN)
+    private taskLogService: TaskLogService
+  ) {}
 
   async save(summary: Summary): Promise<Result<void, Error>> {
     try {
@@ -215,18 +224,22 @@ export class SummaryRepositoryImpl implements SummaryRepository {
       }
 
       const existingDates = new Set(
-        existingSummariesResult.value.map((summary) => summary.dateKey)
+        existingSummariesResult.data?.map((summary) => summary.dateKey) || []
       );
 
       const missingDates: DateOnly[] = [];
-      const current = DateOnly.fromString(startDate.toString());
+      let current = DateOnly.fromString(startDate.toString());
       const end = DateOnly.fromString(endDate.toString());
 
       while (current.toDate() <= end.toDate()) {
         if (!existingDates.has(current.toString())) {
-          missingDates.push(DateOnly.fromString(current.toString()));
+          // Проверяем, была ли активность в эту дату
+          const hasActivity = await this.hasActivityOnDate(current);
+          if (hasActivity) {
+            missingDates.push(DateOnly.fromString(current.toString()));
+          }
         }
-        current.setDate(current.getDate() + 1);
+        current = current.addDays(1);
       }
 
       return ResultFactory.success(missingDates);
@@ -240,7 +253,7 @@ export class SummaryRepositoryImpl implements SummaryRepository {
   async findMissingWeeklySummaries(
     startDate: DateOnly,
     endDate: DateOnly
-  ): Promise<Result<DateOnly[], Error>> {
+  ): Promise<Result<Array<{ weekStart: DateOnly; weekEnd: DateOnly }>, Error>> {
     try {
       // Find existing weekly summaries
       const existingSummariesResult = await this.findByDateRange(
@@ -253,42 +266,45 @@ export class SummaryRepositoryImpl implements SummaryRepository {
       }
 
       const existingWeeks = new Set(
-        existingSummariesResult.value.map((summary) => summary.dateKey)
+        existingSummariesResult.data?.map((summary) => summary.dateKey) || []
       );
 
-      const missingWeeks: DateOnly[] = [];
-      const current = DateOnly.fromString(startDate.toString());
+      const missingWeeks: Array<{ weekStart: DateOnly; weekEnd: DateOnly }> =
+        [];
+      let current = DateOnly.fromString(startDate.toString());
 
       // Find Monday of the week containing startDate
       const dayOfWeek = current.toDate().getDay();
       const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      current.setDate(current.getDate() + mondayOffset);
+      current = current.addDays(mondayOffset);
 
       while (current.toDate() <= endDate.toDate()) {
         const weekKey = current.toString();
         if (!existingWeeks.has(weekKey)) {
           // Check if all daily summaries for this week are completed
-          const weekEnd = DateOnly.fromString(current.toString());
-          weekEnd.setDate(weekEnd.getDate() + 6);
+          const weekEnd = current.addDays(6);
 
           const dailySummariesResult = await this.findDailySummariesForWeek(
             current,
             weekEnd
           );
-          if (dailySummariesResult.isSuccess()) {
-            const completedDailies = dailySummariesResult.value.filter(
-              (summary) => summary.status === SummaryStatus.COMPLETED
+          if (dailySummariesResult.isSuccess() && dailySummariesResult.data) {
+            const completedDailies = dailySummariesResult.data.filter(
+              (summary) => summary.status === SummaryStatus.DONE
             );
 
             // Only add if we have at least some daily summaries completed
             if (completedDailies.length > 0) {
-              missingWeeks.push(DateOnly.fromString(current.toString()));
+              missingWeeks.push({
+                weekStart: DateOnly.fromString(current.toString()),
+                weekEnd: weekEnd,
+              });
             }
           }
         }
 
         // Move to next Monday
-        current.setDate(current.getDate() + 7);
+        current = current.addDays(7);
       }
 
       return ResultFactory.success(missingWeeks);
@@ -300,16 +316,17 @@ export class SummaryRepositoryImpl implements SummaryRepository {
   }
 
   async findMissingMonthlySummaries(
-    startDate: DateOnly,
-    endDate: DateOnly
+    startMonth: string,
+    endMonth: string
   ): Promise<Result<string[], Error>> {
     try {
       // Generate list of months in range
       const months: string[] = [];
-      const current = new Date(startDate.toDate());
-      current.setDate(1); // First day of month
+      const [startYear, startMonthNum] = startMonth.split("-").map(Number);
+      const [endYear, endMonthNum] = endMonth.split("-").map(Number);
 
-      const end = new Date(endDate.toDate());
+      const current = new Date(startYear, startMonthNum - 1, 1);
+      const end = new Date(endYear, endMonthNum - 1, 1);
 
       while (current <= end) {
         const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
@@ -326,7 +343,7 @@ export class SummaryRepositoryImpl implements SummaryRepository {
       }
 
       const existingMonths = new Set(
-        existingSummariesResult.value.map((summary) => summary.dateKey)
+        existingSummariesResult.data?.map((summary) => summary.dateKey) || []
       );
 
       const missingMonths: string[] = [];
@@ -336,9 +353,9 @@ export class SummaryRepositoryImpl implements SummaryRepository {
           // Check if we have completed weekly summaries for this month
           const weeklySummariesResult =
             await this.findWeeklySummariesForMonth(month);
-          if (weeklySummariesResult.isSuccess()) {
-            const completedWeeklies = weeklySummariesResult.value.filter(
-              (summary) => summary.status === SummaryStatus.COMPLETED
+          if (weeklySummariesResult.isSuccess() && weeklySummariesResult.data) {
+            const completedWeeklies = weeklySummariesResult.data.filter(
+              (summary) => summary.status === SummaryStatus.DONE
             );
 
             // Only add if we have at least some weekly summaries completed
@@ -401,6 +418,72 @@ export class SummaryRepositoryImpl implements SummaryRepository {
       return ResultFactory.failure(
         new Error(`Failed to count summaries by status: ${error}`)
       );
+    }
+  }
+
+  /**
+   * Проверяет, была ли активность пользователя в указанную дату
+   * (создание/завершение задач или создание логов)
+   */
+  private async hasActivityOnDate(date: DateOnly): Promise<boolean> {
+    try {
+      // Проверяем созданные задачи
+      const createdTasksResult =
+        await this.taskRepository.findTasksCreatedInDateRange(date, date);
+      if (
+        createdTasksResult.isSuccess() &&
+        createdTasksResult.data &&
+        createdTasksResult.data.length > 0
+      ) {
+        return true;
+      }
+
+      // Проверяем завершенные задачи
+      const completedTasksResult =
+        await this.taskRepository.findTasksCompletedInDateRange(date, date);
+      if (
+        completedTasksResult.isSuccess() &&
+        completedTasksResult.data &&
+        completedTasksResult.data.length > 0
+      ) {
+        return true;
+      }
+
+      // Проверяем пользовательские логи
+      const startDateTime = date.toDate();
+      const endDateTime = new Date(date.toDate());
+      endDateTime.setHours(23, 59, 59, 999);
+
+      const userLogsResult = await this.taskLogService.getTaskLogsInDateRange(
+        startDateTime,
+        endDateTime
+      );
+      if (
+        userLogsResult.isSuccess() &&
+        userLogsResult.data &&
+        userLogsResult.data.length > 0
+      ) {
+        return true;
+      }
+
+      // Проверяем системные логи
+      const systemLogsResult =
+        await this.taskLogService.getSystemLogsInDateRange(
+          startDateTime,
+          endDateTime
+        );
+      if (
+        systemLogsResult.isSuccess() &&
+        systemLogsResult.data &&
+        systemLogsResult.data.length > 0
+      ) {
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      // В случае ошибки считаем, что активность была (безопасный подход)
+      return true;
     }
   }
 
@@ -472,8 +555,7 @@ export class SummaryRepositoryImpl implements SummaryRepository {
   }
 
   async findWeeklySummaryByRange(
-    weekStart: DateOnly,
-    weekEnd: DateOnly
+    weekStart: DateOnly
   ): Promise<Result<Summary | null, Error>> {
     return this.findByDateAndType(weekStart.toString(), SummaryType.WEEKLY);
   }
@@ -499,7 +581,14 @@ export class SummaryRepositoryImpl implements SummaryRepository {
         .anyOf([SummaryStatus.NEW, SummaryStatus.FAILED])
         .sortBy("createdAt");
 
-      const summaries = records.map((record) => this.mapRecordToEntity(record));
+      // Filter out records with invalid dateKey before mapping
+      const validRecords = records.filter(
+        (record) => record.dateKey && record.dateKey !== "undefined"
+      );
+
+      const summaries = validRecords.map((record) =>
+        this.mapRecordToEntity(record)
+      );
       return ResultFactory.success(summaries);
     } catch (error) {
       return ResultFactory.failure(
@@ -514,9 +603,7 @@ export class SummaryRepositoryImpl implements SummaryRepository {
       const dailySummaries = await this.countByType(SummaryType.DAILY);
       const weeklySummaries = await this.countByType(SummaryType.WEEKLY);
       const monthlySummaries = await this.countByType(SummaryType.MONTHLY);
-      const completedSummaries = await this.countByStatus(
-        SummaryStatus.COMPLETED
-      );
+      const completedSummaries = await this.countByStatus(SummaryStatus.DONE);
       const pendingSummaries = await this.countByStatus(SummaryStatus.NEW);
       const failedSummaries = await this.countByStatus(SummaryStatus.FAILED);
 
@@ -533,12 +620,12 @@ export class SummaryRepositoryImpl implements SummaryRepository {
 
       const statistics = {
         totalSummaries,
-        dailySummaries: dailySummaries.value,
-        weeklySummaries: weeklySummaries.value,
-        monthlySummaries: monthlySummaries.value,
-        completedSummaries: completedSummaries.value,
-        pendingSummaries: pendingSummaries.value,
-        failedSummaries: failedSummaries.value,
+        dailySummaries: dailySummaries.data,
+        weeklySummaries: weeklySummaries.data,
+        monthlySummaries: monthlySummaries.data,
+        completedSummaries: completedSummaries.data,
+        pendingSummaries: pendingSummaries.data,
+        failedSummaries: failedSummaries.data,
       };
 
       return ResultFactory.success(statistics);
@@ -564,10 +651,7 @@ export class SummaryRepositoryImpl implements SummaryRepository {
       record.metadata?.weekStart && record.metadata.weekStart !== "undefined"
         ? DateOnly.fromString(record.metadata.weekStart)
         : undefined;
-    const weekEnd =
-      record.metadata?.weekEnd && record.metadata.weekEnd !== "undefined"
-        ? DateOnly.fromString(record.metadata.weekEnd)
-        : undefined;
+
     const month = record.metadata?.month;
 
     return new Summary(
@@ -575,7 +659,7 @@ export class SummaryRepositoryImpl implements SummaryRepository {
       record.type,
       date,
       weekStart,
-      weekEnd,
+      undefined,
       month,
       record.content || "",
       record.title || "",
@@ -583,7 +667,8 @@ export class SummaryRepositoryImpl implements SummaryRepository {
       record.createdAt,
       record.updatedAt,
       [],
-      record.error
+      record.error,
+      record.metadata?.retryCount || 0
     );
   }
 
@@ -601,6 +686,9 @@ export class SummaryRepositoryImpl implements SummaryRepository {
     }
     if (summary.month) {
       metadata.month = summary.month;
+    }
+    if (summary.retryCount !== undefined) {
+      metadata.retryCount = summary.retryCount;
     }
 
     return {

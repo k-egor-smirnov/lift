@@ -1,16 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../../shared/ui/button";
-import {
-  Filter,
-  Calendar,
-  Clock,
-  BarChart3,
-  AlertTriangle,
-  RefreshCw,
-  Loader,
-  Plus,
-} from "lucide-react";
+import { Calendar, Clock, BarChart3, RefreshCw, Plus } from "lucide-react";
 import {
   Summary,
   SummaryType,
@@ -69,7 +60,7 @@ const getStatusColor = (status: SummaryStatus) => {
       return "text-gray-500 bg-gray-100";
     case SummaryStatus.PROCESSING:
       return "text-blue-500 bg-blue-100";
-    case SummaryStatus.COMPLETED:
+    case SummaryStatus.DONE:
       return "text-green-500 bg-green-100";
     case SummaryStatus.FAILED:
       return "text-red-500 bg-red-100";
@@ -84,7 +75,7 @@ const getStatusText = (status: SummaryStatus, t: any) => {
       return t("sync.status.new", "Новая");
     case SummaryStatus.PROCESSING:
       return t("sync.status.processing", "Обработка");
-    case SummaryStatus.COMPLETED:
+    case SummaryStatus.DONE:
       return t("sync.status.completed", "Завершена");
     case SummaryStatus.FAILED:
       return t("sync.status.failed", "Ошибка");

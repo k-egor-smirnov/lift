@@ -2,11 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
 import { TaskId } from "../shared/domain/value-objects/TaskId";
-import { TaskList } from "../features/tasks/presentation/components/TaskList";
-
-import { TodayView } from "../features/today/presentation/components/TodayView";
 import { TodayMobileView } from "../features/today/presentation/components/TodayMobileView";
-import { AllLogsView } from "../features/logs/presentation/components";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import {
@@ -19,7 +15,6 @@ import {
 } from "../features/today/presentation/view-models/TodayViewModel";
 import { useKeyboardShortcuts } from "../shared/infrastructure/services/useKeyboardShortcuts";
 import { DailyModalContainer } from "../features/onboarding";
-import { useOnboardingViewModel } from "../features/onboarding/presentation/view-models/OnboardingViewModel";
 import { LogEntry } from "../shared/application/use-cases/GetTaskLogsUseCase";
 import { DevDayTransition } from "./components/DevDayTransition";
 import { taskEventBus } from "../shared/infrastructure/events/TaskEventBus";
@@ -51,7 +46,6 @@ import { SyncHistoryViewModelDependencies } from "../features/sync/presentation/
 import { UserSettingsService } from "../features/onboarding/application/services/UserSettingsService";
 import { UserSettingsRepositoryImpl } from "../shared/infrastructure/repositories/UserSettingsRepositoryImpl";
 import { toast, Toaster } from "sonner";
-import { Settings } from "../features/settings/presentation/components/Settings";
 import { ContentArea } from "./components/ContentArea";
 import { ResultUtils } from "@/shared/domain/Result";
 
@@ -377,7 +371,12 @@ export const MVPApp: React.FC = () => {
 
   // Update view model filter when active view changes
   useEffect(() => {
-    if (activeView === "today" || activeView === "logs") {
+    if (
+      activeView === "today" ||
+      activeView === "logs" ||
+      activeView === "settings" ||
+      activeView === "sync"
+    ) {
       setViewModelFilter({});
     } else {
       setViewModelFilter({ category: activeView });
@@ -588,33 +587,10 @@ export const MVPApp: React.FC = () => {
     [undeferTaskUseCase, loadTasks]
   );
 
-  const handleReturnTaskToToday = useCallback(
-    async (taskId: string) => {
-      try {
-        const result = await addTaskToTodayUseCase.execute({ taskId });
-        if (result.success) {
-          console.log("Task returned to today successfully");
-
-          // Refresh the daily modal data to remove the task from modal lists
-          const { loadDailyModalData } = useOnboardingViewModel.getState();
-          await loadDailyModalData();
-
-          // Note: TodayView will auto-refresh via event bus when task is returned
-        } else {
-          console.error(
-            "Failed to return task to today:",
-            (result as any).error.message
-          );
-        }
-      } catch (error) {
-        console.error("Error returning task to today:", error);
-      }
-    },
-    [addTaskToTodayUseCase]
-  );
+  // Removed unused handleReturnTaskToToday function
 
   const handleViewChange = useCallback(
-    (view: "today" | "logs" | TaskCategory) => {
+    (view: "today" | "logs" | "settings" | "sync" | TaskCategory) => {
       setActiveView(view);
     },
     []
@@ -764,10 +740,18 @@ export const MVPApp: React.FC = () => {
 
   // Get the current category for modal
   const currentCategory =
-    activeView === "today" || activeView === "logs"
+    activeView === "today" ||
+    activeView === "logs" ||
+    activeView === "settings" ||
+    activeView === "sync"
       ? TaskCategory.INBOX
       : activeView;
-  const hideCategorySelection = activeView !== "today";
+  // Removed unused hideCategorySelection variable
+
+  // Adapter for TodayMobileView onUndefer to convert TaskId to string
+  const handleUndeferForMobileView = async (taskId: TaskId) => {
+    await handleUndeferTask(taskId);
+  };
 
   // If mobile view should be used, render it directly without sidebar/header
   if (shouldUseMobileView) {
@@ -777,7 +761,7 @@ export const MVPApp: React.FC = () => {
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
         onDefer={handleDeferTask}
-        onUndefer={handleUndeferTask}
+        onUndefer={handleUndeferForMobileView}
         onReorderTasks={handleReorderTasks}
         onLoadTaskLogs={loadTaskLogs}
         onCreateLog={handleCreateTaskLog}
@@ -884,7 +868,9 @@ export const MVPApp: React.FC = () => {
             onLoadTaskLogs={loadTaskLogs}
             onCreateTaskLog={handleCreateTaskLog}
             onDeferTask={handleDeferTask}
-            onUndeferTask={handleUndeferTask}
+            onUndeferTask={(taskId: string) =>
+              handleUndeferTask(new TaskId(taskId))
+            }
           />
         </main>
       </div>

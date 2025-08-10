@@ -6,7 +6,8 @@ import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../domain/types";
 import { TodoDatabase, TaskRecord } from "../database/TodoDatabase";
-import { Result, ResultFactory } from "../../domain/Result";
+import type { Result } from "../../domain/Result";
+import { ResultFactory } from "../../domain/Result";
 import * as tokens from "../di/tokens";
 
 /**

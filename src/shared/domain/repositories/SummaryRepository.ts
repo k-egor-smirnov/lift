@@ -1,6 +1,6 @@
 import { Summary, SummaryType, SummaryStatus } from "../entities/Summary";
 import { DateOnly } from "../value-objects/DateOnly";
-import { Result } from "../Result";
+import type { Result } from "../Result";
 
 /**
  * Repository interface for Summary entities
@@ -27,8 +27,7 @@ export interface SummaryRepository {
    * Find weekly summary by week range
    */
   findWeeklySummaryByRange(
-    weekStart: DateOnly,
-    weekEnd: DateOnly
+    weekStart: DateOnly
   ): Promise<Result<Summary | null, Error>>;
 
   /**

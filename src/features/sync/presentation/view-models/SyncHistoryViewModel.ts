@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import {
   Summary,
   SummaryType,
-  SummaryStatus,
 } from "../../../../shared/domain/entities/Summary";
 import {
   GetSyncHistoryUseCase,

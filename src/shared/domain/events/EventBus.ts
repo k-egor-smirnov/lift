@@ -6,7 +6,6 @@ import Dexie from "dexie";
 import {
   TodoDatabase,
   EventStoreRecord,
-  HandledEventRecord,
   LockRecord,
 } from "../../infrastructure/database/TodoDatabase";
 import * as tokens from "../../infrastructure/di/tokens";

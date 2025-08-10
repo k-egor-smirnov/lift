@@ -28,6 +28,7 @@ import { ChangeTaskNoteUseCase } from "../../application/use-cases/ChangeTaskNot
 import { SummarizeLogsUseCase } from "../../application/use-cases/SummarizeLogsUseCase";
 import { GetSummaryDataUseCase } from "../../application/use-cases/GetSummaryDataUseCase";
 import { CreateSummaryUseCase } from "../../application/use-cases/CreateSummaryUseCase";
+import { ScheduleSummariesUseCase } from "../../application/use-cases/ScheduleSummariesUseCase";
 import { ProcessSummaryUseCase } from "../../application/use-cases/ProcessSummaryUseCase";
 import { GetSyncHistoryUseCase } from "../../application/use-cases/GetSyncHistoryUseCase";
 import { ForceSummarizationUseCase } from "../../application/use-cases/ForceSummarizationUseCase";
@@ -36,6 +37,7 @@ import { LLMSummarizationServiceImpl } from "../services/LLMSummarizationService
 
 // Import services
 import { DeferredTaskService } from "../../application/services/DeferredTaskService";
+import { SummaryService } from "../../application/services/SummaryService";
 import { LLMService } from "../services/LLMService";
 import { TaskLogService } from "../services/TaskLogService";
 
@@ -143,6 +145,10 @@ export function configureContainer(): void {
     CreateSummaryUseCase
   );
   container.registerSingleton(
+    tokens.SCHEDULE_SUMMARIES_USE_CASE_TOKEN,
+    ScheduleSummariesUseCase
+  );
+  container.registerSingleton(
     tokens.GET_SYNC_HISTORY_USE_CASE_TOKEN,
     GetSyncHistoryUseCase
   );
@@ -170,8 +176,23 @@ export function configureContainer(): void {
     tokens.DEFERRED_TASK_SERVICE_TOKEN,
     DeferredTaskService
   );
+  container.registerSingleton(tokens.SUMMARY_SERVICE_TOKEN, SummaryService);
   container.registerSingleton(tokens.LLM_SERVICE_TOKEN, LLMService);
   container.registerSingleton(tokens.TASK_LOG_SERVICE_TOKEN, TaskLogService);
+}
+
+/**
+ * Initialize services that need startup configuration
+ */
+export async function initializeServices(): Promise<void> {
+  const summaryService = container.resolve<SummaryService>(
+    tokens.SUMMARY_SERVICE_TOKEN
+  );
+  const result = await summaryService.initialize();
+
+  if (result.isFailure()) {
+    console.error("Failed to initialize SummaryService:", result.error);
+  }
 }
 
 export { container };
