@@ -4,6 +4,7 @@ import { SupabaseSyncRepository } from "../repositories/SupabaseSyncRepository";
 import { SyncService } from "../../application/services/SyncService";
 import { DebouncedSyncService } from "../../application/services/DebouncedSyncService";
 import { SupabaseRealtimeService } from "../services/SupabaseRealtimeService";
+import { MasterDeviceService } from "../services/MasterDeviceService";
 import {
   getSupabaseConfig,
   validateSupabaseConfig,
@@ -52,6 +53,12 @@ export function configureSyncContainer(): void {
       SupabaseRealtimeService
     );
 
+    // Register master device service
+    container.registerSingleton(
+      tokens.MASTER_DEVICE_SERVICE_TOKEN,
+      MasterDeviceService
+    );
+
     console.log("Sync container configured successfully");
   } catch (error) {
     console.error("Failed to configure sync container:", error);
@@ -72,6 +79,15 @@ export function getSyncService(): SyncService {
 export function getRealtimeService(): SupabaseRealtimeService {
   return container.resolve<SupabaseRealtimeService>(
     tokens.SUPABASE_REALTIME_SERVICE_TOKEN
+  );
+}
+
+/**
+ * Gets master device service from container
+ */
+export function getMasterDeviceService(): MasterDeviceService {
+  return container.resolve<MasterDeviceService>(
+    tokens.MASTER_DEVICE_SERVICE_TOKEN
   );
 }
 
