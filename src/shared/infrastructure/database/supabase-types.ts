@@ -119,6 +119,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      master_devices: {
+        Row: {
+          created_at: string;
+          device_id: string;
+          expires_at: string;
+          id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          device_id: string;
+          expires_at: string;
+          id?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          device_id?: string;
+          expires_at?: string;
+          id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       task_logs: {
         Row: {
           action: string;

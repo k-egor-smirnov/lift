@@ -2,9 +2,13 @@ import {
   configureSyncContainer,
   getSyncService,
   getRealtimeService,
+  getMasterDeviceService,
 } from "../di/syncContainer";
 import { SyncService } from "../../application/services/SyncService";
 import { SupabaseRealtimeService } from "../services/SupabaseRealtimeService";
+import { MasterDeviceService } from "../services/MasterDeviceService";
+import { getService, tokens } from "../di";
+import { DeferredTaskService } from "../../application/services/DeferredTaskService";
 import { getSupabaseConfig } from "../config/supabase.config";
 
 /**
@@ -15,6 +19,8 @@ export class SyncInitializer {
   private static instance: SyncInitializer | null = null;
   private syncService: SyncService | null = null;
   private realtimeService: SupabaseRealtimeService | null = null;
+  private masterService: MasterDeviceService | null = null;
+  private deferredTaskService: DeferredTaskService | null = null;
   private isInitialized = false;
   private autoSyncInterval: NodeJS.Timeout | null = null;
 
@@ -55,9 +61,16 @@ export class SyncInitializer {
       // Получаем сервисы
       this.syncService = getSyncService();
       this.realtimeService = getRealtimeService();
+      this.masterService = getMasterDeviceService();
+      this.deferredTaskService = getService<DeferredTaskService>(
+        tokens.DEFERRED_TASK_SERVICE_TOKEN
+      );
 
       // Выполняем первоначальную синхронизацию
       await this.performInitialSync();
+
+      // Attempt to acquire master role on start
+      await this.masterService?.acquireMaster();
 
       // Настраиваем автоматическую синхронизацию
       if (config.sync.autoSyncInterval > 0) {
@@ -112,6 +125,9 @@ export class SyncInitializer {
       if (this.syncService && navigator.onLine) {
         try {
           await this.syncService.performBackgroundSync();
+          if (await this.masterService?.acquireMaster()) {
+            await this.deferredTaskService?.processDueTasks();
+          }
         } catch (error) {
           console.error("Auto sync error:", error);
         }
