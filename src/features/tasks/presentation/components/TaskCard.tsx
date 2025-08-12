@@ -52,6 +52,10 @@ interface TaskCardProps {
   isDraggable?: boolean;
   currentCategory?: TaskCategory;
   taskViewModel?: TaskViewModel;
+  /** Время последней успешной синхронизации */
+  lastSyncAt?: Date | null;
+  /** Флаг наличия настроенной синхронизации */
+  isSyncEnabled?: boolean;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -72,6 +76,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isDraggable = false,
   currentCategory,
   taskViewModel,
+  lastSyncAt = null,
+  isSyncEnabled = false,
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
@@ -175,6 +181,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [attachGestures, isTouch]);
 
+  const isUnsynced =
+    isSyncEnabled && (!lastSyncAt || task.updatedAt > lastSyncAt);
+
   return (
     <>
       {/* Blue line indicator for drop location */}
@@ -215,82 +224,103 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         }}
         transition={{ duration: 0.2 }}
       >
-        {/* Bottom-right note/checklist indicator */}
-        {(() => {
-          const hasNote = !!(task.note && task.note.trim().length > 0);
-          const progress = parseChecklistProgress(task.note);
-          const hasChecklist = hasNote && progress.total > 0;
+        {/* Bottom-right indicators */}
+        <div className="absolute bottom-2.5 right-2.5 flex items-center space-x-1">
+          {(() => {
+            const hasNote = !!(task.note && task.note.trim().length > 0);
+            const progress = parseChecklistProgress(task.note);
+            const hasChecklist = hasNote && progress.total > 0;
 
-          // Show placeholder only for mouse users; on touch-only show indicator only if note exists
-          const shouldShow = hasMouseLikePointer || hasNote;
-          if (!shouldShow) return null;
+            // Show placeholder only for mouse users; on touch-only show indicator only if note exists
+            const shouldShow = hasMouseLikePointer || hasNote;
+            if (!shouldShow) return null;
 
-          if (hasChecklist) {
-            if (hasMouseLikePointer) {
+            if (hasChecklist) {
+              if (hasMouseLikePointer) {
+                return (
+                  <button
+                    onClick={handleOpenNoteModal}
+                    className="flex items-center text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                    aria-label={t("taskCard.checklistProgress")}
+                    title={`Заметка: ${formatChecklistProgress(progress)}`}
+                  >
+                    <ListTodo className="w-3.5 h-3.5" />
+                    <span className="text-[10px] leading-none rounded px-1 py-[1px]">
+                      {formatChecklistProgress(progress)}
+                    </span>
+                  </button>
+                );
+              }
+              // Touch-only: non-interactive indicator
               return (
-                <button
-                  onClick={handleOpenNoteModal}
-                  className="absolute bottom-2.5 right-2.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-                  aria-label={t("taskCard.checklistProgress")}
-                  title={`Заметка: ${formatChecklistProgress(progress)}`}
+                <div
+                  className="flex items-center text-gray-400"
+                  aria-hidden
                 >
                   <ListTodo className="w-3.5 h-3.5" />
                   <span className="text-[10px] leading-none rounded px-1 py-[1px]">
                     {formatChecklistProgress(progress)}
                   </span>
-                </button>
+                </div>
               );
-            }
-            // Touch-only: non-interactive indicator
-            return (
-              <div
-                className="absolute bottom-2.5 right-2.5 flex items-center text-gray-400"
-                aria-hidden
-              >
-                <ListTodo className="w-3.5 h-3.5" />
-                <span className="text-[10px] leading-none rounded px-1 py-[1px]">
-                  {formatChecklistProgress(progress)}
-                </span>
-              </div>
-            );
-          } else if (hasNote) {
-            if (hasMouseLikePointer) {
+            } else if (hasNote) {
+              if (hasMouseLikePointer) {
+                return (
+                  <button
+                    onClick={handleOpenNoteModal}
+                    className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                    aria-label={t("taskCard.noteExists")}
+                    title="Редактировать заметку"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                  </button>
+                );
+              }
+              // Touch-only: non-interactive indicator
+              return (
+                <div className="text-gray-400" aria-hidden>
+                  <FileText className="w-3.5 h-3.5" />
+                </div>
+              );
+            } else if (hasMouseLikePointer) {
+              // Desktop/mouse placeholder for empty note with hover tooltip
               return (
                 <button
                   onClick={handleOpenNoteModal}
-                  className="absolute bottom-2.5 right-2.5 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-                  aria-label={t("taskCard.noteExists")}
-                  title="Редактировать заметку"
+                  className="text-gray-300 hover:text-gray-500 transition-colors cursor-pointer opacity-0 hover:opacity-100 group-hover:opacity-100"
+                  aria-label="Добавить заметку"
+                  title="Заметка"
                 >
                   <FileText className="w-3.5 h-3.5" />
                 </button>
               );
             }
-            // Touch-only: non-interactive indicator
-            return (
-              <div
-                className="absolute bottom-2.5 right-2.5 text-gray-400"
-                aria-hidden
-              >
-                <FileText className="w-3.5 h-3.5" />
-              </div>
-            );
-          } else if (hasMouseLikePointer) {
-            // Desktop/mouse placeholder for empty note with hover tooltip
-            return (
-              <button
-                onClick={handleOpenNoteModal}
-                className="absolute bottom-2.5 right-2.5 text-gray-300 hover:text-gray-500 transition-colors cursor-pointer opacity-0 hover:opacity-100 group-hover:opacity-100"
-                aria-label="Добавить заметку"
-                title="Заметка"
-              >
-                <FileText className="w-3.5 h-3.5" />
-              </button>
-            );
-          }
 
-          return null;
-        })()}
+            return null;
+          })()}
+
+          {isUnsynced && (
+            <svg
+              className="w-3 h-3 text-gray-400 animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+          )}
+        </div>
 
         {/* Touch gesture help for mobile */}
         {isTouch && (
