@@ -49,6 +49,7 @@ import { toast, Toaster } from "sonner";
 import { Settings } from "../features/settings/presentation/components/Settings";
 import { ContentArea } from "./components/ContentArea";
 import { ResultUtils } from "@/shared/domain/Result";
+import { useTodayTaskIdsRefresh } from "./hooks/useTodayTaskIdsRefresh";
 
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -256,6 +257,9 @@ export const MVPApp: React.FC = () => {
 
     return unsubscribe;
   }, [loadTodayTaskIds]);
+
+  // Refresh todayTaskIds when the calendar day changes
+  useTodayTaskIdsRefresh(loadTodayTaskIds);
 
   // Register keyboard shortcuts
   useEffect(() => {
