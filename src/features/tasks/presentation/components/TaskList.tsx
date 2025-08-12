@@ -27,6 +27,7 @@ import {
 } from "@dnd-kit/sortable";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { motion } from "framer-motion";
+import { useSync } from "../../../../shared/presentation/hooks/useSync";
 
 interface TaskListProps {
   tasks: Task[];
@@ -78,6 +79,11 @@ export const TaskList: React.FC<TaskListProps> = ({
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
     null
+  );
+
+  const { lastSyncAt } = useSync();
+  const isSyncEnabled = Boolean(
+    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
   );
 
   // Sort tasks by order field first
@@ -196,6 +202,8 @@ export const TaskList: React.FC<TaskListProps> = ({
           key={task.id.value}
           task={task}
           onUndefer={onUndefer}
+          lastSyncAt={lastSyncAt}
+          isSyncEnabled={isSyncEnabled}
         />
       );
     }
@@ -220,6 +228,8 @@ export const TaskList: React.FC<TaskListProps> = ({
         isDraggable={!!onReorder}
         currentCategory={currentCategory}
         taskViewModel={taskViewModel}
+        lastSyncAt={lastSyncAt}
+        isSyncEnabled={isSyncEnabled}
       />
     );
   };
