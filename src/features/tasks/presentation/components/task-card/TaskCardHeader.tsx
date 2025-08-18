@@ -45,22 +45,22 @@ export const TaskCardHeader: React.FC<TaskCardHeaderProps> = ({
   const CategoryIcon = getCategoryIcon(category);
 
   return (
-    <div className="flex items-center gap-2 mb-1">
+    <div className="flex items-center gap-1 mb-1">
       {/* Only show category badge if not on the same category page */}
       {currentCategory !== category && (
         <span
           className={`
-            inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border
+            inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border
             ${categoryColor}
           `}
         >
-          <CategoryIcon className="w-3 h-3 mr-1" />
+          <CategoryIcon className="w-2.5 h-2.5 mr-1" />
           {t(`categories.${category.toLowerCase()}`)}
         </span>
       )}
       {isOverdue && (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-          <AlertTriangle className="w-3 h-3 mr-1" />
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800 border border-red-200">
+          <AlertTriangle className="w-2.5 h-2.5 mr-1" />
           {t("taskCard.overdue")}
         </span>
       )}
