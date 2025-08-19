@@ -51,7 +51,7 @@ export const TaskTitleEditor: React.FC<TaskTitleEditorProps> = ({
         value={title}
         onChange={(e) => onTitleChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="flex-1 text-lg font-medium text-gray-900 bg-white border border-blue-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        className="flex-1 text-sm leading-snug font-medium text-gray-900 bg-white border border-blue-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         maxLength={200}
       />
       <button
