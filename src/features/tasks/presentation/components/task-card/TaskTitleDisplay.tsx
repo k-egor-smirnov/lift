@@ -57,12 +57,12 @@ export const TaskTitleDisplay: React.FC<TaskTitleDisplayProps> = ({
       <h3
         id={`task-title-${taskId}`}
         className={`
-            text-lg font-medium text-gray-900 flex-1
+            text-sm leading-snug font-medium text-gray-900 flex-1
             ${isCompleted ? "line-through" : ""}
             ${
               isMobile
                 ? ""
-                : "cursor-pointer hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded px-1 py-1"
+                : "cursor-pointer hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded px-1 py-0.5"
             }
           `}
         {...(!isMobile && {

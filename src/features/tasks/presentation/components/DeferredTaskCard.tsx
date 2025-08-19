@@ -42,7 +42,9 @@ export const DeferredTaskCard: React.FC<DeferredTaskCardProps> = ({
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <h3 className="font-medium text-gray-900 mb-2">{task.title.value}</h3>
+          <h3 className="text-sm leading-snug font-medium text-gray-900 mb-2">
+            {task.title.value}
+          </h3>
 
           <div className="flex items-center text-sm text-gray-600 mb-3">
             <Clock className="w-4 h-4 mr-1" />
