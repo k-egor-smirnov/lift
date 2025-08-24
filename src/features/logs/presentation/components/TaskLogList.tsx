@@ -1,6 +1,8 @@
 import React from "react";
 import { Settings, User, AlertTriangle, FileText, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useCurrentTime } from "@/shared/presentation/contexts/CurrentTimeContext";
+import { formatTimeAgo } from "@/shared/utils/timeFormat";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 
 interface TaskLogListProps {
@@ -39,25 +41,6 @@ const getLogTypeColor = (type: "SYSTEM" | "USER" | "CONFLICT"): string => {
   }
 };
 
-const formatDate = (date: Date, t: any): string => {
-  const now = new Date();
-  const diffInMs = now.getTime() - date.getTime();
-  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  const diffInDays = Math.floor(diffInHours / 24);
-
-  if (diffInMinutes < 1) {
-    return t("timeAgo.justNow");
-  } else if (diffInMinutes < 60) {
-    return t("timeAgo.minutesAgo", { count: diffInMinutes });
-  } else if (diffInHours < 24) {
-    return t("timeAgo.hoursAgo", { count: diffInHours });
-  } else if (diffInDays < 7) {
-    return t("timeAgo.daysAgo", { count: diffInDays });
-  } else {
-    return date.toLocaleDateString();
-  }
-};
 
 const formatMetadata = (
   metadata?: Record<string, any>,
@@ -107,7 +90,8 @@ export const TaskLogList: React.FC<TaskLogListProps> = ({
   emptyMessage = "No logs found",
   showTaskId = false,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const now = useCurrentTime();
 
   if (error) {
     return (
@@ -182,7 +166,7 @@ export const TaskLogList: React.FC<TaskLogListProps> = ({
                       </span>
                     )}
                     <span className="text-sm text-gray-500">
-                      {formatDate(log.createdAt, t)}
+                      {formatTimeAgo(log.createdAt, now, t, i18n.language)}
                     </span>
                   </div>
 

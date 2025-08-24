@@ -17,6 +17,8 @@ import { Badge } from "@/shared/ui/badge";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { useSync } from "@/shared/infrastructure/sync";
 import { useAuth } from "@/shared/presentation/hooks/useAuth";
+import { useCurrentTime } from "@/shared/presentation/contexts/CurrentTimeContext";
+import { formatTimeAgo } from "@/shared/utils/timeFormat";
 import { container } from "tsyringe";
 import { SupabaseClientFactory } from "@/shared/infrastructure/database/SupabaseClient";
 import { SUPABASE_CLIENT_FACTORY_TOKEN } from "@/shared/infrastructure/di/tokens";
@@ -222,12 +224,11 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
     setIsLoading(false);
   };
 
+  const now = useCurrentTime();
+
   const formatLastSync = (date: Date | null) => {
     if (!date) return t("settings.sync.never");
-    return new Intl.DateTimeFormat(i18n.language, {
-      dateStyle: "short",
-      timeStyle: "medium",
-    }).format(date);
+    return formatTimeAgo(date, now, t, i18n.language);
   };
 
   const getSyncStatusColor = (status: string) => {

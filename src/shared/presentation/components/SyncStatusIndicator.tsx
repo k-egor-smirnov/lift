@@ -1,5 +1,8 @@
 import React from "react";
 import { useSync } from "../hooks/useSync";
+import { useTranslation } from "react-i18next";
+import { useCurrentTime } from "@/shared/presentation/contexts/CurrentTimeContext";
+import { formatTimeAgo } from "@/shared/utils/timeFormat";
 
 interface SyncStatusIndicatorProps {
   /** Показывать ли детальную информацию */
@@ -20,6 +23,8 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
   onManualSync,
 }) => {
   const { status, sync } = useSync();
+  const { t, i18n } = useTranslation();
+  const now = useCurrentTime();
 
   const handleManualSync = async () => {
     if (onManualSync) {
@@ -130,26 +135,16 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
   };
 
   const getStatusText = () => {
-    if (status.isSyncing) return "Синхронизация...";
-    if (status.error) return "Ошибка синхронизации";
-    if (!status.isOnline) return "Офлайн";
-    if (status.isRealtimeConnected) return "Синхронизировано";
-    return "Готов к синхронизации";
+    if (status.isSyncing) return t("settings.sync.statuses.syncing");
+    if (status.error) return t("settings.sync.statuses.error");
+    if (!status.isOnline) return t("settings.sync.offline");
+    if (status.isRealtimeConnected) return t("settings.sync.statuses.synced");
+    return t("settings.sync.statuses.idle");
   };
 
   const formatLastSync = (date: Date | null) => {
-    if (!date) return "Никогда";
-
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (minutes < 1) return "Только что";
-    if (minutes < 60) return `${minutes} мин назад`;
-    if (hours < 24) return `${hours} ч назад`;
-    return `${days} дн назад`;
+    if (!date) return t("settings.sync.never");
+    return formatTimeAgo(date, now, t, i18n.language);
   };
 
   if (!detailed) {
@@ -192,7 +187,7 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
           onClick={handleManualSync}
           className="text-xs text-blue-600 hover:text-blue-800 underline"
         >
-          Синхронизировать
+          {t("settings.sync.manualSync")}
         </button>
       )}
     </div>
