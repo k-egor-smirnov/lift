@@ -1,7 +1,8 @@
 import React, { useRef, useEffect } from "react";
 import { LogEntry } from "../../../../../shared/application/use-cases/GetTaskLogsUseCase";
-import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
 import { useTranslation } from "react-i18next";
+import { useCurrentTime } from "@/shared/presentation/contexts/CurrentTimeContext";
+import { formatTimeAgo } from "@/shared/utils/timeFormat";
 import { Settings, User, AlertTriangle, FileText, Pen } from "lucide-react";
 import {
   Dialog,
@@ -57,7 +58,8 @@ export const TaskLogsModal: React.FC<TaskLogsModalProps> = ({
   onCreateLog,
   onNewLogKeyDown,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const now = useCurrentTime();
   const newLogInputRef = useRef<HTMLInputElement>(null);
 
   // Focus new log input when modal is opened
@@ -72,26 +74,6 @@ export const TaskLogsModal: React.FC<TaskLogsModalProps> = ({
     }
   }, [isOpen]);
 
-  // Format log date for display
-  const formatLogDate = (date: Date): string => {
-    const now = DateOnly.getCurrentDate();
-    const diffInMs = now.getTime() - date.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInMinutes < 1) {
-      return t("taskCard.justNow");
-    } else if (diffInMinutes < 60) {
-      return t("taskCard.minutesAgo", { count: diffInMinutes });
-    } else if (diffInHours < 24) {
-      return t("taskCard.hoursAgo", { count: diffInHours });
-    } else if (diffInDays < 7) {
-      return t("taskCard.daysAgo", { count: diffInDays });
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -168,7 +150,7 @@ export const TaskLogsModal: React.FC<TaskLogsModalProps> = ({
                             {log.type}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {formatLogDate(log.createdAt)}
+                            {formatTimeAgo(log.createdAt, now, t, i18n.language)}
                           </span>
                         </div>
                       </div>

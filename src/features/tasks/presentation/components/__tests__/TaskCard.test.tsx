@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskCard } from "../TaskCard";
+import { CurrentTimeProvider } from "@/shared/presentation/contexts/CurrentTimeContext";
 import { Task } from "../../../../../shared/domain/entities/Task";
 import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../../../shared/domain/value-objects/NonEmptyTitle";
@@ -299,31 +300,45 @@ describe.skip("TaskCard", () => {
 
   describe("Date Formatting", () => {
     it("should format recent dates correctly", () => {
-      const mockedTime = new Date("2023-12-01T12:00:00Z").getTime();
-      const recentDate = new Date(mockedTime - 5 * 60 * 1000); // 5 minutes ago
+      vi.useFakeTimers();
+      const mockedTime = new Date("2023-12-01T12:00:00Z");
+      vi.setSystemTime(mockedTime);
+      const recentDate = new Date(mockedTime.getTime() - 5 * 60 * 1000); // 5 minutes ago
       const lastLog = createMockLog({ createdAt: recentDate });
 
-      render(<TaskCard {...mockProps} lastLog={lastLog} />);
+      render(
+        <CurrentTimeProvider>
+          <TaskCard {...mockProps} lastLog={lastLog} />
+        </CurrentTimeProvider>
+      );
 
       expect(
         screen.getAllByText((content, element) => {
           return element?.textContent?.includes("5m ago") || false;
         })[0]
       ).toBeInTheDocument();
+      vi.useRealTimers();
     });
 
-    it('should show "Just now" for very recent logs', () => {
-      const mockedTime = new Date("2023-12-01T12:00:00Z").getTime();
-      const veryRecentDate = new Date(mockedTime - 30 * 1000); // 30 seconds ago
+    it("should show seconds for very recent logs", () => {
+      vi.useFakeTimers();
+      const mockedTime = new Date("2023-12-01T12:00:00Z");
+      vi.setSystemTime(mockedTime);
+      const veryRecentDate = new Date(mockedTime.getTime() - 30 * 1000); // 30 seconds ago
       const lastLog = createMockLog({ createdAt: veryRecentDate });
 
-      render(<TaskCard {...mockProps} lastLog={lastLog} />);
+      render(
+        <CurrentTimeProvider>
+          <TaskCard {...mockProps} lastLog={lastLog} />
+        </CurrentTimeProvider>
+      );
 
       expect(
         screen.getAllByText((content, element) => {
-          return element?.textContent?.includes("Just now") || false;
+          return element?.textContent?.includes("30s ago") || false;
         })[0]
       ).toBeInTheDocument();
+      vi.useRealTimers();
     });
   });
 });

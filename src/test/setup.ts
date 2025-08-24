@@ -175,9 +175,11 @@ vi.mock("react-i18next", () => ({
         "taskCard.addFirstLog": "Add First Log",
 
         // Time formatting
-        "taskCard.minutesAgo": `${options?.count || 0}m ago`,
-        "taskCard.hoursAgo": `${options?.count || 0}h ago`,
-        "taskCard.daysAgo": `${options?.count || 0}d ago`,
+        "time.justNow": "Just now",
+        "time.secondsAgo": `${options?.count || 0}s ago`,
+        "time.minutesAgo": `${options?.count || 0}m ago`,
+        "time.hoursAgo": `${options?.count || 0}h ago`,
+        "time.daysAgo": `${options?.count || 0}d ago`,
 
         // Navigation translations
         "navigation.today": "Today",
