@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../../shared/domain/events/DomainEvent";
+import { DomainEventType } from "../../../../shared/domain/types";
 import { TodoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 import { EventHandler } from "./TaskLogEventHandler";
 
@@ -9,7 +10,7 @@ export class TaskOverdueEvent extends DomainEvent {
     public readonly taskTitle: string,
     public readonly daysSinceInbox: number
   ) {
-    super("TASK_OVERDUE");
+    super(DomainEventType.TASK_OVERDUE);
   }
 
   getEventData(): Record<string, any> {
@@ -31,7 +32,7 @@ export class NotificationHandler implements EventHandler {
   constructor(private database: TodoDatabase) {}
 
   async handle(event: DomainEvent): Promise<void> {
-    if (event.eventType === "TASK_OVERDUE") {
+    if (event.eventType === DomainEventType.TASK_OVERDUE) {
       await this.handleTaskOverdue(event as TaskOverdueEvent);
     }
   }
@@ -39,7 +40,7 @@ export class NotificationHandler implements EventHandler {
   private async handleTaskOverdue(event: TaskOverdueEvent): Promise<void> {
     try {
       // Create a system log for the overdue notification
-      const logId = `task-overdue-${event.taskId}-${event.createdAt}`;
+      const logId = `task-overdue-${event.taskId}-${event.occurredAt.getTime()}`;
 
       await this.database.taskLogs.put({
         id: logId,
@@ -51,7 +52,7 @@ export class NotificationHandler implements EventHandler {
           daysSinceInbox: event.daysSinceInbox,
           notificationSent: true,
         },
-        createdAt: new Date(event.createdAt),
+        createdAt: event.occurredAt,
       });
 
       // Send browser notification if supported and permitted
@@ -117,7 +118,7 @@ export class OverdueTaskChecker {
       .and(
         (task) =>
           task.status === "ACTIVE" &&
-          task.inboxEnteredAt &&
+          task.inboxEnteredAt != null &&
           new Date(task.inboxEnteredAt) <= cutoffDate
       )
       .toArray();

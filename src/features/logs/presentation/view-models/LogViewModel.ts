@@ -11,6 +11,11 @@ import {
   CreateUserLogUseCase,
   CreateUserLogRequest,
 } from "../../../../shared/application/use-cases/CreateUserLogUseCase";
+import {
+  SummarizeLogsUseCase,
+  SummarizeLogsRequest,
+} from "../../../../shared/application/use-cases/SummarizeLogsUseCase";
+import { UserSettingsService } from "../../../onboarding/application/services/UserSettingsService";
 
 /**
  * Log filter options
@@ -38,6 +43,10 @@ export interface LogViewModelState {
     hasNextPage: boolean;
     hasPreviousPage: boolean;
   };
+  // Summarization state
+  summary: string | null;
+  summarizing: boolean;
+  summaryError: string | null;
 
   // Actions
   loadLogs: (request?: GetTaskLogsRequest) => Promise<void>;
@@ -47,6 +56,9 @@ export interface LogViewModelState {
   setFilter: (filter: LogFilter) => void;
   clearError: () => void;
   refreshLogs: () => Promise<void>;
+  // Summarization actions
+  summarizeLogs: (request?: SummarizeLogsRequest) => Promise<void>;
+  clearSummary: () => void;
 
   // Computed properties (as functions)
   getFilteredLogs: () => LogEntry[];
@@ -60,13 +72,20 @@ export interface LogViewModelState {
 export interface LogViewModelDependencies {
   getTaskLogsUseCase: GetTaskLogsUseCase;
   createUserLogUseCase: CreateUserLogUseCase;
+  summarizeLogsUseCase: SummarizeLogsUseCase;
+  userSettingsService: UserSettingsService;
 }
 
 /**
  * Create LogViewModel store
  */
 export const createLogViewModel = (dependencies: LogViewModelDependencies) => {
-  const { getTaskLogsUseCase, createUserLogUseCase } = dependencies;
+  const {
+    getTaskLogsUseCase,
+    createUserLogUseCase,
+    summarizeLogsUseCase,
+    userSettingsService,
+  } = dependencies;
 
   return create<LogViewModelState>((set, get) => ({
     // Initial state
@@ -84,6 +103,10 @@ export const createLogViewModel = (dependencies: LogViewModelDependencies) => {
       hasNextPage: false,
       hasPreviousPage: false,
     },
+    // Summarization state
+    summary: null,
+    summarizing: false,
+    summaryError: null,
 
     // Computed properties as functions
     getFilteredLogs: () => {
@@ -208,6 +231,43 @@ export const createLogViewModel = (dependencies: LogViewModelDependencies) => {
     refreshLogs: async () => {
       const { pagination } = get();
       await get().loadLogs({ page: pagination.page });
+    },
+
+    // Summarization actions
+    summarizeLogs: async (request?: SummarizeLogsRequest) => {
+      set({ summarizing: true, summaryError: null });
+
+      try {
+        // Get LLM settings
+        const llmSettings = await userSettingsService.getLLMSettings();
+
+        const result = await summarizeLogsUseCase.execute(
+          request || {},
+          llmSettings
+        );
+
+        if (result.success) {
+          set({
+            summary: result.data.summary,
+            summarizing: false,
+          });
+        } else {
+          set({
+            summaryError: (result as any).error.message,
+            summarizing: false,
+          });
+        }
+      } catch (error) {
+        set({
+          summaryError:
+            error instanceof Error ? error.message : "Failed to summarize logs",
+          summarizing: false,
+        });
+      }
+    },
+
+    clearSummary: () => {
+      set({ summary: null, summaryError: null });
     },
   }));
 };

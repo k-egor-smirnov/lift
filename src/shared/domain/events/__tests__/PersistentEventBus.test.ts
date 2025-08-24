@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import {
-  PersistentEventBusImpl,
-  PersistentEventHandler,
-  EventProcessingStats,
-} from "../EventBus";
+import { PersistentEventBusImpl, PersistentEventHandler } from "../EventBus";
 import { TodoDatabase } from "../../../infrastructure/database/TodoDatabase";
 import { DomainEvent } from "../DomainEvent";
 import { DomainEventType } from "../../types";
@@ -16,7 +12,6 @@ import { TaskCreatedEvent, TaskCompletedEvent } from "../TaskEvents";
 class TestDatabase extends TodoDatabase {
   constructor() {
     super();
-    this.name = "TestDatabase_" + Math.random().toString(36).substr(2, 9);
   }
 }
 
@@ -172,7 +167,7 @@ describe("PersistentEventBus", () => {
 
       // Manually trigger processing and wait for completion
       // Bypass locking for testing
-      await eventBus["processEventsDirectly"]();
+      await eventBus["processNextBatch"]();
 
       expect(handler1.handledEvents).toHaveLength(1);
       expect(handler1.handledEvents[0].eventType).toBe(
@@ -203,7 +198,7 @@ describe("PersistentEventBus", () => {
       await eventBus.publishAll([event1, event2]);
 
       // Process events
-      await eventBus["processEventsDirectly"]();
+      await eventBus["processNextBatch"]();
 
       expect(globalHandler.handledEvents).toHaveLength(2);
       expect(globalHandler.handledEvents[0].eventType).toBe(
@@ -225,7 +220,7 @@ describe("PersistentEventBus", () => {
       const event2 = new TaskCreatedEvent(taskId2, title, TaskCategory.FOCUS);
 
       await eventBus.publishAll([event1, event2]);
-      await eventBus["processEventsDirectly"]();
+      await eventBus["processNextBatch"]();
 
       expect(globalHandler.handledEvents).toHaveLength(2);
 
@@ -247,13 +242,13 @@ describe("PersistentEventBus", () => {
       const event = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
 
       await eventBus.publishAll([event]);
-      await eventBus["processEventsDirectly"]();
+      await eventBus["processNextBatch"]();
 
       expect(handler1.handledEvents).toHaveLength(1);
 
       // Reset handler and process again
       handler1.reset();
-      await eventBus["processEventsDirectly"]();
+      await eventBus["processNextBatch"]();
 
       // Should not process again
       expect(handler1.handledEvents).toHaveLength(0);
@@ -273,7 +268,7 @@ describe("PersistentEventBus", () => {
       const event = new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE);
 
       await eventBus.publishAll([event]);
-      await eventBus["processEventsDirectly"]();
+      await eventBus["processNextBatch"]();
 
       expect(handler1.handledEvents).toHaveLength(1);
       expect(handler2.handledEvents).toHaveLength(1);
@@ -300,7 +295,7 @@ describe("PersistentEventBus", () => {
       await eventBus.publishAll([event]);
 
       // First attempt - should fail
-      await eventBus["processEventsDirectly"]();
+      await eventBus["processNextBatch"]();
       expect(handler1.handledEvents).toHaveLength(0);
 
       let eventRecord = await database.eventStore.toArray();
@@ -314,7 +309,7 @@ describe("PersistentEventBus", () => {
       });
 
       // Second attempt - should still fail
-      await eventBus["processEventsDirectly"]();
+      await eventBus["processNextBatch"]();
       expect(handler1.handledEvents).toHaveLength(0);
 
       eventRecord = await database.eventStore.toArray();
@@ -326,7 +321,7 @@ describe("PersistentEventBus", () => {
         nextAttemptAt: Date.now() - 1000,
       });
 
-      await eventBus["processEventsDirectly"]();
+      await eventBus["processNextBatch"]();
       expect(handler1.handledEvents).toHaveLength(1);
 
       eventRecord = await database.eventStore.toArray();
@@ -347,7 +342,7 @@ describe("PersistentEventBus", () => {
 
       // Process multiple times to exceed max retries
       for (let i = 0; i < 6; i++) {
-        await eventBus["processEventsDirectly"]();
+        await eventBus["processNextBatch"]();
 
         if (i < 5) {
           // Update nextAttemptAt to allow immediate retry
@@ -483,9 +478,11 @@ describe("PersistentEventBus", () => {
     it("should use Web Locks API when available", async () => {
       // Mock navigator.locks
       const mockLocks = {
-        request: vi.fn().mockImplementation(async (name, options, callback) => {
-          return await callback();
-        }),
+        request: vi
+          .fn()
+          .mockImplementation(async (_name, _options, callback) => {
+            return await callback();
+          }),
       };
 
       Object.defineProperty(navigator, "locks", {

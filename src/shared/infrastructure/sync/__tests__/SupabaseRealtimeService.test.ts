@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { container } from "tsyringe";
 import { SupabaseRealtimeService } from "../../services/SupabaseRealtimeService";
-import { SupabaseClientFactory } from "../../database/SupabaseClient";
-import { TaskLogService } from "../../../application/services/TaskLogService";
-import { DailySelectionRepository } from "../../../domain/repositories/DailySelectionRepository";
+import { taskEventBus } from "../../events/TaskEventBus";
 import * as tokens from "../../di/tokens";
 
 // Мокаем Supabase клиент
@@ -70,7 +68,7 @@ describe("SupabaseRealtimeService", () => {
       tokens.SUPABASE_CLIENT_FACTORY_TOKEN,
       mockSupabaseClientFactory
     );
-    container.registerInstance(tokens.LOG_SERVICE_TOKEN, mockLogService);
+    container.registerInstance(tokens.LLM_SERVICE_TOKEN, mockLogService);
     container.registerInstance(
       tokens.DAILY_SELECTION_REPOSITORY_TOKEN,
       mockDailySelectionRepository
@@ -309,13 +307,13 @@ describe("SupabaseRealtimeService", () => {
 
   describe("handleDailySelectionChange", () => {
     beforeEach(() => {
-      // Подписываемся на события
-      realtimeService.on("daily_selection_changed", mockCallback);
+      // Подписываемся на все события через taskEventBus
+      taskEventBus.subscribeToAll(mockCallback);
     });
 
     it("should handle INSERT event for current date", () => {
       // Arrange
-      const today = new Date().toISOString().split("T")[0];
+      const today = "2023-12-01"; // Use mocked date from test setup
       const payload = {
         eventType: "INSERT" as const,
         new: {
@@ -334,17 +332,26 @@ describe("SupabaseRealtimeService", () => {
       // Act
       (realtimeService as any).handleDailySelectionChange(payload);
 
+      // Debug: Check if callback was called at all
+      console.log("mockCallback call count:", mockCallback.mock.calls.length);
+      if (mockCallback.mock.calls.length > 0) {
+        console.log("mockCallback calls:", mockCallback.mock.calls);
+      }
+
       // Assert
       expect(mockCallback).toHaveBeenCalledWith({
-        eventType: "INSERT",
-        data: payload.new,
-        date: today,
+        type: "TASK_ADDED_TO_TODAY",
+        taskId: "task-1",
+        timestamp: expect.any(Date),
+        data: {
+          date: today,
+        },
       });
     });
 
     it("should handle UPDATE event for current date", () => {
       // Arrange
-      const today = new Date().toISOString().split("T")[0];
+      const today = "2023-12-01"; // Use mocked date from test setup
       const payload = {
         eventType: "UPDATE" as const,
         new: {
@@ -373,15 +380,18 @@ describe("SupabaseRealtimeService", () => {
 
       // Assert
       expect(mockCallback).toHaveBeenCalledWith({
-        eventType: "UPDATE",
-        data: payload.new,
-        date: today,
+        type: "TASK_ADDED_TO_TODAY",
+        taskId: "task-1",
+        timestamp: expect.any(Date),
+        data: {
+          date: today,
+        },
       });
     });
 
     it("should handle soft delete (UPDATE with deleted_at) as DELETE event", () => {
       // Arrange
-      const today = new Date().toISOString().split("T")[0];
+      const today = "2023-12-01"; // Use mocked date from test setup
       const payload = {
         eventType: "UPDATE" as const,
         new: {
@@ -410,15 +420,18 @@ describe("SupabaseRealtimeService", () => {
 
       // Assert
       expect(mockCallback).toHaveBeenCalledWith({
-        eventType: "DELETE",
-        data: payload.new,
-        date: today,
+        type: "TASK_REMOVED_FROM_TODAY",
+        taskId: "task-1",
+        timestamp: expect.any(Date),
+        data: {
+          date: today,
+        },
       });
     });
 
     it("should ignore soft-deleted records for INSERT events", () => {
       // Arrange
-      const today = new Date().toISOString().split("T")[0];
+      const today = "2023-12-01"; // Use mocked date from test setup
       const payload = {
         eventType: "INSERT" as const,
         new: {
@@ -443,9 +456,7 @@ describe("SupabaseRealtimeService", () => {
 
     it("should ignore events for different dates", () => {
       // Arrange
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0];
+      const yesterday = "2023-11-30"; // Use mocked yesterday from test setup
       const payload = {
         eventType: "INSERT" as const,
         new: {
@@ -468,9 +479,9 @@ describe("SupabaseRealtimeService", () => {
       expect(mockCallback).not.toHaveBeenCalled();
     });
 
-    it("should handle DELETE event for current date", () => {
+    it("should handle DELETE event for current date", async () => {
       // Arrange
-      const today = new Date().toISOString().split("T")[0];
+      const today = "2023-12-01"; // Use mocked date from test setup
       const payload = {
         eventType: "DELETE" as const,
         new: {},
@@ -487,13 +498,23 @@ describe("SupabaseRealtimeService", () => {
       };
 
       // Act
-      (realtimeService as any).handleDailySelectionChange(payload);
+      try {
+        console.log("About to call handleDailySelectionChange");
+        await (realtimeService as any).handleDailySelectionChange(payload);
+        console.log("handleDailySelectionChange completed");
+      } catch (error) {
+        console.error("Error in handleDailySelectionChange:", error);
+        throw error;
+      }
 
       // Assert
       expect(mockCallback).toHaveBeenCalledWith({
-        eventType: "DELETE",
-        data: payload.old,
-        date: today,
+        type: "TASK_REMOVED_FROM_TODAY",
+        taskId: "task-1",
+        timestamp: expect.any(Date),
+        data: {
+          date: today,
+        },
       });
     });
   });

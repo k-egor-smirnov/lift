@@ -4,19 +4,10 @@ import {
   USER_SETTINGS_KEYS,
   DEFAULT_USER_SETTINGS,
 } from "../UserSettingsService";
-import { UserSettingsRepository } from "../../../../../shared/domain/repositories/UserSettingsRepository";
+import { createMockUserSettingsRepository } from "../../../../../test/utils/mockFactories";
 
 // Mock repository
-const mockUserSettingsRepository: jest.Mocked<UserSettingsRepository> = {
-  get: vi.fn(),
-  set: vi.fn(),
-  getMany: vi.fn(),
-  setMany: vi.fn(),
-  has: vi.fn(),
-  remove: vi.fn(),
-  getAll: vi.fn(),
-  clear: vi.fn(),
-};
+const mockUserSettingsRepository = createMockUserSettingsRepository();
 
 describe("UserSettingsService", () => {
   let userSettingsService: UserSettingsService;
@@ -36,6 +27,7 @@ describe("UserSettingsService", () => {
         inboxOverdueDays:
           DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
         keyboardShortcutsEnabled: true, // Default for non-mobile
+        llmSettings: DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.LLM_SETTINGS],
       });
     });
 
@@ -43,6 +35,14 @@ describe("UserSettingsService", () => {
       mockUserSettingsRepository.getAll.mockResolvedValue({
         [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]: 5,
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: false,
+        [USER_SETTINGS_KEYS.LLM_SETTINGS]: {
+          enabled: true,
+          apiUrl: "https://custom.api.com",
+          apiKey: "test-key",
+          model: "gpt-4",
+          maxTokens: 2000,
+          temperature: 0.5,
+        },
       });
 
       const result = await userSettingsService.getUserSettings();
@@ -50,6 +50,14 @@ describe("UserSettingsService", () => {
       expect(result).toEqual({
         inboxOverdueDays: 5,
         keyboardShortcutsEnabled: false,
+        llmSettings: {
+          enabled: true,
+          apiUrl: "https://custom.api.com",
+          apiKey: "test-key",
+          model: "gpt-4",
+          maxTokens: 2000,
+          temperature: 0.5,
+        },
       });
     });
 
@@ -64,6 +72,7 @@ describe("UserSettingsService", () => {
       expect(result).toEqual({
         inboxOverdueDays: 7,
         keyboardShortcutsEnabled: true, // Default
+        llmSettings: DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.LLM_SETTINGS],
       });
     });
   });
@@ -179,6 +188,8 @@ describe("UserSettingsService", () => {
         [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]:
           DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: true, // Default for non-mobile
+        [USER_SETTINGS_KEYS.LLM_SETTINGS]:
+          DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.LLM_SETTINGS],
       });
     });
   });
@@ -194,6 +205,8 @@ describe("UserSettingsService", () => {
 
       expect(mockUserSettingsRepository.setMany).toHaveBeenCalledWith({
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: true,
+        [USER_SETTINGS_KEYS.LLM_SETTINGS]:
+          DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.LLM_SETTINGS],
       });
     });
 
@@ -201,6 +214,14 @@ describe("UserSettingsService", () => {
       mockUserSettingsRepository.getAll.mockResolvedValue({
         [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]: 5,
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: false,
+        [USER_SETTINGS_KEYS.LLM_SETTINGS]: {
+          enabled: true,
+          apiUrl: "https://custom.api.com",
+          apiKey: "test-key",
+          model: "gpt-4",
+          maxTokens: 2000,
+          temperature: 0.5,
+        },
       });
 
       await userSettingsService.initializeDefaults();
@@ -217,6 +238,8 @@ describe("UserSettingsService", () => {
         [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]:
           DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: true,
+        [USER_SETTINGS_KEYS.LLM_SETTINGS]:
+          DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.LLM_SETTINGS],
       });
     });
   });

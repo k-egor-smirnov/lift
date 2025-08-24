@@ -7,11 +7,15 @@ export type Result<T, E = Error> = Success<T> | Failure<E>;
 export interface Success<T> {
   readonly success: true;
   readonly data: T;
+  isSuccess(): this is Success<T>;
+  isFailure(): this is Failure<any>;
 }
 
 export interface Failure<E> {
   readonly success: false;
   readonly error: E;
+  isSuccess(): this is Success<any>;
+  isFailure(): this is Failure<E>;
 }
 
 /**
@@ -25,6 +29,12 @@ export class ResultUtils {
     return {
       success: true,
       data,
+      isSuccess(): this is Success<T> {
+        return true;
+      },
+      isFailure(): this is Failure<any> {
+        return false;
+      },
     };
   }
 
@@ -35,6 +45,12 @@ export class ResultUtils {
     return {
       success: false,
       error,
+      isSuccess(): this is Success<any> {
+        return false;
+      },
+      isFailure(): this is Failure<E> {
+        return true;
+      },
     };
   }
 
@@ -109,5 +125,24 @@ export class ResultUtils {
       return result.data;
     }
     return defaultValue;
+  }
+}
+
+/**
+ * Result factory class with factory methods for backward compatibility
+ */
+export class ResultFactory {
+  /**
+   * Create a successful result
+   */
+  static success<T>(data: T): Success<T> {
+    return ResultUtils.ok(data);
+  }
+
+  /**
+   * Create a failure result
+   */
+  static failure<E>(error: E): Failure<E> {
+    return ResultUtils.error(error);
   }
 }

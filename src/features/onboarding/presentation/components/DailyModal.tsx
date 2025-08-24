@@ -1,9 +1,6 @@
 import React from "react";
 import {
-  Zap,
-  Target,
   Inbox,
-  FileText,
   Sunrise,
   Clock,
   AlertTriangle,
@@ -13,7 +10,6 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Task } from "../../../../shared/domain/entities/Task";
-import { TaskCategory } from "../../../../shared/domain/types";
 
 interface DailyModalProps {
   isVisible: boolean;
@@ -52,32 +48,6 @@ export const DailyModal: React.FC<DailyModalProps> = ({
       month: "long",
       day: "numeric",
     });
-  };
-
-  const getCategoryIcon = (category: TaskCategory) => {
-    switch (category) {
-      case TaskCategory.SIMPLE:
-        return Zap;
-      case TaskCategory.FOCUS:
-        return Target;
-      case TaskCategory.INBOX:
-        return Inbox;
-      default:
-        return FileText;
-    }
-  };
-
-  const getCategoryColor = (category: TaskCategory) => {
-    switch (category) {
-      case TaskCategory.SIMPLE:
-        return "text-green-600";
-      case TaskCategory.FOCUS:
-        return "text-blue-600";
-      case TaskCategory.INBOX:
-        return "text-orange-600";
-      default:
-        return "text-gray-600";
-    }
   };
 
   const hasContent =

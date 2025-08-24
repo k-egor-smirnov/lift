@@ -6,6 +6,8 @@ import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../domain/types";
 import { TodoDatabase, TaskRecord } from "../database/TodoDatabase";
+import type { Result } from "../../domain/Result";
+import { ResultFactory } from "../../domain/Result";
 import * as tokens from "../di/tokens";
 
 /**
@@ -139,6 +141,57 @@ export class TaskRepositoryImpl implements TaskRepository {
   async exists(id: TaskId): Promise<boolean> {
     const record = await this.db.tasks.get(id.value);
     return record !== undefined && !record.deletedAt;
+  }
+
+  async findTasksCreatedInDateRange(
+    startDate: DateOnly,
+    endDate: DateOnly
+  ): Promise<Result<Task[]>> {
+    try {
+      const startTime = startDate.toDate().getTime();
+      const endTime = endDate.toDate().getTime() + 24 * 60 * 60 * 1000 - 1; // End of day
+
+      const records = await this.db.tasks
+        .filter((record) => {
+          if (record.deletedAt) return false;
+          const createdTime = record.createdAt.getTime();
+          return createdTime >= startTime && createdTime <= endTime;
+        })
+        .sortBy("createdAt");
+
+      const tasks = records.map((record) => this.mapRecordToEntity(record));
+      return ResultFactory.success(tasks);
+    } catch (error) {
+      return ResultFactory.failure(
+        new Error(`Failed to find tasks created in date range: ${error}`)
+      );
+    }
+  }
+
+  async findTasksCompletedInDateRange(
+    startDate: DateOnly,
+    endDate: DateOnly
+  ): Promise<Result<Task[]>> {
+    try {
+      const startTime = startDate.toDate().getTime();
+      const endTime = endDate.toDate().getTime() + 24 * 60 * 60 * 1000 - 1; // End of day
+
+      const records = await this.db.tasks
+        .filter((record) => {
+          if (record.deletedAt) return false;
+          if (record.status !== TaskStatus.COMPLETED) return false;
+          const updatedTime = record.updatedAt.getTime();
+          return updatedTime >= startTime && updatedTime <= endTime;
+        })
+        .sortBy("updatedAt");
+
+      const tasks = records.map((record) => this.mapRecordToEntity(record));
+      return ResultFactory.success(tasks);
+    } catch (error) {
+      return ResultFactory.failure(
+        new Error(`Failed to find tasks completed in date range: ${error}`)
+      );
+    }
   }
 
   /**

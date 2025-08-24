@@ -7,6 +7,7 @@ import {
   LogViewModelDependencies,
 } from "../view-models/LogViewModel";
 import { Button } from "../../../../shared/ui/button";
+import { InlineLogCreator } from "../../../../shared/ui/components/InlineLogCreator";
 
 interface AllLogsViewProps {
   dependencies: LogViewModelDependencies;
@@ -29,8 +30,14 @@ export const AllLogsView: React.FC<AllLogsViewProps> = ({ dependencies }) => {
     loadNextPage,
     setFilter,
     clearError,
-    refreshLogs,
     hasLogs,
+    createUserLog,
+    // Summarization state and actions
+    summary,
+    summarizing,
+    summaryError,
+    summarizeLogs,
+    clearSummary,
   } = logViewModel();
 
   // Load logs on component mount
@@ -41,7 +48,7 @@ export const AllLogsView: React.FC<AllLogsViewProps> = ({ dependencies }) => {
       sortOrder: "desc",
     };
     loadLogs(initialRequest);
-  }, [loadLogs]);
+  }, []); // Убираем loadLogs из зависимостей
 
   // Handle filter change
   const handleFilterChange = (filter: LogTypeFilter) => {
@@ -51,16 +58,26 @@ export const AllLogsView: React.FC<AllLogsViewProps> = ({ dependencies }) => {
     setFilter({ logType });
   };
 
-  // Handle refresh
-  const handleRefresh = () => {
-    refreshLogs();
-  };
-
   // Handle load more
   const handleLoadMore = () => {
     if (pagination.hasNextPage && !loading) {
       loadNextPage();
     }
+  };
+
+  // Handle create manual log
+  const handleCreateLog = async (message: string): Promise<boolean> => {
+    return await createUserLog({ message });
+  };
+
+  // Handle summarize logs
+  const handleSummarizeLogs = () => {
+    summarizeLogs();
+  };
+
+  // Handle clear summary
+  const handleClearSummary = () => {
+    clearSummary();
   };
 
   const filterButtons: { key: LogTypeFilter; label: string; count?: number }[] =
@@ -73,27 +90,55 @@ export const AllLogsView: React.FC<AllLogsViewProps> = ({ dependencies }) => {
 
   return (
     <div className="space-y-6">
-      {/* Filter Buttons */}
-      <div className="flex flex-wrap gap-2">
-        {filterButtons.map((filter) => (
-          <Button
-            key={filter.key}
-            onClick={() => handleFilterChange(filter.key)}
-            variant={activeFilter === filter.key ? "default" : "outline"}
-            size="sm"
-            className="flex items-center space-x-2"
-          >
-            <span>{filter.label}</span>
-            {filter.count !== undefined && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs bg-gray-100 rounded-full">
-                {filter.count}
-              </span>
-            )}
-          </Button>
-        ))}
+      {/* Manual Log Creator */}
+      <div className="mb-6">
+        <InlineLogCreator
+          onCreateLog={handleCreateLog}
+          placeholder={t("logs.addManualLog", "Добавить заметку...")}
+        />
       </div>
 
-      {/* Error Message */}
+      {/* Filter Buttons and Summarize Button */}
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <div className="flex flex-wrap gap-2">
+          {filterButtons.map((filter) => (
+            <Button
+              key={filter.key}
+              onClick={() => handleFilterChange(filter.key)}
+              variant={activeFilter === filter.key ? "default" : "outline"}
+              size="sm"
+              className="flex items-center space-x-2"
+            >
+              <span>{filter.label}</span>
+              {filter.count !== undefined && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs bg-gray-100 rounded-full">
+                  {filter.count}
+                </span>
+              )}
+            </Button>
+          ))}
+        </div>
+
+        {/* Summarize Button */}
+        <Button
+          onClick={handleSummarizeLogs}
+          disabled={summarizing || !hasLogs()}
+          variant="outline"
+          size="sm"
+          className="flex items-center space-x-2"
+        >
+          {summarizing ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span>{t("logs.summarizing")}</span>
+            </>
+          ) : (
+            <span>{t("logs.summarize")}</span>
+          )}
+        </Button>
+      </div>
+
+      {/* Error Messages */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
@@ -106,6 +151,44 @@ export const AllLogsView: React.FC<AllLogsViewProps> = ({ dependencies }) => {
             >
               {t("common.dismiss", "Dismiss")}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {summaryError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-red-600">{summaryError}</p>
+            <Button
+              onClick={handleClearSummary}
+              variant="ghost"
+              size="sm"
+              className="text-red-600 hover:text-red-700"
+            >
+              {t("common.dismiss", "Dismiss")}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Summary Display */}
+      {summary && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="text-sm font-medium text-blue-900">
+              {t("logs.summaryTitle")}
+            </h3>
+            <Button
+              onClick={handleClearSummary}
+              variant="ghost"
+              size="sm"
+              className="text-blue-600 hover:text-blue-700 -mt-1"
+            >
+              ×
+            </Button>
+          </div>
+          <div className="text-sm text-blue-800 whitespace-pre-wrap">
+            {summary}
           </div>
         </div>
       )}

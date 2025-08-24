@@ -1,52 +1,20 @@
-import { describe, it, expect, beforeEach, vi, Mock } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { OnboardingService } from "../OnboardingService";
-import { TaskRepository } from "../../../../../shared/domain/repositories/TaskRepository";
-import { DailySelectionRepository } from "../../../../../shared/domain/repositories/DailySelectionRepository";
-import { TaskLogService } from "../../../../../shared/application/services/TaskLogService";
 import { Task } from "../../../../../shared/domain/entities/Task";
 import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../../../shared/domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../../../../shared/domain/types";
+import {
+  createMockTaskRepository,
+  createMockDailySelectionRepository,
+  createMockUserSettingsService,
+} from "../../../../../test/utils/mockFactories";
 
 // Mock repositories
-const mockTaskRepository: Mock<TaskRepository> = {
-  findById: vi.fn(),
-  findAll: vi.fn(),
-  findByCategory: vi.fn(),
-  findByStatus: vi.fn(),
-  findByCategoryAndStatus: vi.fn(),
-  findOverdueTasks: vi.fn(),
-  save: vi.fn(),
-  saveMany: vi.fn(),
-  delete: vi.fn(),
-  count: vi.fn(),
-  countByCategory: vi.fn(),
-  exists: vi.fn(),
-};
-
-const mockDailySelectionRepository: Mock<DailySelectionRepository> = {
-  addTaskToDay: vi.fn(),
-  removeTaskFromDay: vi.fn(),
-  getTasksForDay: vi.fn(),
-  getTaskIdsForDay: vi.fn(),
-  isTaskSelectedForDay: vi.fn(),
-  markTaskCompleted: vi.fn(),
-  getTaskCompletionStatus: vi.fn(),
-  getDailySelectionsForRange: vi.fn(),
-  clearDay: vi.fn(),
-  countTasksForDay: vi.fn(),
-  getLastSelectionDateForTask: vi.fn(),
-};
-
-const mockLogService: Mock<TaskLogService> = {
-  createLog: vi.fn(),
-  getLogs: vi.fn(),
-  getLogsByType: vi.fn(),
-  getLogsByDateRange: vi.fn(),
-  clearLogs: vi.fn(),
-  clearLogsByType: vi.fn(),
-};
+const mockTaskRepository = createMockTaskRepository();
+const mockDailySelectionRepository = createMockDailySelectionRepository();
+const mockUserSettingsService = createMockUserSettingsService();
 
 describe("OnboardingService", () => {
   let onboardingService: OnboardingService;
@@ -56,7 +24,7 @@ describe("OnboardingService", () => {
     onboardingService = new OnboardingService(
       mockTaskRepository,
       mockDailySelectionRepository,
-      mockLogService
+      mockUserSettingsService
     );
   });
 

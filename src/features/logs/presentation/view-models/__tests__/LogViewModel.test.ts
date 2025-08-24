@@ -5,6 +5,8 @@ import {
   LogEntry,
 } from "../../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { CreateUserLogUseCase } from "../../../../../shared/application/use-cases/CreateUserLogUseCase";
+import { SummarizeLogsUseCase } from "../../../../../shared/application/use-cases/SummarizeLogsUseCase";
+import { UserSettingsService } from "../../../../onboarding/application/services/UserSettingsService";
 import { ResultUtils } from "../../../../../shared/domain/Result";
 
 // Mock dependencies
@@ -16,9 +18,28 @@ const mockCreateUserLogUseCase = {
   execute: vi.fn(),
 } as unknown as CreateUserLogUseCase;
 
+const mockSummarizeLogsUseCase = {
+  execute: vi.fn(),
+} as unknown as SummarizeLogsUseCase;
+
+const mockUserSettingsService = {
+  getUserSettings: vi.fn(),
+  updateUserSettings: vi.fn(),
+  getInboxOverdueDays: vi.fn(),
+  setInboxOverdueDays: vi.fn(),
+  getKeyboardShortcutsEnabled: vi.fn(),
+  setKeyboardShortcutsEnabled: vi.fn(),
+  getLLMSettings: vi.fn(),
+  setLLMSettings: vi.fn(),
+  resetToDefaults: vi.fn(),
+  initializeDefaults: vi.fn(),
+} as unknown as UserSettingsService;
+
 const dependencies: LogViewModelDependencies = {
   getTaskLogsUseCase: mockGetTaskLogsUseCase,
   createUserLogUseCase: mockCreateUserLogUseCase,
+  summarizeLogsUseCase: mockSummarizeLogsUseCase,
+  userSettingsService: mockUserSettingsService,
 };
 
 describe("LogViewModel", () => {
@@ -46,7 +67,7 @@ describe("LogViewModel", () => {
     it("should load logs successfully", async () => {
       const mockLogs: LogEntry[] = [
         {
-          id: 1,
+          id: "1",
           taskId: "task-1",
           type: "USER",
           message: "Test log",
@@ -99,7 +120,9 @@ describe("LogViewModel", () => {
         resolvePromise = resolve;
       });
 
-      vi.mocked(mockGetTaskLogsUseCase.execute).mockReturnValue(promise);
+      vi.mocked(mockGetTaskLogsUseCase.execute).mockResolvedValue(
+        promise as any
+      );
 
       const loadPromise = viewModel.getState().loadLogs();
 
@@ -223,21 +246,21 @@ describe("LogViewModel", () => {
     it("should filter logs correctly", () => {
       const mockLogs: LogEntry[] = [
         {
-          id: 1,
+          id: "1",
           taskId: "task-1",
           type: "USER",
           message: "User log",
           createdAt: new Date(),
         },
         {
-          id: 2,
+          id: "2",
           taskId: "task-1",
           type: "SYSTEM",
           message: "System log",
           createdAt: new Date(),
         },
         {
-          id: 3,
+          id: "3",
           taskId: "task-2",
           type: "USER",
           message: "Another user log",
@@ -264,19 +287,19 @@ describe("LogViewModel", () => {
     it("should group logs by type", () => {
       const mockLogs: LogEntry[] = [
         {
-          id: 1,
+          id: "1",
           type: "USER",
           message: "User log",
           createdAt: new Date(),
         },
         {
-          id: 2,
+          id: "2",
           type: "SYSTEM",
           message: "System log",
           createdAt: new Date(),
         },
         {
-          id: 3,
+          id: "3",
           type: "USER",
           message: "Another user log",
           createdAt: new Date(),
@@ -296,7 +319,7 @@ describe("LogViewModel", () => {
       viewModel.setState({
         logs: [
           {
-            id: 1,
+            id: "1",
             type: "USER",
             message: "Test log",
             createdAt: new Date(),

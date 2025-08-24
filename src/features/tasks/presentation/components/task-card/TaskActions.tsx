@@ -11,10 +11,7 @@ import {
   FileText,
   File,
 } from "lucide-react";
-import {
-  parseChecklistProgress,
-  formatChecklistProgress,
-} from "../../../../../shared/utils/checklistUtils";
+
 import {
   DropdownMenu,
   DropdownMenuContent,

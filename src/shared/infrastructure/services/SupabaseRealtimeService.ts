@@ -1,18 +1,19 @@
 import { injectable, inject } from "tsyringe";
 import { SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
+import { RealtimePostgresChangesPayload } from "@supabase/realtime-js";
 import {
   SupabaseClientFactory,
   Database,
   SupabaseUtils,
 } from "../database/SupabaseClient";
 import { TaskRepository } from "../../domain/repositories/TaskRepository";
-import { DailySelectionRepository } from "../../domain/repositories/DailySelectionRepository";
 import { Task } from "../../domain/entities/Task";
 import { TaskId } from "../../domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../domain/types";
 import { taskEventBus } from "../events/TaskEventBus";
+import { TaskEventType } from "../../domain/events/TaskEvent";
 import * as tokens from "../di/tokens";
 
 /**
@@ -36,9 +37,7 @@ export class SupabaseRealtimeService {
     @inject(tokens.SUPABASE_CLIENT_FACTORY_TOKEN)
     private clientFactory: SupabaseClientFactory,
     @inject(tokens.TASK_REPOSITORY_TOKEN)
-    private taskRepository: TaskRepository,
-    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN)
-    private dailySelectionRepository: DailySelectionRepository
+    private taskRepository: TaskRepository
   ) {
     this.client = this.clientFactory.getClient();
     this.initializeUserId();
@@ -76,7 +75,7 @@ export class SupabaseRealtimeService {
               table: "tasks",
               filter: `user_id=eq.${this.userId}`,
             },
-            (payload) => this.handleTaskChange(payload)
+            (payload: any) => this.handleTaskChange(payload)
           )
           .on("system", {}, (payload) => this.handleSystemEvent(payload))
           .subscribe((status, error) => {
@@ -126,7 +125,7 @@ export class SupabaseRealtimeService {
             table: "daily_selection_entries",
             filter: `user_id=eq.${this.userId}`,
           },
-          (payload) => this.handleDailySelectionChange(payload)
+          (payload: any) => this.handleDailySelectionChange(payload)
         )
         .on("system", {}, (payload) => this.handleSystemEvent(payload))
         .subscribe((status, error) => {
@@ -237,7 +236,11 @@ export class SupabaseRealtimeService {
   /**
    * Обрабатывает изменения задач из real-time канала
    */
-  private async handleTaskChange(payload: any): Promise<void> {
+  private async handleTaskChange(
+    payload: RealtimePostgresChangesPayload<
+      Database["public"]["Tables"]["tasks"]["Row"]
+    >
+  ): Promise<void> {
     try {
       const { eventType, new: newRecord, old: oldRecord } = payload;
 
@@ -246,10 +249,14 @@ export class SupabaseRealtimeService {
           await this.handleTaskInsert(newRecord);
           break;
         case "UPDATE":
-          await this.handleTaskUpdate(newRecord, oldRecord);
+          await this.handleTaskUpdate(newRecord);
           break;
         case "DELETE":
-          await this.handleTaskDelete(oldRecord);
+          if (oldRecord && "id" in oldRecord) {
+            await this.handleTaskDelete(
+              oldRecord as Database["public"]["Tables"]["tasks"]["Row"]
+            );
+          }
           break;
         default:
           console.warn("Unknown event type:", eventType);
@@ -262,43 +269,83 @@ export class SupabaseRealtimeService {
   /**
    * Обрабатывает изменения ежедневного выбора
    */
-  private async handleDailySelectionChange(payload: any): Promise<void> {
+  private async handleDailySelectionChange(
+    payload: RealtimePostgresChangesPayload<
+      Database["public"]["Tables"]["daily_selection_entries"]["Row"]
+    >
+  ): Promise<void> {
     try {
       let { eventType, new: newRecord, old: oldRecord } = payload;
-      const record = newRecord || oldRecord;
+      // Для DELETE событий используем oldRecord, для остальных - newRecord
+      const record =
+        eventType === "DELETE" ? oldRecord : newRecord || oldRecord;
 
       if (!record) {
         console.warn("No record found in daily selection change payload");
         return;
       }
 
-      // Игнорируем soft-удаленные записи (кроме случая, когда это само событие soft delete)
-      if (record.deleted_at && eventType !== "UPDATE") {
+      // Игнорируем soft-удаленные записи для INSERT событий
+      // Для DELETE событий обрабатываем независимо от deleted_at
+      if (
+        "deleted_at" in record &&
+        record.deleted_at &&
+        eventType === "INSERT"
+      ) {
         return;
       }
 
       // Для UPDATE событий проверяем, не является ли это soft delete
       if (
         eventType === "UPDATE" &&
-        newRecord?.deleted_at &&
-        !oldRecord?.deleted_at
+        newRecord &&
+        "deleted_at" in newRecord &&
+        newRecord.deleted_at &&
+        (!oldRecord || !("deleted_at" in oldRecord) || !oldRecord.deleted_at)
       ) {
         // Это soft delete - обрабатываем как удаление
         eventType = "DELETE";
       }
 
+      // Проверяем, что record содержит необходимые поля
+      if (!("date" in record) || !("task_id" in record)) {
+        console.warn("Record missing required fields (date or task_id)");
+        return;
+      }
+
       // Получаем текущую дату для проверки актуальности изменения
       const today = DateOnly.today();
-      const recordDate = DateOnly.fromString(record.date);
+
+      // Проверяем, что у записи есть дата
+      if (!record.date) {
+        console.warn("No date found in record:", record);
+        return;
+      }
+
+      const recordDate = DateOnly.fromString(record.date as string);
 
       // Обрабатываем только изменения для сегодняшней даты
       if (recordDate.equals(today)) {
-        // Эмитируем событие для обновления списка задач на сегодня
-        taskEventBus.emit("daily_selection_changed", {
-          type: eventType.toLowerCase(),
-          entry: record,
-          date: recordDate,
-        });
+        // Эмитируем соответствующее событие в зависимости от типа изменения
+        if (eventType === "INSERT" || eventType === "UPDATE") {
+          taskEventBus.emit({
+            type: TaskEventType.TASK_ADDED_TO_TODAY,
+            taskId: record.task_id as string,
+            timestamp: new Date(),
+            data: {
+              date: recordDate.toString(),
+            },
+          });
+        } else if (eventType === "DELETE") {
+          taskEventBus.emit({
+            type: TaskEventType.TASK_REMOVED_FROM_TODAY,
+            taskId: record.task_id as string,
+            timestamp: new Date(),
+            data: {
+              date: recordDate.toString(),
+            },
+          });
+        }
 
         console.log(`Daily selection ${eventType} for today:`, record);
       }
@@ -327,8 +374,7 @@ export class SupabaseRealtimeService {
    * Обрабатывает обновление задачи
    */
   private async handleTaskUpdate(
-    newRecord: Database["public"]["Tables"]["tasks"]["Row"],
-    oldRecord: Database["public"]["Tables"]["tasks"]["Row"]
+    newRecord: Database["public"]["Tables"]["tasks"]["Row"]
   ): Promise<void> {
     const taskId = new TaskId(newRecord.id);
     const localTask = await this.taskRepository.findById(taskId);
@@ -367,7 +413,9 @@ export class SupabaseRealtimeService {
   /**
    * Обрабатывает системные события канала
    */
-  private async handleSystemEvent(payload: any): Promise<void> {
+  private async handleSystemEvent(
+    payload: RealtimePostgresChangesPayload<any>
+  ): Promise<void> {
     console.log("System event:", payload);
   }
 

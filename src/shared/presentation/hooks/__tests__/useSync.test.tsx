@@ -9,13 +9,9 @@ import {
 } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useSync } from "../useSync";
-import {
-  getSyncService,
-  getRealtimeService,
-} from "../../infrastructure/di/syncContainer";
 
 // Мокаем DI контейнер для синхронизации
-vi.mock("../../infrastructure/di/syncContainer", () => {
+vi.mock("../../../infrastructure/di/syncContainer", () => {
   const mockSyncService = {
     performSync: vi.fn(),
     performBackgroundSync: vi.fn(),
@@ -58,8 +54,10 @@ describe("useSync", () => {
   let mockSyncService: any;
   let mockRealtimeService: any;
 
-  beforeAll(async () => {
-    const module = await import("../../infrastructure/di/syncContainer");
+  beforeAll(() => {
+    const module = vi.mocked(
+      require("../../../infrastructure/di/syncContainer")
+    );
     mockSyncService = module.mockSyncService;
     mockRealtimeService = module.mockRealtimeService;
   });

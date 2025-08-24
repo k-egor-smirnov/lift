@@ -66,21 +66,24 @@ export const useStatsViewModel = create<StatsState>((set, get) => ({
 
     try {
       switch (selectedPeriod) {
-        case "day":
+        case "day": {
           const dailyStats =
             await statisticsService.getDailyStatistics(selectedDate);
           set({ dailyStats });
           break;
-        case "week":
+        }
+        case "week": {
           const weeklyStats =
             await statisticsService.getWeeklyStatistics(selectedDate);
           set({ weeklyStats });
           break;
-        case "month":
+        }
+        case "month": {
           const monthlyStats =
             await statisticsService.getMonthlyStatistics(selectedDate);
           set({ monthlyStats });
           break;
+        }
       }
     } catch (error) {
       set({
@@ -100,24 +103,27 @@ export const useStatsViewModel = create<StatsState>((set, get) => ({
       let endDate: Date;
 
       switch (selectedPeriod) {
-        case "day":
+        case "day": {
           // Show last 7 days for daily view
           startDate = new Date(selectedDate);
           startDate.setDate(startDate.getDate() - 6);
           endDate = new Date(selectedDate);
           break;
-        case "week":
+        }
+        case "week": {
           // Show last 4 weeks for weekly view (as daily data)
           startDate = new Date(selectedDate);
           startDate.setDate(startDate.getDate() - 27); // 4 weeks = 28 days
           endDate = new Date(selectedDate);
           break;
-        case "month":
+        }
+        case "month": {
           // Show last 30 days for monthly view
           startDate = new Date(selectedDate);
           startDate.setDate(startDate.getDate() - 29);
           endDate = new Date(selectedDate);
           break;
+        }
       }
 
       const chartData = await statisticsService.getDailyStatisticsRange(
@@ -136,15 +142,18 @@ export const useStatsViewModel = create<StatsState>((set, get) => ({
     const multiplier = direction === "next" ? 1 : -1;
 
     switch (selectedPeriod) {
-      case "day":
+      case "day": {
         newDate.setDate(newDate.getDate() + multiplier);
         break;
-      case "week":
+      }
+      case "week": {
         newDate.setDate(newDate.getDate() + 7 * multiplier);
         break;
-      case "month":
+      }
+      case "month": {
         newDate.setMonth(newDate.getMonth() + multiplier);
         break;
+      }
     }
 
     get().setDate(newDate);
@@ -161,10 +170,11 @@ export const formatPeriodLabel = (period: StatsPeriod, date: Date): string => {
         month: "long",
         day: "numeric",
       });
-    case "week":
+    case "week": {
       const weekStart = getWeekStart(date);
       const weekEnd = getWeekEnd(date);
       return `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+    }
     case "month":
       return date.toLocaleDateString("en-US", {
         year: "numeric",

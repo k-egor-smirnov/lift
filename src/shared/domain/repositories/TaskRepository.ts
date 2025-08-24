@@ -1,6 +1,8 @@
 import { Task } from "../entities/Task";
 import { TaskId } from "../value-objects/TaskId";
 import { TaskCategory, TaskStatus } from "../types";
+import { DateOnly } from "../value-objects/DateOnly";
+import type { Result } from "../Result";
 
 /**
  * Repository interface for Task entity operations
@@ -68,4 +70,20 @@ export interface TaskRepository {
    * Check if a task exists
    */
   exists(id: TaskId): Promise<boolean>;
+
+  /**
+   * Find tasks created in date range
+   */
+  findTasksCreatedInDateRange(
+    startDate: DateOnly,
+    endDate: DateOnly
+  ): Promise<Result<Task[], Error>>;
+
+  /**
+   * Find tasks completed in date range
+   */
+  findTasksCompletedInDateRange(
+    startDate: DateOnly,
+    endDate: DateOnly
+  ): Promise<Result<Task[], Error>>;
 }

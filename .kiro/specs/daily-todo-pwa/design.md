@@ -365,19 +365,7 @@ class CompleteTaskUseCase {
         // 1. Mutate task
         await this.taskRepo.save(task);
 
-        // 2. Add syncQueue entry
-        await this.database.syncQueue.add({
-          id: ulid(),
-          entityType: "task",
-          entityId: task.id.value,
-          operation: "update",
-          payloadHash: hashObject(task),
-          attemptCount: 0,
-          createdAt: new Date(),
-          nextAttemptAt: Date.now(),
-        });
-
-        // 3. Add eventStore records
+        // 2. Add eventStore records
         await this.eventBus.publishAll(events);
 
         // Никаких обработчиков внутри транзакции

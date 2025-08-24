@@ -1,8 +1,7 @@
-import { beforeEach, afterEach, vi, expect } from "vitest";
+import { vi, expect } from "vitest";
 import { container } from "../../shared/infrastructure/di";
 import { ResultUtils } from "@/shared/domain/Result";
 import { TaskId } from "../../shared/domain/value-objects/TaskId";
-import { ulid } from "ulid";
 
 /**
  * Common test setup utilities
@@ -200,7 +199,6 @@ export class TestDateUtils {
  */
 export class TestTaskIdUtils {
   private static readonly TEST_TASK_IDS: string[] = [];
-  private static counter = 0;
 
   /**
    * Generate a valid ULID-based TaskId for testing
@@ -212,17 +210,7 @@ export class TestTaskIdUtils {
   /**
    * Create a TaskId from a deterministic ULID for consistent testing
    */
-  static createDeterministicTaskId(seed?: string): TaskId {
-    // Create a deterministic ULID-like string for testing
-    const timestamp = Date.now();
-    const randomPart = (seed || `test${this.counter++}`)
-      .padEnd(16, "0")
-      .substring(0, 16)
-      .toUpperCase();
-    const ulid =
-      timestamp.toString(36).padStart(10, "0").toUpperCase() + randomPart;
-
-    // Ensure it matches ULID format by using actual ULID generation
+  static createDeterministicTaskId(): TaskId {
     return TaskId.generate();
   }
 
@@ -244,7 +232,6 @@ export class TestTaskIdUtils {
    * Reset counter for deterministic testing
    */
   static resetCounter(): void {
-    this.counter = 0;
     this.TEST_TASK_IDS.length = 0;
   }
 }

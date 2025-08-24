@@ -22,7 +22,7 @@ export interface GetTaskLogsRequest {
  * Log entry with formatted data
  */
 export interface LogEntry {
-  id: number;
+  id: string;
   taskId?: string;
   type: "SYSTEM" | "USER" | "CONFLICT";
   message: string;
@@ -136,7 +136,7 @@ export class GetTaskLogsUseCase {
 
       // Convert to response format
       const logEntries: LogEntry[] = logs.map((log) => ({
-        id: log.id!,
+        id: log.id,
         taskId: log.taskId,
         type: log.type,
         message: log.message,

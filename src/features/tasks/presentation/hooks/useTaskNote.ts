@@ -16,7 +16,6 @@ export interface UseTaskNoteReturn {
 
 export function useTaskNote(
   taskId: string,
-  initialNote?: string,
   taskViewModel?: TaskViewModel
 ): UseTaskNoteReturn {
   const [isOpen, setIsOpen] = useState(false);
@@ -25,6 +24,11 @@ export function useTaskNote(
   const changeTaskNoteUseCase = getService<ChangeTaskNoteUseCase>(
     CHANGE_TASK_NOTE_USE_CASE_TOKEN
   );
+
+  // Получаем метод changeTaskNote из TaskViewModel если он передан
+  const changeTaskNoteFromViewModel = taskViewModel
+    ? taskViewModel().changeTaskNote
+    : null;
 
   const openNote = useCallback(() => {
     setIsOpen(true);
@@ -43,8 +47,8 @@ export function useTaskNote(
         }
 
         // Если передан TaskViewModel, используем его метод
-        if (taskViewModel) {
-          const success = taskViewModel.changeTaskNote(taskId, content);
+        if (changeTaskNoteFromViewModel) {
+          const success = await changeTaskNoteFromViewModel(taskId, content);
           if (!success) {
             throw new Error("Failed to save note via TaskViewModel");
           }
@@ -75,7 +79,7 @@ export function useTaskNote(
         setIsSaving(false);
       }
     },
-    [taskId, changeTaskNoteUseCase, taskViewModel]
+    [taskId, changeTaskNoteUseCase, changeTaskNoteFromViewModel]
   );
 
   return {

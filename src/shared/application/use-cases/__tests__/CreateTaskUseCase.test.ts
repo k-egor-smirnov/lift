@@ -21,6 +21,8 @@ const mockTaskRepository: TaskRepository = {
   count: vi.fn(),
   countByCategory: vi.fn(),
   exists: vi.fn(),
+  findTasksCreatedInDateRange: vi.fn(),
+  findTasksCompletedInDateRange: vi.fn(),
 };
 
 const mockEventBus: EventBus = {
@@ -33,9 +35,6 @@ const mockEventBus: EventBus = {
 
 const mockDatabase = {
   transaction: vi.fn(),
-  syncQueue: {
-    add: vi.fn(),
-  },
   eventStore: {},
   tasks: {},
 } as unknown as TodoDatabase;
@@ -53,8 +52,19 @@ describe("CreateTaskUseCase", () => {
 
     // Mock transaction to execute the callback immediately
     vi.mocked(mockDatabase.transaction).mockImplementation(
-      async (mode, tables, callback) => {
-        return await callback();
+      (_mode, _tables, callback) => {
+        const result = callback({} as any);
+        const mockPromise = {
+          then: (onFulfilled?: any, onRejected?: any) =>
+            Promise.resolve(result).then(onFulfilled, onRejected),
+          catch: (onRejected?: any) =>
+            Promise.resolve(result).catch(onRejected),
+          finally: (onFinally?: any) =>
+            Promise.resolve(result).finally(onFinally),
+          timeout: vi.fn().mockReturnThis(),
+          [Symbol.toStringTag]: "Promise",
+        };
+        return mockPromise as any;
       }
     );
 
@@ -111,7 +121,7 @@ describe("CreateTaskUseCase", () => {
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
         expect(result.error.code).toBe("INVALID_TITLE");
-        expect(result.error.message).toContain("title cannot be empty");
+        expect(result.error.message).toContain("Title cannot be empty");
       }
 
       expect(mockTaskRepository.save).not.toHaveBeenCalled();

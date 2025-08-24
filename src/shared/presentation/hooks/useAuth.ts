@@ -59,7 +59,7 @@ const initializeAuth = async () => {
     });
 
     // Подписываемся на изменения авторизации
-    supabase.auth.onAuthStateChange((event, session) => {
+    supabase.auth.onAuthStateChange((_, session) => {
       notifySubscribers({
         user: session?.user ?? null,
         loading: false,
