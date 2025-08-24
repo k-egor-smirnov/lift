@@ -1,25 +1,24 @@
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TestTaskIdUtils } from "@/test/utils/testHelpers";
-
-// Mock the ChangeTaskNoteUseCase
-const mockChangeTaskNoteUseCase = vi.hoisted(() => ({
-  execute: vi.fn().mockResolvedValue({ success: true, data: undefined }),
-}));
-
-// Mock the DI container
-vi.mock("../../../../shared/infrastructure/di", () => ({
-  getService: vi.fn().mockReturnValue(mockChangeTaskNoteUseCase),
-}));
-
-// Mock the tokens
-vi.mock("../../../../shared/infrastructure/di/tokens", () => ({
-  CHANGE_TASK_NOTE_USE_CASE_TOKEN: "CHANGE_TASK_NOTE_USE_CASE_TOKEN",
-}));
-
-// Import after mocking
 import { useTaskNote } from "../useTaskNote";
-import { TaskViewModel } from "../../view-models/TaskViewModel";
+import type { TaskViewModel } from "../../view-models/TaskViewModel";
+import { container } from "../../../../../shared/infrastructure/di";
+import { TASK_REPOSITORY_TOKEN } from "../../../../../shared/infrastructure/di/tokens";
+import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
+
+// Mock TaskRepository to return a task
+const mockTask = {
+  changeNote: vi.fn().mockReturnValue([]),
+};
+
+const mockTaskRepository = {
+  findById: vi.fn().mockResolvedValue(mockTask),
+  save: vi.fn().mockResolvedValue(undefined),
+};
+
+// Replace TaskRepository in DI container
+container.registerInstance(TASK_REPOSITORY_TOKEN, mockTaskRepository);
 
 describe("useTaskNote", () => {
   let mockTaskViewModel: TaskViewModel;
@@ -30,6 +29,14 @@ describe("useTaskNote", () => {
     mockTaskViewModel = vi.fn().mockReturnValue({
       changeTaskNote: vi.fn().mockResolvedValue(true),
     }) as any;
+
+    // Reset all mocks
+    vi.clearAllMocks();
+
+    // Reset repository mocks
+    mockTaskRepository.findById.mockClear();
+    mockTaskRepository.save.mockClear();
+    mockTask.changeNote.mockClear();
   });
 
   it("should initialize with closed state", () => {
@@ -92,10 +99,11 @@ describe("useTaskNote", () => {
       await result.current.saveNote("Updated note");
     });
 
-    expect(mockChangeTaskNoteUseCase.execute).toHaveBeenCalledWith({
-      taskId: expect.any(Object),
-      note: "Updated note",
-    });
+    expect(mockTaskRepository.findById).toHaveBeenCalledWith(
+      expect.any(TaskId)
+    );
+    expect(mockTask.changeNote).toHaveBeenCalledWith("Updated note");
+    expect(mockTaskRepository.save).toHaveBeenCalledWith(mockTask);
   });
 
   it("should handle saving errors gracefully", async () => {
@@ -114,20 +122,19 @@ describe("useTaskNote", () => {
     ).rejects.toThrow("Failed to save note via TaskViewModel");
   });
 
-  it("should handle error when using DI container", async () => {
-    mockChangeTaskNoteUseCase.execute.mockRejectedValueOnce(
-      new Error("Task not found")
-    );
+  it("should handle error when task is not found", async () => {
+    mockTaskRepository.findById.mockResolvedValueOnce(null);
 
     const { result } = renderHook(() => useTaskNote(validTaskId));
 
-    await act(async () => {
-      await result.current.saveNote("Updated note");
-    });
+    await expect(
+      act(async () => {
+        await result.current.saveNote("Updated note");
+      })
+    ).rejects.toThrow("Task not found");
 
-    expect(mockChangeTaskNoteUseCase.execute).toHaveBeenCalledWith({
-      taskId: validTaskId,
-      note: "Updated note",
-    });
+    expect(mockTaskRepository.findById).toHaveBeenCalledWith(
+      expect.any(TaskId)
+    );
   });
 });

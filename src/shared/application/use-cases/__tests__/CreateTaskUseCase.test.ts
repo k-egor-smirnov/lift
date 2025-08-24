@@ -121,7 +121,7 @@ describe("CreateTaskUseCase", () => {
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
         expect(result.error.code).toBe("INVALID_TITLE");
-        expect(result.error.message).toContain("title cannot be empty");
+        expect(result.error.message).toContain("Title cannot be empty");
       }
 
       expect(mockTaskRepository.save).not.toHaveBeenCalled();
