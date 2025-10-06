@@ -136,9 +136,12 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
       // For optimistic loading: only show loading spinner on initial load or when no data exists
       if (!silent && currentTasks.length === 0) {
         set({ loading: true, error: null });
-      } else if (silent || currentTasks.length > 0) {
-        // Silent refresh - show refreshing indicator instead of loading
+      } else if (!silent && currentTasks.length > 0) {
+        // Non-silent refresh - show refreshing indicator instead of loading
         set({ refreshing: true, error: null });
+      } else {
+        // Silent refresh should not trigger visual loading indicators
+        set({ error: null });
       }
 
       try {
