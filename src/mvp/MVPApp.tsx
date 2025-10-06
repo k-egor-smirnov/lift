@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
 import { TaskId } from "../shared/domain/value-objects/TaskId";
@@ -49,6 +49,7 @@ import { toast, Toaster } from "sonner";
 import { Settings } from "../features/settings/presentation/components/Settings";
 import { ContentArea } from "./components/ContentArea";
 import { ResultUtils } from "@/shared/domain/Result";
+import { DateOnly } from "@/shared/domain/value-objects/DateOnly";
 
 export const MVPApp: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -61,6 +62,7 @@ export const MVPApp: React.FC = () => {
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
   const [lastLogs, setLastLogs] = useState<Record<string, LogEntry>>({});
   const [todayTaskIds, setTodayTaskIds] = useState<string[]>([]);
+  const lastLoadDateRef = useRef<string>(DateOnly.today().value);
 
   // Check if device is mobile and in development mode
   const isMobile = () => {
@@ -221,7 +223,8 @@ export const MVPApp: React.FC = () => {
   }, [database, loadTasks]);
 
   // Load today task IDs
-  const loadTodayTaskIds = async () => {
+  const loadTodayTaskIds = useCallback(async () => {
+    lastLoadDateRef.current = DateOnly.today().value;
     try {
       const ids = await getTaskViewModelTodayTaskIds();
       setTodayTaskIds(ids);
@@ -229,15 +232,22 @@ export const MVPApp: React.FC = () => {
       console.error("Error loading today task IDs:", error);
       setTodayTaskIds([]);
     }
-  };
+  }, [getTaskViewModelTodayTaskIds]);
 
-  // Load logs after tasks are loaded
+  // Refresh today's task IDs when the calendar date changes
   useEffect(() => {
-    if (isDbReady && !loading) {
-      loadAllTaskLogs();
-      loadTodayTaskIds();
-    }
-  }, [isDbReady, loading]);
+    const interval = setInterval(() => {
+      const todayValue = DateOnly.today().value;
+      if (lastLoadDateRef.current !== todayValue) {
+        lastLoadDateRef.current = todayValue;
+        loadTodayTaskIds();
+      }
+    }, 60_000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [lastLoadDateRef, loadTodayTaskIds]);
 
   // Subscribe to task events for auto-updating todayTaskIds
   useEffect(() => {
@@ -645,6 +655,14 @@ export const MVPApp: React.FC = () => {
       console.error("Error loading all task logs:", error);
     }
   }, [getFilteredTasks, logService]);
+
+  // Load logs after tasks are loaded
+  useEffect(() => {
+    if (isDbReady && !loading) {
+      loadAllTaskLogs();
+      loadTodayTaskIds();
+    }
+  }, [isDbReady, loading, loadAllTaskLogs, loadTodayTaskIds]);
 
   const handleMobileMenuClose = useCallback(() => {
     setIsMobileMenuOpen(false);
