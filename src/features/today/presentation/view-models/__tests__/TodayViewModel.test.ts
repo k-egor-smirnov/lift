@@ -283,6 +283,55 @@ describe("TodayViewModel", () => {
       expect(mockGetTodayTasksUseCase.execute).toHaveBeenCalled(); // loadTodayTasks called
     });
 
+    it("should optimistically update state when completing a task", async () => {
+      const activeTask = createTodayTaskInfo(
+        createTestTask("Task 1", TaskCategory.SIMPLE, TaskStatus.ACTIVE)
+      );
+
+      const store = viewModel as any;
+      store.setState({
+        tasks: [activeTask],
+        totalCount: 1,
+        completedCount: 0,
+        activeCount: 1,
+      });
+
+      let resolveComplete: (value: any) => void;
+      const executePromise = new Promise<any>((resolve) => {
+        resolveComplete = resolve;
+      });
+
+      vi.mocked(mockCompleteTaskUseCase.execute).mockReturnValue(
+        executePromise as any
+      );
+      vi.mocked(mockGetTodayTasksUseCase.execute).mockResolvedValue(
+        ResultUtils.ok({
+          tasks: [],
+          date: "2023-12-01",
+          totalCount: 1,
+          completedCount: 1,
+          activeCount: 0,
+        })
+      );
+
+      const promise = viewModel
+        .getState()
+        .completeTask(activeTask.task.id.value);
+
+      const intermediateState = viewModel.getState();
+
+      expect(intermediateState.tasks[0].completedInSelection).toBe(true);
+      expect(intermediateState.tasks[0].task.isCompleted).toBe(true);
+      expect(intermediateState.completedCount).toBe(1);
+      expect(intermediateState.activeCount).toBe(0);
+      expect(intermediateState.getCompletedTasks()).toHaveLength(1);
+      expect(intermediateState.getActiveTasks()).toHaveLength(0);
+
+      resolveComplete!(ResultUtils.ok(undefined));
+
+      await promise;
+    });
+
     it("should handle complete task error", async () => {
       const taskId = "task-123";
       const error = { message: "Complete failed", code: "COMPLETE_FAILED" };
@@ -295,6 +344,55 @@ describe("TodayViewModel", () => {
 
       expect(result).toBe(false);
       expect(viewModel.getState().error).toBe("Complete failed");
+    });
+
+    it("should rollback optimistic update when completion fails", async () => {
+      const activeTask = createTodayTaskInfo(
+        createTestTask("Task 1", TaskCategory.SIMPLE, TaskStatus.ACTIVE)
+      );
+
+      const store = viewModel as any;
+      store.setState({
+        tasks: [activeTask],
+        totalCount: 1,
+        completedCount: 0,
+        activeCount: 1,
+      });
+
+      let resolveComplete: (value: any) => void;
+      const executePromise = new Promise<any>((resolve) => {
+        resolveComplete = resolve;
+      });
+
+      vi.mocked(mockCompleteTaskUseCase.execute).mockReturnValue(
+        executePromise as any
+      );
+
+      const promise = viewModel
+        .getState()
+        .completeTask(activeTask.task.id.value);
+
+      const optimisticState = viewModel.getState();
+      expect(optimisticState.tasks[0].completedInSelection).toBe(true);
+      expect(optimisticState.getCompletedTasks()).toHaveLength(1);
+      expect(optimisticState.getActiveTasks()).toHaveLength(0);
+
+      const error = { message: "Complete failed", code: "COMPLETE_FAILED" };
+      resolveComplete!(ResultUtils.error(error as any));
+
+      const result = await promise;
+
+      expect(result).toBe(false);
+      const finalState = viewModel.getState();
+      expect(finalState.tasks[0]).toBe(activeTask);
+      expect(finalState.tasks[0].completedInSelection).toBe(false);
+      expect(finalState.tasks[0].task.isCompleted).toBe(false);
+      expect(finalState.completedCount).toBe(0);
+      expect(finalState.activeCount).toBe(1);
+      expect(finalState.getCompletedTasks()).toHaveLength(0);
+      expect(finalState.getActiveTasks()).toHaveLength(1);
+      expect(finalState.error).toBe("Complete failed");
+      expect(mockGetTodayTasksUseCase.execute).not.toHaveBeenCalled();
     });
   });
 
