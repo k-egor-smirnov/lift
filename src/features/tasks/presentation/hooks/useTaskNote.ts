@@ -42,9 +42,21 @@ export function useTaskNote(
           throw new Error("Task ID is required");
         }
 
-        // Если передан TaskViewModel, используем его метод
+        // Если передан TaskViewModel, получаем действие из стора
         if (taskViewModel) {
-          const success = taskViewModel.changeTaskNote(taskId, content);
+          const getState = taskViewModel.getState;
+
+          if (typeof getState !== "function") {
+            throw new Error("Failed to save note via TaskViewModel");
+          }
+
+          const { changeTaskNote } = getState();
+
+          if (typeof changeTaskNote !== "function") {
+            throw new Error("Failed to save note via TaskViewModel");
+          }
+
+          const success = await changeTaskNote(taskId, content);
           if (!success) {
             throw new Error("Failed to save note via TaskViewModel");
           }
