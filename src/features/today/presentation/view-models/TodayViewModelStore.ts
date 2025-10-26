@@ -13,6 +13,8 @@ import {
   RemoveTaskFromTodayRequest,
 } from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
 import { CompleteTaskUseCase } from "../../../../shared/application/use-cases/CompleteTaskUseCase";
+import { TaskStatus } from "../../../../shared/domain/types";
+import { Task } from "../../../../shared/domain/entities/Task";
 import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
 import { taskEventBus } from "../../../../shared/infrastructure/events/TaskEventBus";
 import {
@@ -134,9 +136,12 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
       // For optimistic loading: only show loading spinner on initial load or when no data exists
       if (!silent && currentTasks.length === 0) {
         set({ loading: true, error: null });
-      } else if (silent || currentTasks.length > 0) {
-        // Silent refresh - show refreshing indicator instead of loading
+      } else if (!silent && currentTasks.length > 0) {
+        // Non-silent refresh - show refreshing indicator instead of loading
         set({ refreshing: true, error: null });
+      } else {
+        // Silent refresh should not trigger visual loading indicators
+        set({ error: null });
       }
 
       try {
@@ -259,7 +264,61 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
         return false;
       }
 
-      set({ error: null });
+      const previousState = {
+        tasks: get().tasks,
+        completedCount: get().completedCount,
+        activeCount: get().activeCount,
+      };
+
+      const targetTask = previousState.tasks.find(
+        (info) => info.task.id.value === taskId
+      );
+
+      const updatedTasks = previousState.tasks.map((info) => {
+        if (info.task.id.value !== taskId) {
+          return info;
+        }
+
+        const clonedTask: Task = Object.assign(
+          Object.create(Object.getPrototypeOf(info.task)),
+          info.task
+        );
+
+        (clonedTask as Task & { _status: TaskStatus; _updatedAt: Date })._status =
+          TaskStatus.COMPLETED;
+        (clonedTask as Task & { _updatedAt: Date })._updatedAt = new Date();
+
+        return {
+          ...info,
+          completedInSelection: true,
+          task: clonedTask,
+        };
+      });
+
+      let nextCompletedCount = previousState.completedCount;
+      let nextActiveCount = previousState.activeCount;
+
+      if (targetTask) {
+        const wasCountedAsCompleted =
+          targetTask.completedInSelection || targetTask.task.isCompleted;
+        const wasActive =
+          !targetTask.completedInSelection && targetTask.task.isActive;
+
+        if (!wasCountedAsCompleted) {
+          nextCompletedCount += 1;
+        }
+
+        if (wasActive) {
+          nextActiveCount = Math.max(0, nextActiveCount - 1);
+        }
+      }
+
+      set({
+        tasks: updatedTasks,
+        completedCount: nextCompletedCount,
+        activeCount: nextActiveCount,
+        error: null,
+      });
 
       try {
         const result = await dependencies.completeTaskUseCase.execute({
@@ -269,14 +328,22 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
         if (result.success) {
           // Reload today's tasks to get the updated list (silent refresh)
           const { currentDate } = get();
-          await get().loadTodayTasks(currentDate, true);
+          void get().loadTodayTasks(currentDate, true);
           return true;
         } else {
-          set({ error: (result as any).error.message });
+          set({
+            tasks: previousState.tasks,
+            completedCount: previousState.completedCount,
+            activeCount: previousState.activeCount,
+            error: (result as any).error.message,
+          });
           return false;
         }
       } catch (error) {
         set({
+          tasks: previousState.tasks,
+          completedCount: previousState.completedCount,
+          activeCount: previousState.activeCount,
           error:
             error instanceof Error ? error.message : "Failed to complete task",
         });
