@@ -166,6 +166,17 @@ describe("TaskViewModel", () => {
       // Check loading state is false after operation
       expect(viewModel.getState().loading).toBe(false);
     });
+
+    it("should support silent reload without toggling loading state", async () => {
+      vi.mocked(mockTaskRepository.findAll).mockResolvedValue([]);
+
+      // Ensure loading starts as false
+      expect(viewModel.getState().loading).toBe(false);
+
+      await viewModel.getState().loadTasks({ silent: true });
+
+      expect(viewModel.getState().loading).toBe(false);
+    });
   });
 
   describe("createTask", () => {

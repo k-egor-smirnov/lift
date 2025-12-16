@@ -428,7 +428,7 @@ export const MVPApp: React.FC = () => {
                 if (ResultUtils.isSuccess(result)) {
                   toast.success("Выполнение задачи отменено");
                   // Reload tasks to reflect changes
-                  await loadTasks();
+                  await loadTasks({ silent: true });
                   // Note: Event bus will handle today updates automatically
                 } else {
                   toast.error("Не удалось отменить выполнение задачи");
@@ -459,7 +459,7 @@ export const MVPApp: React.FC = () => {
 
         if (success.success) {
           // Reload tasks to reflect changes
-          await loadTasks();
+          await loadTasks({ silent: true });
         } else {
           console.error(
             "Failed to update task:",
@@ -534,7 +534,7 @@ export const MVPApp: React.FC = () => {
 
         if (result.success) {
           // Reload tasks to reflect the changes
-          await loadTasks();
+          await loadTasks({ silent: true });
           toast.success(`Задача отложена до ${deferDate.toLocaleDateString()}`);
         } else {
           console.error("Failed to defer task:", result.error);
@@ -558,7 +558,7 @@ export const MVPApp: React.FC = () => {
 
         if (result.success) {
           // Reload tasks to reflect the changes
-          await loadTasks();
+          await loadTasks({ silent: true });
           toast.success("Задача возвращена из отложенных");
         } else {
           console.error("Failed to undefer task:", result.error);
@@ -685,7 +685,7 @@ export const MVPApp: React.FC = () => {
         await reorderTasksUseCase.execute({ taskOrders });
 
         // Reload tasks to reflect the new order
-        await loadTasks();
+        await loadTasks({ silent: true });
       } catch (error) {
         console.error("Error reordering tasks:", error);
       }

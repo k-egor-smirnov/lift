@@ -37,7 +37,7 @@ export interface TaskViewModelState {
   overdueDays: number;
 
   // Actions
-  loadTasks: () => Promise<void>;
+  loadTasks: (options?: { silent?: boolean }) => Promise<void>;
   createTask: (request: CreateTaskRequest) => Promise<boolean>;
   updateTask: (request: UpdateTaskRequest) => Promise<boolean>;
   completeTask: (taskId: string) => Promise<boolean>;
@@ -177,18 +177,26 @@ export const createTaskViewModel = (
     },
 
     // Actions
-    loadTasks: async () => {
-      set({ loading: true, error: null });
+    loadTasks: async (options = {}) => {
+      const { silent = false } = options;
+
+      set((state) => ({
+        loading: silent ? state.loading : true,
+        error: null,
+      }));
 
       try {
         const tasks = await taskRepository.findAll();
-        set({ tasks, loading: false });
+        set((state) => ({
+          tasks,
+          loading: silent ? state.loading : false,
+        }));
       } catch (error) {
-        set({
+        set((state) => ({
           error:
             error instanceof Error ? error.message : "Failed to load tasks",
-          loading: false,
-        });
+          loading: silent ? state.loading : false,
+        }));
       }
     },
 
@@ -200,7 +208,7 @@ export const createTaskViewModel = (
 
         if (result.success) {
           // Reload tasks to get the updated list
-          await get().loadTasks();
+          await get().loadTasks({ silent: true });
 
           return true;
         } else {
@@ -224,7 +232,7 @@ export const createTaskViewModel = (
 
         if (result.success) {
           // Reload tasks to get the updated list
-          await get().loadTasks();
+          await get().loadTasks({ silent: true });
 
           return true;
         } else {
@@ -248,7 +256,7 @@ export const createTaskViewModel = (
 
         if (result.success) {
           // Reload tasks to get the updated list
-          await get().loadTasks();
+          await get().loadTasks({ silent: true });
 
           return true;
         } else {
@@ -277,7 +285,7 @@ export const createTaskViewModel = (
 
         // For now, let's reload tasks - this should be improved with a dedicated use case
         // TODO: Implement proper revert completion use case
-        await get().loadTasks();
+        await get().loadTasks({ silent: true });
         return true;
       } catch (error) {
         set({
@@ -298,7 +306,7 @@ export const createTaskViewModel = (
 
         if (result.success) {
           // Reload tasks to get the updated list
-          await get().loadTasks();
+          await get().loadTasks({ silent: true });
 
           return true;
         } else {
@@ -325,7 +333,7 @@ export const createTaskViewModel = (
 
         if (result.success) {
           // Reload tasks to get the updated list
-          await get().loadTasks();
+          await get().loadTasks({ silent: true });
 
           return true;
         } else {
