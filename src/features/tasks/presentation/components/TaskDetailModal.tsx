@@ -1,24 +1,37 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskStatus } from "../../../../shared/domain/types";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { useTranslation } from "react-i18next";
 import { useCurrentTime } from "@/shared/presentation/contexts/CurrentTimeContext";
 import { formatTimeAgo } from "@/shared/utils/timeFormat";
-import { CheckCircle2, Circle, Loader2, Pen, AlertTriangle, Settings, User, FileText } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  Loader2,
+  Pen,
+  AlertTriangle,
+  Settings,
+  User,
+  FileText,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "../../../../shared/ui/dialog";
+import { TiptapEditor } from "@/shared/ui/components/TiptapEditor";
 
 interface TaskDetailModalProps {
   isOpen: boolean;
   task: Task | null;
   onClose: () => void;
   onEditTitle: (taskId: string, newTitle: string) => void;
-  onEditDescription: (taskId: string, description: string) => Promise<void> | void;
+  onEditDescription: (
+    taskId: string,
+    description: string
+  ) => Promise<void> | void;
   onChangeStatus?: (taskId: string, status: TaskStatus) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
@@ -69,16 +82,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [newLogText, setNewLogText] = useState("");
+  const titleInitializedRef = useRef(false);
+  const descriptionInitializedRef = useRef(false);
 
-  const canSaveTitle = useMemo(
-    () => task && title.trim() && title.trim() !== task.title.value,
-    [task, title]
-  );
-
-  const canSaveDescription = useMemo(
-    () => task && description.trim() !== (task.note?.trim() || ""),
-    [description, task]
-  );
+  const isTitleEmpty = useMemo(() => !title.trim(), [title]);
 
   useEffect(() => {
     if (task) {
@@ -86,9 +93,52 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setDescription(task.note || "");
       setStatus(task.status);
     }
+    titleInitializedRef.current = false;
+    descriptionInitializedRef.current = false;
     setLogs([]);
     setNewLogText("");
   }, [task?.id.value, isOpen]);
+
+  useEffect(() => {
+    if (!task) return;
+    if (!titleInitializedRef.current) {
+      titleInitializedRef.current = true;
+      return;
+    }
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle || trimmedTitle === task.title.value) return;
+
+    const timeout = setTimeout(() => {
+      onEditTitle(task.id.value, trimmedTitle);
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [onEditTitle, task, title]);
+
+  useEffect(() => {
+    if (!task) return;
+    if (!descriptionInitializedRef.current) {
+      descriptionInitializedRef.current = true;
+      return;
+    }
+
+    const trimmedDescription = description.trim();
+    if (trimmedDescription === (task.note?.trim() || "")) return;
+
+    setIsSavingDescription(true);
+    const timeout = setTimeout(async () => {
+      try {
+        await onEditDescription(task.id.value, trimmedDescription);
+      } finally {
+        setIsSavingDescription(false);
+      }
+    }, 600);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [description, onEditDescription, task]);
 
   useEffect(() => {
     const loadLogs = async () => {
@@ -113,21 +163,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     if (!task || !onChangeStatus || nextStatus === status) return;
     setStatus(nextStatus);
     onChangeStatus(task.id.value, nextStatus);
-  };
-
-  const handleSaveTitle = () => {
-    if (!task || !canSaveTitle) return;
-    onEditTitle(task.id.value, title.trim());
-  };
-
-  const handleSaveDescription = async () => {
-    if (!task || !canSaveDescription) return;
-    setIsSavingDescription(true);
-    try {
-      await onEditDescription(task.id.value, description.trim());
-    } finally {
-      setIsSavingDescription(false);
-    }
   };
 
   const handleCreateLog = async () => {
@@ -176,24 +211,21 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
         <div className="space-y-4 overflow-y-auto pr-1">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700" htmlFor="task-title">
+            <label
+              className="text-sm font-medium text-gray-700"
+              htmlFor="task-title"
+            >
               {t("taskCard.taskTitle", "Title")}
             </label>
-            <div className="flex gap-2">
-              <input
-                id="task-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                onClick={handleSaveTitle}
-                disabled={!canSaveTitle}
-                className="px-3 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-600"
-              >
-                {t("taskCard.save", "Save")}
-              </button>
-            </div>
+            <input
+              id="task-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t("taskCard.taskTitle", "Title")}
+              className={`w-full text-xl font-semibold px-2 py-1 rounded border border-transparent focus:border-blue-400 focus:ring-0 focus:outline-none bg-gray-50 hover:border-gray-200 transition-colors ${
+                isTitleEmpty ? "text-gray-400" : "text-gray-900"
+              }`}
+            />
           </div>
 
           <div className="space-y-2">
@@ -225,26 +257,27 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700" htmlFor="task-description">
-              {t("taskCard.description", "Description / Note")}
-            </label>
-            <textarea
-              id="task-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder={t("taskCard.addNote", "Add a note...")}
-            />
-            <div className="flex justify-end">
-              <button
-                onClick={handleSaveDescription}
-                disabled={!canSaveDescription || isSavingDescription}
-                className="flex items-center gap-2 px-3 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-600"
+            <div className="flex items-center justify-between">
+              <label
+                className="text-sm font-medium text-gray-700"
+                htmlFor="task-description"
               >
-                {isSavingDescription && <Loader2 className="w-4 h-4 animate-spin" />}
-                {t("taskCard.save", "Save")}
-              </button>
+                {t("taskCard.description", "Description / Note")}
+              </label>
+              {isSavingDescription && (
+                <span className="flex items-center gap-1 text-xs text-gray-500">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  {t("taskCard.saving", "Saving...")}
+                </span>
+              )}
+            </div>
+            <div className="rounded-md border border-gray-200 bg-white shadow-inner">
+              <TiptapEditor
+                content={description}
+                onChange={setDescription}
+                placeholder={t("taskCard.addNote", "Add a note...")}
+                className="min-h-[200px]"
+              />
             </div>
           </div>
 
@@ -265,7 +298,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         handleCreateLog();
                       }
                     }}
-                    placeholder={t("taskCard.addNewLogPlaceholder", "Add a new log...")}
+                    placeholder={t(
+                      "taskCard.addNewLogPlaceholder",
+                      "Add a new log..."
+                    )}
                     className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
@@ -291,7 +327,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 logs.map((log) => {
                   const LogIcon = getLogTypeIcon(log.type);
                   return (
-                    <div key={log.id} className="bg-white rounded border p-2 text-sm">
+                    <div
+                      key={log.id}
+                      className="bg-white rounded border p-2 text-sm"
+                    >
                       <div className="flex items-start gap-2">
                         <LogIcon
                           className={`w-4 h-4 mt-0.5 ${getLogTypeColor(log.type)}`}
@@ -313,7 +352,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                               {log.type}
                             </span>
                             <span className="text-xs text-gray-500">
-                              {formatTimeAgo(log.createdAt, now, t, i18n.language)}
+                              {formatTimeAgo(
+                                log.createdAt,
+                                now,
+                                t,
+                                i18n.language
+                              )}
                             </span>
                           </div>
                         </div>
