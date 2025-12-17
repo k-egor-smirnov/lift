@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Zap, Target, Inbox } from "lucide-react";
 import { Task } from "../../../../shared/domain/entities/Task";
-import { TaskCategory } from "../../../../shared/domain/types";
+import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { TaskCard } from "./TaskCard";
 import { DeferredTaskCard } from "./DeferredTaskCard";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -27,6 +27,7 @@ import {
 } from "@dnd-kit/sortable";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { motion } from "framer-motion";
+import { TaskDetailModal } from "./TaskDetailModal";
 
 interface TaskListProps {
   tasks: Task[];
@@ -76,6 +77,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   taskViewModel,
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
     null
   );
@@ -220,6 +222,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         isDraggable={!!onReorder}
         currentCategory={currentCategory}
         taskViewModel={taskViewModel}
+        onOpenDetails={setSelectedTask}
       />
     );
   };
@@ -339,6 +342,30 @@ export const TaskList: React.FC<TaskListProps> = ({
           </DragOverlay>
         </div>
       </DndContext>
+
+      <TaskDetailModal
+        isOpen={!!selectedTask}
+        task={selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onEditTitle={onEdit}
+        onUpdateStatus={(taskId, status) => {
+          if (status === TaskStatus.COMPLETED) {
+            onComplete?.(taskId);
+          } else {
+            onRevertCompletion?.(taskId);
+          }
+        }}
+        onUpdateDescription={async (taskId, description) => {
+          if (!taskViewModel?.getState) return;
+          const { changeTaskNote } = taskViewModel.getState();
+          if (typeof changeTaskNote === "function") {
+            await changeTaskNote(taskId, description);
+          }
+        }}
+        onCreateLog={onCreateLog}
+        onLoadTaskLogs={onLoadTaskLogs}
+        taskViewModel={taskViewModel}
+      />
     </div>
   );
 };

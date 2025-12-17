@@ -52,6 +52,7 @@ interface TaskCardProps {
   isDraggable?: boolean;
   currentCategory?: TaskCategory;
   taskViewModel?: TaskViewModel;
+  onOpenDetails?: (task: Task) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -72,6 +73,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isDraggable = false,
   currentCategory,
   taskViewModel,
+  onOpenDetails,
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
@@ -175,6 +177,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [attachGestures, isTouch]);
 
+  const handleCardClick = (event: React.MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (
+      target.closest("button, a, input, textarea, select") ||
+      isDraggingState
+    ) {
+      return;
+    }
+    onOpenDetails?.(task);
+  };
+
   return (
     <>
       {/* Blue line indicator for drop location */}
@@ -207,6 +220,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           isTouch ? `touch-help-${task.id.value}` : ""
         }`}
         data-testid="task-card"
+        onClick={handleCardClick}
         animate={{
           scale: isDraggingState ? 1.02 : 1,
           boxShadow: isDraggingState
