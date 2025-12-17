@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
 import { TaskId } from "../shared/domain/value-objects/TaskId";
@@ -449,6 +455,35 @@ export const MVPApp: React.FC = () => {
     [completeTask, loadTasks]
   );
 
+  const handleCompleteTaskSilently = useCallback(
+    async (taskId: string) => {
+      try {
+        await completeTask(taskId);
+      } catch (error) {
+        console.error("Error completing task silently:", error);
+      }
+    },
+    [completeTask]
+  );
+
+  const handleRevertTaskCompletionSilently = useCallback(
+    async (taskId: string) => {
+      try {
+        const revertUseCase = getService<any>(
+          tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN
+        );
+        const result = await revertUseCase.execute({ taskId });
+
+        if (!ResultUtils.isSuccess(result)) {
+          console.error("Silent revert failed", (result as any).error?.message);
+        }
+      } catch (error) {
+        console.error("Error reverting task completion silently:", error);
+      }
+    },
+    []
+  );
+
   const handleEditTask = useCallback(
     async (taskId: string, newTitle: string) => {
       try {
@@ -868,6 +903,8 @@ export const MVPApp: React.FC = () => {
             lastLogs={lastLogs}
             onCreateTask={handleCreateTask}
             onCompleteTask={handleCompleteTask}
+            onCompleteTaskSilently={handleCompleteTaskSilently}
+            onRevertTaskCompletionSilently={handleRevertTaskCompletionSilently}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
             onAddToToday={handleAddToToday}

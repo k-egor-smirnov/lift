@@ -17,10 +17,8 @@ import { TaskTitleEditor } from "./task-card/TaskTitleEditor";
 import { TaskTitleDisplay } from "./task-card/TaskTitleDisplay";
 import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
-import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
-import { NoteModal } from "../../../../shared/ui/components/NoteModal";
-import { Check, FileText, ListChecks, ListTodo } from "lucide-react";
+import { FileText, ListTodo } from "lucide-react";
 import {
   parseChecklistProgress,
   formatChecklistProgress,
@@ -28,10 +26,7 @@ import {
 
 // Хуки
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
-import { useTaskLogs } from "./task-card/hooks/useTaskLogs";
 import { useTaskDefer } from "./task-card/hooks/useTaskDefer";
-import { useTaskNote } from "../hooks/useTaskNote";
-import { TaskViewModel } from "../view-models/TaskViewModel";
 import { usePointerCapability } from "../../../../shared/infrastructure/services/usePointerCapability";
 
 interface TaskCardProps {
@@ -47,11 +42,10 @@ interface TaskCardProps {
   isOverdue?: boolean;
   isInTodaySelection?: boolean;
   lastLog?: LogEntry | null;
-  onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   isDraggable?: boolean;
   currentCategory?: TaskCategory;
-  taskViewModel?: TaskViewModel;
+  onOpenDetails?: (task: Task) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -67,11 +61,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isOverdue = false,
   isInTodaySelection = false,
   lastLog = null,
-  onLoadTaskLogs,
   onCreateLog,
   isDraggable = false,
   currentCategory,
-  taskViewModel,
+  onOpenDetails,
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
@@ -91,22 +84,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   });
 
   const {
-    taskLogs,
-    loadingLogs,
-    newLogText,
-    showLogModal,
-    setNewLogText,
-    setShowLogModal,
-    handleToggleLogHistory,
-    handleCreateNewLog,
-    handleNewLogKeyDown,
-  } = useTaskLogs({
-    taskId: task.id.value,
-    onLoadTaskLogs,
-    onCreateLog,
-  });
-
-  const {
     showDeferModal,
     handleOpenDeferModal,
     handleCloseDeferModal,
@@ -115,14 +92,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     taskId: task.id.value,
     onDefer,
   });
-
-  const {
-    isOpen: showNoteModal,
-    isSaving,
-    openNote: handleOpenNoteModal,
-    closeNote: handleCloseNoteModal,
-    saveNote: handleSaveNote,
-  } = useTaskNote(task.id.value, task.note, taskViewModel!);
 
   // Drag and drop functionality
   const {
@@ -161,9 +130,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       }
     },
     onLongPress: () => {
-      if (isTouch && onCreateLog) {
-        // Long press opens log modal
-        handleToggleLogHistory();
+      if (isTouch && onCreateLog && onOpenDetails) {
+        onOpenDetails(task);
       }
     },
   });
@@ -174,6 +142,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       return attachGestures(cardRef.current);
     }
   }, [attachGestures, isTouch]);
+
+  const handleCardClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (!onOpenDetails || isDraggingState) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, input, textarea, [role='button']")) {
+      return;
+    }
+    onOpenDetails(task);
+  };
 
   return (
     <>
@@ -191,6 +168,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         style={style}
         {...(isDraggable ? attributes : {})}
         {...(isDraggable ? listeners : {})}
+        onClick={handleCardClick}
         className={`
           bg-white rounded-lg border shadow-sm px-4 py-2 transition-all duration-200 hover:shadow-md
           ${isOverdue ? "border-red-300 bg-red-50" : "border-gray-200"}
@@ -229,7 +207,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             if (hasMouseLikePointer) {
               return (
                 <button
-                  onClick={handleOpenNoteModal}
+                  onClick={() => onOpenDetails?.(task)}
                   className="absolute bottom-2.5 right-2.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
                   aria-label={t("taskCard.checklistProgress")}
                   title={`Заметка: ${formatChecklistProgress(progress)}`}
@@ -257,7 +235,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             if (hasMouseLikePointer) {
               return (
                 <button
-                  onClick={handleOpenNoteModal}
+                  onClick={() => onOpenDetails?.(task)}
                   className="absolute bottom-2.5 right-2.5 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
                   aria-label={t("taskCard.noteExists")}
                   title="Редактировать заметку"
@@ -279,7 +257,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             // Desktop/mouse placeholder for empty note with hover tooltip
             return (
               <button
-                onClick={handleOpenNoteModal}
+                onClick={() => onOpenDetails?.(task)}
                 className="absolute bottom-2.5 right-2.5 text-gray-300 hover:text-gray-500 transition-colors cursor-pointer opacity-0 hover:opacity-100 group-hover:opacity-100"
                 aria-label="Добавить заметку"
                 title="Заметка"
@@ -338,7 +316,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onDefer={handleOpenDeferModal}
                 onEdit={handleStartEdit}
                 note={task.note}
-                onNoteClick={handleOpenNoteModal}
+                onNoteClick={
+                  onOpenDetails ? () => onOpenDetails(task) : undefined
+                }
               />
             </div>
           )}
@@ -347,35 +327,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         {/* Logs section */}
         <TaskLogsDisplay
           lastLog={lastLog}
-          onToggleLogHistory={handleToggleLogHistory}
+          onToggleLogHistory={
+            onOpenDetails ? () => onOpenDetails(task) : () => {}
+          }
           onCreateLog={onCreateLog}
         />
       </motion.article>
-
-      {/* Modals */}
-      <TaskLogsModal
-        isOpen={showLogModal}
-        onClose={() => setShowLogModal(false)}
-        taskLogs={taskLogs}
-        loadingLogs={loadingLogs}
-        newLogText={newLogText}
-        onNewLogTextChange={setNewLogText}
-        onCreateLog={onCreateLog ? handleCreateNewLog : undefined}
-        onNewLogKeyDown={handleNewLogKeyDown}
-      />
 
       <TaskDeferModal
         isOpen={showDeferModal}
         onClose={handleCloseDeferModal}
         onDeferConfirm={handleDeferConfirm}
-      />
-
-      <NoteModal
-        isOpen={showNoteModal}
-        onClose={handleCloseNoteModal}
-        onSave={handleSaveNote}
-        initialContent={task.note || ""}
-        taskTitle={task.title.value}
       />
     </>
   );

@@ -1,13 +1,14 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Zap, Target, Inbox } from "lucide-react";
 import { Task } from "../../../../shared/domain/entities/Task";
-import { TaskCategory } from "../../../../shared/domain/types";
+import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { TaskCard } from "./TaskCard";
 import { DeferredTaskCard } from "./DeferredTaskCard";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 import { TaskViewModel } from "../view-models/TaskViewModel";
+import { TaskDetailModal } from "./TaskDetailModal";
 import {
   DndContext,
   closestCenter,
@@ -43,6 +44,8 @@ interface TaskListProps {
   onDefer?: (taskId: string, deferDate: Date) => void;
   onUndefer?: (taskId: TaskId) => Promise<void>;
   onReorder?: (tasks: Task[]) => void;
+  onCompleteSilent?: (taskId: string) => void;
+  onRevertCompletionSilent?: (taskId: string) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   onCreateTask?: (title: string, category: TaskCategory) => Promise<void>;
@@ -61,6 +64,8 @@ export const TaskList: React.FC<TaskListProps> = ({
   todayTaskIds = [],
   onComplete,
   onRevertCompletion,
+  onCompleteSilent,
+  onRevertCompletionSilent,
   onEdit,
   onDelete,
   onAddToToday,
@@ -79,9 +84,35 @@ export const TaskList: React.FC<TaskListProps> = ({
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
     null
   );
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedTaskSnapshot, setSelectedTaskSnapshot] = useState<Task | null>(
+    null
+  );
 
   // Sort tasks by order field first
-  const sortedTasks = [...tasks].sort((a, b) => a.order - b.order);
+  const sortedTasks = useMemo(
+    () => [...tasks].sort((a, b) => a.order - b.order),
+    [tasks]
+  );
+
+  const selectedTask = useMemo(
+    () => sortedTasks.find((task) => task.id.value === selectedTaskId) || null,
+    [selectedTaskId, sortedTasks]
+  );
+
+  const detailTask = selectedTask || selectedTaskSnapshot;
+
+  useEffect(() => {
+    if (!selectedTaskId) {
+      setSelectedTaskSnapshot(null);
+      return;
+    }
+
+    const match = sortedTasks.find((task) => task.id.value === selectedTaskId);
+    if (match) {
+      setSelectedTaskSnapshot(match);
+    }
+  }, [selectedTaskId, sortedTasks]);
 
   // Calculate overdue and today task IDs
   const overdueTaskIds = sortedTasks
@@ -188,6 +219,45 @@ export const TaskList: React.FC<TaskListProps> = ({
     }
   };
 
+  const handleOpenDetails = (task: Task) => {
+    setSelectedTaskId(task.id.value);
+    setSelectedTaskSnapshot(task);
+  };
+
+  const handleCloseDetails = () => {
+    setSelectedTaskId(null);
+    setSelectedTaskSnapshot(null);
+  };
+
+  const handleChangeStatusFromModal = (taskId: string, status: TaskStatus) => {
+    if (status === TaskStatus.COMPLETED) {
+      if (onCompleteSilent) {
+        onCompleteSilent(taskId);
+      } else if (onComplete) {
+        onComplete(taskId);
+      }
+    }
+
+    if (status === TaskStatus.ACTIVE) {
+      if (onRevertCompletionSilent) {
+        onRevertCompletionSilent(taskId);
+      } else if (onRevertCompletion) {
+        onRevertCompletion(taskId);
+      }
+    }
+  };
+
+  const handleEditDescription = async (taskId: string, description: string) => {
+    if (!taskViewModel) return;
+
+    try {
+      const { changeTaskNote } = taskViewModel();
+      await changeTaskNote(taskId, description);
+    } catch (error) {
+      console.error("Failed to save task note:", error);
+    }
+  };
+
   const renderTaskCard = (task: Task) => {
     // Use DeferredTaskCard for deferred tasks
     if (task.category === TaskCategory.DEFERRED && onUndefer) {
@@ -215,11 +285,10 @@ export const TaskList: React.FC<TaskListProps> = ({
         isOverdue={overdueTaskIds.includes(task.id.value)}
         isInTodaySelection={todayTaskIds.includes(task.id.value)}
         lastLog={lastLogs[task.id.value] || null}
-        onLoadTaskLogs={onLoadTaskLogs}
         onCreateLog={onCreateLog}
         isDraggable={!!onReorder}
         currentCategory={currentCategory}
-        taskViewModel={taskViewModel}
+        onOpenDetails={handleOpenDetails}
       />
     );
   };
@@ -252,27 +321,6 @@ export const TaskList: React.FC<TaskListProps> = ({
     );
   };
 
-  if (sortedTasks.length === 0) {
-    return (
-      <div className="space-y-6">
-        {/* Inline Task Creator - не показываем для отложенных задач */}
-        {onCreateTask &&
-          currentCategory &&
-          currentCategory !== TaskCategory.DEFERRED && (
-            <InlineTaskCreator
-              onCreateTask={onCreateTask}
-              category={currentCategory}
-              placeholder={`Добавить задачу...`}
-            />
-          )}
-
-        <div className="text-center py-8 text-gray-500">
-          <p>{emptyMessage}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Inline Task Creator - не показываем для отложенных задач */}
@@ -286,59 +334,76 @@ export const TaskList: React.FC<TaskListProps> = ({
           />
         )}
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        modifiers={[restrictToWindowEdges]}
-      >
-        <div data-dnd-context>
-          <div className="space-y-4">
-            {Object.entries(groupedTasks).map(
-              ([categoryKey, categoryTasks]) => {
-                const category = categoryKey as TaskCategory;
-                const taskIds = categoryTasks.map((task) => task.id.value);
+      {sortedTasks.length > 0 ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          modifiers={[restrictToWindowEdges]}
+        >
+          <div data-dnd-context>
+            <div className="space-y-4">
+              {Object.entries(groupedTasks).map(
+                ([categoryKey, categoryTasks]) => {
+                  const category = categoryKey as TaskCategory;
+                  const taskIds = categoryTasks.map((task) => task.id.value);
 
-                return (
-                  <div key={category}>
-                    {groupByCategory &&
-                      renderCategoryHeader(category, categoryTasks.length)}
-                    <SortableContext
-                      items={taskIds}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      <div className="space-y-3">
-                        {categoryTasks.map(renderTaskCard)}
-                      </div>
-                    </SortableContext>
-                  </div>
-                );
-              }
-            )}
-          </div>
+                  return (
+                    <div key={category}>
+                      {groupByCategory &&
+                        renderCategoryHeader(category, categoryTasks.length)}
+                      <SortableContext
+                        items={taskIds}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-3">
+                          {categoryTasks.map(renderTaskCard)}
+                        </div>
+                      </SortableContext>
+                    </div>
+                  );
+                }
+              )}
+            </div>
 
-          <DragOverlay modifiers={[applyDragOffset]}>
-            {activeTask ? (
-              <motion.div
-                className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-[240px] text-sm"
-                initial={{ scale: 0.8, opacity: 0.8 }}
-                animate={{ scale: 1, opacity: 1 }}
-                data-testid="drag-overlay"
-              >
-                <p className="font-medium text-gray-800 truncate">
-                  {activeTask.title.value}
-                </p>
-                {lastLogs[activeTask.id.value] && (
-                  <p className="mt-1 text-xs text-gray-500 truncate">
-                    {lastLogs[activeTask.id.value].message}
+            <DragOverlay modifiers={[applyDragOffset]}>
+              {activeTask ? (
+                <motion.div
+                  className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-[240px] text-sm"
+                  initial={{ scale: 0.8, opacity: 0.8 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  data-testid="drag-overlay"
+                >
+                  <p className="font-medium text-gray-800 truncate">
+                    {activeTask.title.value}
                   </p>
-                )}
-              </motion.div>
-            ) : null}
-          </DragOverlay>
+                  {lastLogs[activeTask.id.value] && (
+                    <p className="mt-1 text-xs text-gray-500 truncate">
+                      {lastLogs[activeTask.id.value].message}
+                    </p>
+                  )}
+                </motion.div>
+              ) : null}
+            </DragOverlay>
+          </div>
+        </DndContext>
+      ) : (
+        <div className="text-center py-8 text-gray-500">
+          <p>{emptyMessage}</p>
         </div>
-      </DndContext>
+      )}
+
+      <TaskDetailModal
+        isOpen={!!selectedTaskId}
+        task={detailTask}
+        onClose={handleCloseDetails}
+        onEditTitle={onEdit}
+        onEditDescription={handleEditDescription}
+        onChangeStatus={handleChangeStatusFromModal}
+        onLoadTaskLogs={onLoadTaskLogs}
+        onCreateLog={onCreateLog}
+      />
     </div>
   );
 };
