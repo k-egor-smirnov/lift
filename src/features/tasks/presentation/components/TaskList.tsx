@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Zap, Target, Inbox } from "lucide-react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
@@ -44,6 +44,8 @@ interface TaskListProps {
   onDefer?: (taskId: string, deferDate: Date) => void;
   onUndefer?: (taskId: TaskId) => Promise<void>;
   onReorder?: (tasks: Task[]) => void;
+  onCompleteSilent?: (taskId: string) => void;
+  onRevertCompletionSilent?: (taskId: string) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   onCreateTask?: (title: string, category: TaskCategory) => Promise<void>;
@@ -62,6 +64,8 @@ export const TaskList: React.FC<TaskListProps> = ({
   todayTaskIds = [],
   onComplete,
   onRevertCompletion,
+  onCompleteSilent,
+  onRevertCompletionSilent,
   onEdit,
   onDelete,
   onAddToToday,
@@ -81,6 +85,9 @@ export const TaskList: React.FC<TaskListProps> = ({
     null
   );
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedTaskSnapshot, setSelectedTaskSnapshot] = useState<Task | null>(
+    null
+  );
 
   // Sort tasks by order field first
   const sortedTasks = useMemo(
@@ -92,6 +99,18 @@ export const TaskList: React.FC<TaskListProps> = ({
     () => sortedTasks.find((task) => task.id.value === selectedTaskId) || null,
     [selectedTaskId, sortedTasks]
   );
+
+  useEffect(() => {
+    if (!selectedTaskId) {
+      setSelectedTaskSnapshot(null);
+      return;
+    }
+
+    const match = sortedTasks.find((task) => task.id.value === selectedTaskId);
+    if (match) {
+      setSelectedTaskSnapshot(match);
+    }
+  }, [selectedTaskId, sortedTasks]);
 
   // Calculate overdue and today task IDs
   const overdueTaskIds = sortedTasks
@@ -200,19 +219,29 @@ export const TaskList: React.FC<TaskListProps> = ({
 
   const handleOpenDetails = (task: Task) => {
     setSelectedTaskId(task.id.value);
+    setSelectedTaskSnapshot(task);
   };
 
   const handleCloseDetails = () => {
     setSelectedTaskId(null);
+    setSelectedTaskSnapshot(null);
   };
 
-  const handleChangeStatus = (taskId: string, status: TaskStatus) => {
-    if (status === TaskStatus.COMPLETED && onComplete) {
-      onComplete(taskId);
+  const handleChangeStatusFromModal = (taskId: string, status: TaskStatus) => {
+    if (status === TaskStatus.COMPLETED) {
+      if (onCompleteSilent) {
+        onCompleteSilent(taskId);
+      } else if (onComplete) {
+        onComplete(taskId);
+      }
     }
 
-    if (status === TaskStatus.ACTIVE && onRevertCompletion) {
-      onRevertCompletion(taskId);
+    if (status === TaskStatus.ACTIVE) {
+      if (onRevertCompletionSilent) {
+        onRevertCompletionSilent(taskId);
+      } else if (onRevertCompletion) {
+        onRevertCompletion(taskId);
+      }
     }
   };
 
@@ -379,12 +408,12 @@ export const TaskList: React.FC<TaskListProps> = ({
       </DndContext>
 
       <TaskDetailModal
-        isOpen={!!selectedTask}
-        task={selectedTask}
+        isOpen={!!selectedTaskId}
+        task={selectedTask || selectedTaskSnapshot}
         onClose={handleCloseDetails}
         onEditTitle={onEdit}
         onEditDescription={handleEditDescription}
-        onChangeStatus={handleChangeStatus}
+        onChangeStatus={handleChangeStatusFromModal}
         onLoadTaskLogs={onLoadTaskLogs}
         onCreateLog={onCreateLog}
       />

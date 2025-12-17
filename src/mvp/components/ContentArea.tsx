@@ -33,6 +33,8 @@ interface ContentAreaProps {
   // Event handlers
   onCreateTask: (title: string, category: TaskCategory) => Promise<void>;
   onCompleteTask: (taskId: string) => Promise<void>;
+  onCompleteTaskSilently: (taskId: string) => Promise<void>;
+  onRevertTaskCompletionSilently: (taskId: string) => Promise<void>;
   onEditTask: (taskId: string, newTitle: string) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   onAddToToday: (taskId: string) => Promise<void>;
@@ -55,6 +57,8 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   lastLogs,
   onCreateTask,
   onCompleteTask,
+  onCompleteTaskSilently,
+  onRevertTaskCompletionSilently,
   onEditTask,
   onDeleteTask,
   onAddToToday,
@@ -118,6 +122,8 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             onCreateTask={onCreateTask}
             currentCategory={currentCategory}
             onComplete={onCompleteTask}
+            onCompleteSilent={onCompleteTaskSilently}
+            onRevertCompletionSilent={onRevertTaskCompletionSilently}
             onEdit={onEditTask}
             onDelete={onDeleteTask}
             onAddToToday={onAddToToday}

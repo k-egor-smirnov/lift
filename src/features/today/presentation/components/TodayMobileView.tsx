@@ -95,6 +95,14 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     }
   };
 
+  const handleCompleteTaskSilent = async (taskId: string) => {
+    try {
+      await completeTask(taskId);
+    } catch (error) {
+      console.error("Error completing task silently:", error);
+    }
+  };
+
   const handleRevertCompletion = async (taskId: string) => {
     try {
       const revertUseCase = getService<RevertTaskCompletionUseCase>(
@@ -112,6 +120,21 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     } catch (error) {
       console.error("Error reverting task completion:", error);
       toast.error("Произошла ошибка при отмене");
+    }
+  };
+
+  const handleRevertCompletionSilent = async (taskId: string) => {
+    try {
+      const revertUseCase = getService<RevertTaskCompletionUseCase>(
+        tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN
+      );
+      const result = await revertUseCase.execute({ taskId });
+
+      if (!ResultUtils.isSuccess(result)) {
+        console.error("Silent revert failed", (result as any).error?.message);
+      }
+    } catch (error) {
+      console.error("Error reverting task completion silently:", error);
     }
   };
 
@@ -311,7 +334,11 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                         <TaskList
                           tasks={activeTasks.map((taskInfo) => taskInfo.task)}
                           onComplete={handleCompleteTask}
+                          onCompleteSilent={handleCompleteTaskSilent}
                           onRevertCompletion={handleRevertCompletion}
+                          onRevertCompletionSilent={
+                            handleRevertCompletionSilent
+                          }
                           onEdit={handleEditTask}
                           onDelete={handleDeleteTask}
                           onAddToToday={handleToggleToday}
@@ -342,6 +369,9 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                           )}
                           onComplete={undefined}
                           onRevertCompletion={handleRevertCompletion}
+                          onRevertCompletionSilent={
+                            handleRevertCompletionSilent
+                          }
                           onEdit={handleEditTask}
                           onDelete={handleDeleteTask}
                           onAddToToday={handleToggleToday}
