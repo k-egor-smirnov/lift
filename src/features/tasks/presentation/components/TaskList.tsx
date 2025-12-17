@@ -1,13 +1,14 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Zap, Target, Inbox } from "lucide-react";
 import { Task } from "../../../../shared/domain/entities/Task";
-import { TaskCategory } from "../../../../shared/domain/types";
+import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { TaskCard } from "./TaskCard";
 import { DeferredTaskCard } from "./DeferredTaskCard";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 import { TaskViewModel } from "../view-models/TaskViewModel";
+import { TaskDetailModal } from "./TaskDetailModal";
 import {
   DndContext,
   closestCenter,
@@ -79,9 +80,18 @@ export const TaskList: React.FC<TaskListProps> = ({
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
     null
   );
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // Sort tasks by order field first
-  const sortedTasks = [...tasks].sort((a, b) => a.order - b.order);
+  const sortedTasks = useMemo(
+    () => [...tasks].sort((a, b) => a.order - b.order),
+    [tasks]
+  );
+
+  const selectedTask = useMemo(
+    () => sortedTasks.find((task) => task.id.value === selectedTaskId) || null,
+    [selectedTaskId, sortedTasks]
+  );
 
   // Calculate overdue and today task IDs
   const overdueTaskIds = sortedTasks
@@ -188,6 +198,35 @@ export const TaskList: React.FC<TaskListProps> = ({
     }
   };
 
+  const handleOpenDetails = (task: Task) => {
+    setSelectedTaskId(task.id.value);
+  };
+
+  const handleCloseDetails = () => {
+    setSelectedTaskId(null);
+  };
+
+  const handleChangeStatus = (taskId: string, status: TaskStatus) => {
+    if (status === TaskStatus.COMPLETED && onComplete) {
+      onComplete(taskId);
+    }
+
+    if (status === TaskStatus.ACTIVE && onRevertCompletion) {
+      onRevertCompletion(taskId);
+    }
+  };
+
+  const handleEditDescription = async (taskId: string, description: string) => {
+    if (!taskViewModel) return;
+
+    try {
+      const { changeTaskNote } = taskViewModel();
+      await changeTaskNote(taskId, description);
+    } catch (error) {
+      console.error("Failed to save task note:", error);
+    }
+  };
+
   const renderTaskCard = (task: Task) => {
     // Use DeferredTaskCard for deferred tasks
     if (task.category === TaskCategory.DEFERRED && onUndefer) {
@@ -215,11 +254,10 @@ export const TaskList: React.FC<TaskListProps> = ({
         isOverdue={overdueTaskIds.includes(task.id.value)}
         isInTodaySelection={todayTaskIds.includes(task.id.value)}
         lastLog={lastLogs[task.id.value] || null}
-        onLoadTaskLogs={onLoadTaskLogs}
         onCreateLog={onCreateLog}
         isDraggable={!!onReorder}
         currentCategory={currentCategory}
-        taskViewModel={taskViewModel}
+        onOpenDetails={handleOpenDetails}
       />
     );
   };
@@ -339,6 +377,17 @@ export const TaskList: React.FC<TaskListProps> = ({
           </DragOverlay>
         </div>
       </DndContext>
+
+      <TaskDetailModal
+        isOpen={!!selectedTask}
+        task={selectedTask}
+        onClose={handleCloseDetails}
+        onEditTitle={onEdit}
+        onEditDescription={handleEditDescription}
+        onChangeStatus={handleChangeStatus}
+        onLoadTaskLogs={onLoadTaskLogs}
+        onCreateLog={onCreateLog}
+      />
     </div>
   );
 };
