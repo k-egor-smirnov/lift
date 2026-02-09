@@ -28,9 +28,8 @@ export interface DailyModalData {
  * Service for managing onboarding and daily modal functionality
  */
 export class OnboardingService {
-  private readonly MORNING_WINDOW_START = 6; // 6 AM
-  private readonly MORNING_WINDOW_END = 11; // 11 AM
   private readonly DEFAULT_OVERDUE_DAYS = 3;
+  private readonly DEFAULT_START_OF_DAY_TIME = "09:00";
 
   private readonly motivationalMessages = [
     "Ready to make today amazing? Let's tackle your tasks!",
@@ -84,12 +83,14 @@ export class OnboardingService {
   private readonly dailySelectionService: DailySelectionService;
 
   /**
-   * Check if we're in the morning window (6-11 AM local time)
+   * Check if we're past the start-of-day time (local time)
    */
-  isInMorningWindow(): boolean {
+  async isInMorningWindow(): Promise<boolean> {
+    const startTime = await this.getStartOfDayTime();
+    const startMinutes = this.parseTimeToMinutes(startTime);
     const now = new Date();
-    const hour = now.getHours();
-    return hour >= this.MORNING_WINDOW_START && hour < this.MORNING_WINDOW_END;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    return nowMinutes >= startMinutes;
   }
 
   /**
@@ -198,7 +199,7 @@ export class OnboardingService {
       ]);
 
     const shouldShow =
-      this.isInMorningWindow() &&
+      (await this.isInMorningWindow()) &&
       (unfinishedTasks.length > 0 ||
         overdueInboxTasks.length > 0 ||
         regularInboxTasks.length > 0);
@@ -216,8 +217,11 @@ export class OnboardingService {
   /**
    * Check if modal should be shown based on time and content
    */
-  async shouldShowDailyModal(overdueDays?: number): Promise<boolean> {
-    if (!this.isInMorningWindow()) {
+  async shouldShowDailyModal(
+    overdueDays?: number,
+    options?: { log?: boolean }
+  ): Promise<boolean> {
+    if (!(await this.isInMorningWindow())) {
       return false;
     }
 
@@ -233,17 +237,19 @@ export class OnboardingService {
       overdueInboxTasks.length > 0 ||
       regularInboxTasks.length > 0;
 
-    // Log modal check
-    await this.createSystemLogUseCase.execute({
-      taskId: "system",
-      action: "daily_modal_check",
-      metadata: {
-        shouldShow,
-        unfinishedCount: unfinishedTasks.length,
-        overdueCount: overdueInboxTasks.length,
-        regularCount: regularInboxTasks.length,
-      },
-    });
+    if (options?.log !== false) {
+      // Log modal check
+      await this.createSystemLogUseCase.execute({
+        taskId: "system",
+        action: "daily_modal_check",
+        metadata: {
+          shouldShow,
+          unfinishedCount: unfinishedTasks.length,
+          overdueCount: overdueInboxTasks.length,
+          regularCount: regularInboxTasks.length,
+        },
+      });
+    }
 
     return shouldShow;
   }
@@ -277,5 +283,31 @@ export class OnboardingService {
         },
       });
     }
+  }
+
+  private async getStartOfDayTime(): Promise<string> {
+    if (!this.userSettingsService) {
+      return this.DEFAULT_START_OF_DAY_TIME;
+    }
+
+    try {
+      return await this.userSettingsService.getStartOfDayTime();
+    } catch (error) {
+      console.warn(
+        "Failed to get start of day time from settings, using default:",
+        error
+      );
+      return this.DEFAULT_START_OF_DAY_TIME;
+    }
+  }
+
+  private parseTimeToMinutes(time: string): number {
+    const [hours, minutes] = time.split(":").map((part) => Number(part));
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+      return this.DEFAULT_START_OF_DAY_TIME.split(":")
+        .map((part) => Number(part))
+        .reduce((acc, part, index) => acc + part * (index === 0 ? 60 : 1), 0);
+    }
+    return hours * 60 + minutes;
   }
 }

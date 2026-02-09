@@ -73,10 +73,16 @@ const resources = {
           title: "Application Settings",
           description: "Customize your app experience",
           language: "Language",
+          startOfDayTime: "Start of day time",
+          startOfDayTimeDescription:
+            "When the start of day button becomes available",
           debugMode: "Debug Mode",
           debugModeDescription: "Enable detailed logging for troubleshooting",
           info: "App Information",
         },
+      },
+      todayView: {
+        startOfDay: "Start of day",
       },
       dailyModal: {
         goodMorning: "Good Morning!",
@@ -203,6 +209,8 @@ const resources = {
           title: "Настройки приложения",
           description: "Настройте ваше приложение",
           language: "Язык",
+          startOfDayTime: "Время начала дня",
+          startOfDayTimeDescription: "Когда кнопка начала дня станет доступной",
           debugMode: "Режим отладки",
           debugModeDescription:
             "Включить подробное логирование для диагностики",
@@ -218,6 +226,7 @@ const resources = {
           "Каждый день список сегодняшних задач сбрасывается",
         noTasksSelected: "Задачи не выбраны",
         startByAdding: "Начните сегодняшний день, выбрав задачи из категорий",
+        startOfDay: "Начало дня",
       },
       taskCard: {
         deferTask: "Отложить задачу",

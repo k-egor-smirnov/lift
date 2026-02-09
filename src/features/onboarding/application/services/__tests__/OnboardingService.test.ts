@@ -61,46 +61,35 @@ describe("OnboardingService", () => {
   });
 
   describe("isInMorningWindow", () => {
-    it("should return true when current time is in morning window (6-11 AM)", () => {
+    it("should return true when current time is at start-of-day time", async () => {
       // Mock 9 AM
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2023-01-01T09:00:00"));
 
-      const result = onboardingService.isInMorningWindow();
+      const result = await onboardingService.isInMorningWindow();
       expect(result).toBe(true);
 
       vi.useRealTimers();
     });
 
-    it("should return false when current time is before morning window", () => {
-      // Mock 5 AM
+    it("should return false when current time is before start-of-day time", async () => {
+      // Mock 8:59 AM
       vi.useFakeTimers();
-      vi.setSystemTime(new Date("2023-01-01T05:00:00"));
+      vi.setSystemTime(new Date("2023-01-01T08:59:00"));
 
-      const result = onboardingService.isInMorningWindow();
+      const result = await onboardingService.isInMorningWindow();
       expect(result).toBe(false);
 
       vi.useRealTimers();
     });
 
-    it("should return false when current time is after morning window", () => {
+    it("should return true when current time is after start-of-day time", async () => {
       // Mock 12 PM
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2023-01-01T12:00:00"));
 
-      const result = onboardingService.isInMorningWindow();
-      expect(result).toBe(false);
-
-      vi.useRealTimers();
-    });
-
-    it("should return false at exactly 11 AM (end of window)", () => {
-      // Mock 11 AM
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2023-01-01T11:00:00"));
-
-      const result = onboardingService.isInMorningWindow();
-      expect(result).toBe(false);
+      const result = await onboardingService.isInMorningWindow();
+      expect(result).toBe(true);
 
       vi.useRealTimers();
     });

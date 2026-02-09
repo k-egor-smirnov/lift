@@ -36,7 +36,10 @@ interface OnboardingState {
   showDailyModal: () => void;
   hideDailyModal: () => void;
   markModalShownToday: () => void;
-  checkShouldShowModal: (overdueDays?: number) => Promise<boolean>;
+  checkShouldShowModal: (
+    overdueDays?: number,
+    options?: { log?: boolean }
+  ) => Promise<boolean>;
   checkDayTransition: () => boolean;
   resetForNewDay: (preserveModalData?: boolean) => void;
   reset: () => void;
@@ -159,7 +162,10 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     },
 
     // Check if modal should be shown
-    checkShouldShowModal: async (overdueDays?: number) => {
+    checkShouldShowModal: async (
+      overdueDays?: number,
+      options?: { log?: boolean }
+    ) => {
       const state = get();
 
       // Don't show if already shown today
@@ -168,8 +174,10 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
       }
 
       try {
-        const shouldShow =
-          await onboardingService.shouldShowDailyModal(overdueDays);
+        const shouldShow = await onboardingService.shouldShowDailyModal(
+          overdueDays,
+          options
+        );
         return shouldShow;
       } catch (error) {
         console.error("Error checking if modal should show:", error);

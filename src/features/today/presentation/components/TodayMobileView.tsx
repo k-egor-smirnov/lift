@@ -6,6 +6,7 @@ import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUs
 import { TodayViewModelDependencies } from "../view-models/TodayViewModel";
 import { useTodayViewModelStore } from "../view-models/TodayViewModelStore";
 import { Task } from "../../../../shared/domain/entities/Task";
+import { useOnboardingViewModel } from "../../../onboarding/presentation/view-models/OnboardingViewModel";
 import { toast } from "sonner";
 import { getService, tokens } from "../../../../shared/infrastructure/di";
 import { ResultUtils } from "../../../../shared/domain/Result";
@@ -41,6 +42,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [showStartOfDayButton, setShowStartOfDayButton] = useState(false);
 
   // Use global store
   const {
@@ -58,6 +60,14 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     getCompletedTasks,
     getTodayTaskIds,
   } = useTodayViewModelStore();
+  const {
+    modalShownToday,
+    loadDailyModalData,
+    showDailyModal,
+    markModalShownToday,
+    checkShouldShowModal,
+    checkDayTransition,
+  } = useOnboardingViewModel();
 
   // Initialize store with dependencies
   useEffect(() => {
@@ -68,6 +78,39 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   useEffect(() => {
     loadTodayTasks();
   }, [loadTodayTasks]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const updateStartOfDayAvailability = async () => {
+      checkDayTransition();
+
+      if (modalShownToday) {
+        if (isActive) {
+          setShowStartOfDayButton(false);
+        }
+        return;
+      }
+
+      try {
+        const shouldShow = await checkShouldShowModal(undefined, {
+          log: false,
+        });
+        if (isActive) {
+          setShowStartOfDayButton(shouldShow);
+        }
+      } catch (error) {
+        console.error("Error checking start of day availability:", error);
+      }
+    };
+
+    updateStartOfDayAvailability();
+    const interval = setInterval(updateStartOfDayAvailability, 60000);
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
+  }, [checkDayTransition, checkShouldShowModal, modalShownToday]);
 
   const handleCompleteTask = async (taskId: string) => {
     try {
@@ -154,6 +197,17 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     }
   };
 
+  const handleStartOfDay = async () => {
+    try {
+      await loadDailyModalData();
+      showDailyModal();
+      markModalShownToday();
+      setShowStartOfDayButton(false);
+    } catch (error) {
+      console.error("Error opening start of day modal:", error);
+    }
+  };
+
   const activeTasks = getActiveTasks();
   const completedTasks = getCompletedTasks();
   const allTasks = [...activeTasks, ...completedTasks];
@@ -221,6 +275,16 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
               <h2 className="text-2xl font-bold text-gray-900 text-center">
                 Today's Tasks
               </h2>
+              {showStartOfDayButton && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    onClick={handleStartOfDay}
+                    className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
+                  >
+                    {t("todayView.startOfDay")}
+                  </button>
+                </div>
+              )}
               {allTasks.length > 0 && (
                 <p className="text-center text-gray-500 mt-2">
                   {activeTasks.length} active, {completedTasks.length} completed
