@@ -16,8 +16,9 @@ import { container, tokens } from "../../../../shared/infrastructure/di";
  * Data aggregated for the daily modal
  */
 export interface DailyModalData {
-  unfinishedTasks: Task[];
+  previousDayTasks: Task[];
   overdueInboxTasks: Task[];
+  dueDeferredTasks: Task[];
   regularInboxTasks: Task[];
   motivationalMessage: string;
   shouldShow: boolean;
@@ -86,11 +87,13 @@ export class OnboardingService {
    * Check if we're past the start-of-day time (local time)
    */
   async isInMorningWindow(): Promise<boolean> {
+    const effectiveDate = await this.getEffectiveDate();
     const startTime = await this.getStartOfDayTime();
     const startMinutes = this.parseTimeToMinutes(startTime);
-    const now = new Date();
+    const now = DateOnly.getCurrentDate();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    return nowMinutes >= startMinutes;
+    const todayValue = DateOnly.fromDate(now).value;
+    return nowMinutes >= startMinutes && effectiveDate.value === todayValue;
   }
 
   /**
@@ -107,17 +110,15 @@ export class OnboardingService {
    * Get unfinished tasks from yesterday's daily selection
    */
   async getUnfinishedTasksFromYesterday(): Promise<Task[]> {
-    const yesterday = DateOnly.yesterday();
+    const yesterday = await this.getPreviousSelectionDate();
     const yesterdayEntries =
       await this.dailySelectionRepository.getTasksForDay(yesterday);
 
     const unfinishedTasks: Task[] = [];
 
     for (const entry of yesterdayEntries) {
-      // Only get tasks that weren't completed in the daily selection
       if (!entry.completedFlag) {
         const task = await this.taskRepository.findById(entry.taskId);
-        // Include task if it exists, is not deleted, and is still active
         if (task && !task.isDeleted && task.status === TaskStatus.ACTIVE) {
           unfinishedTasks.push(task);
         }
@@ -188,29 +189,53 @@ export class OnboardingService {
   }
 
   /**
+   * Get tasks that are due today from deferred
+   */
+  async getDueDeferredTasks(): Promise<Task[]> {
+    const today = await this.getEffectiveDate();
+    const deferredTasks = await this.taskRepository.findByCategoryAndStatus(
+      TaskCategory.DEFERRED,
+      TaskStatus.ACTIVE
+    );
+
+    return deferredTasks.filter((task) => {
+      if (!task.deferredUntil) return false;
+      const deferredDate = DateOnly.fromDate(task.deferredUntil);
+      return deferredDate.value === today.value;
+    });
+  }
+
+  /**
    * Aggregate all data needed for the daily modal
    */
   async aggregateDailyModalData(overdueDays?: number): Promise<DailyModalData> {
-    const [unfinishedTasks, overdueInboxTasks, regularInboxTasks] =
-      await Promise.all([
-        this.getUnfinishedTasksFromYesterday(),
-        this.getOverdueInboxTasks(overdueDays),
-        this.getRegularInboxTasks(overdueDays),
-      ]);
+    const [
+      previousDayTasks,
+      overdueInboxTasks,
+      dueDeferredTasks,
+      regularInboxTasks,
+    ] = await Promise.all([
+      this.getUnfinishedTasksFromYesterday(),
+      this.getOverdueInboxTasks(overdueDays),
+      this.getDueDeferredTasks(),
+      this.getRegularInboxTasks(overdueDays),
+    ]);
 
     const shouldShow =
       (await this.isInMorningWindow()) &&
-      (unfinishedTasks.length > 0 ||
+      (previousDayTasks.length > 0 ||
         overdueInboxTasks.length > 0 ||
+        dueDeferredTasks.length > 0 ||
         regularInboxTasks.length > 0);
 
     return {
-      unfinishedTasks,
+      previousDayTasks,
       overdueInboxTasks,
+      dueDeferredTasks,
       regularInboxTasks,
       motivationalMessage: this.getRandomMotivationalMessage(),
       shouldShow,
-      date: DateOnly.today().value,
+      date: (await this.getEffectiveDate()).value,
     };
   }
 
@@ -225,16 +250,22 @@ export class OnboardingService {
       return false;
     }
 
-    const [unfinishedTasks, overdueInboxTasks, regularInboxTasks] =
-      await Promise.all([
-        this.getUnfinishedTasksFromYesterday(),
-        this.getOverdueInboxTasks(overdueDays),
-        this.getRegularInboxTasks(overdueDays),
-      ]);
+    const [
+      unfinishedTasks,
+      overdueInboxTasks,
+      dueDeferredTasks,
+      regularInboxTasks,
+    ] = await Promise.all([
+      this.getUnfinishedTasksFromYesterday(),
+      this.getOverdueInboxTasks(overdueDays),
+      this.getDueDeferredTasks(),
+      this.getRegularInboxTasks(overdueDays),
+    ]);
 
     const shouldShow =
       unfinishedTasks.length > 0 ||
       overdueInboxTasks.length > 0 ||
+      dueDeferredTasks.length > 0 ||
       regularInboxTasks.length > 0;
 
     if (options?.log !== false) {
@@ -247,6 +278,7 @@ export class OnboardingService {
           unfinishedCount: unfinishedTasks.length,
           overdueCount: overdueInboxTasks.length,
           regularCount: regularInboxTasks.length,
+          dueDeferredCount: dueDeferredTasks.length,
         },
       });
     }
@@ -283,6 +315,23 @@ export class OnboardingService {
         },
       });
     }
+  }
+
+  private async getEffectiveDate(): Promise<DateOnly> {
+    const startTime = await this.getStartOfDayTime();
+    const startMinutes = this.parseTimeToMinutes(startTime);
+    const now = DateOnly.getCurrentDate();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const today = DateOnly.fromDate(now);
+    if (nowMinutes < startMinutes) {
+      return today.subtractDays(1);
+    }
+    return today;
+  }
+
+  private async getPreviousSelectionDate(): Promise<DateOnly> {
+    const today = await this.getEffectiveDate();
+    return today.subtractDays(1);
   }
 
   private async getStartOfDayTime(): Promise<string> {

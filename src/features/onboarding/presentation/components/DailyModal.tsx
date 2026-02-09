@@ -17,8 +17,9 @@ import { TaskCategory } from "../../../../shared/domain/types";
 
 interface DailyModalProps {
   isVisible: boolean;
-  unfinishedTasks: Task[];
+  previousDayTasks: Task[];
   overdueInboxTasks: Task[];
+  dueDeferredTasks: Task[];
   regularInboxTasks: Task[];
   motivationalMessage: string;
   date: string;
@@ -32,8 +33,9 @@ interface DailyModalProps {
  */
 export const DailyModal: React.FC<DailyModalProps> = ({
   isVisible,
-  unfinishedTasks,
+  previousDayTasks,
   overdueInboxTasks,
+  dueDeferredTasks,
   regularInboxTasks,
   motivationalMessage,
   date,
@@ -81,8 +83,9 @@ export const DailyModal: React.FC<DailyModalProps> = ({
   };
 
   const hasContent =
-    unfinishedTasks.length > 0 ||
+    previousDayTasks.length > 0 ||
     overdueInboxTasks.length > 0 ||
+    dueDeferredTasks.length > 0 ||
     regularInboxTasks.length > 0;
 
   return (
@@ -115,15 +118,15 @@ export const DailyModal: React.FC<DailyModalProps> = ({
             <p className="text-blue-800 font-medium">{motivationalMessage}</p>
           </div>
 
-          {/* Unfinished Tasks from Yesterday */}
-          {unfinishedTasks.length > 0 && (
+          {/* Yesterday's Today tasks */}
+          {previousDayTasks.length > 0 && (
             <div className="mb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
                 <Clock className="w-5 h-5 mr-2 text-yellow-600" />
-                {t("dailyModal.unfinishedFromYesterday")}
+                {t("dailyModal.previousDayTasks")}
               </h3>
               <div className="space-y-2">
-                {unfinishedTasks.map((task) => (
+                {previousDayTasks.map((task) => (
                   <div
                     key={task.id.value}
                     className="flex items-center p-3 bg-yellow-50 rounded-lg border border-yellow-200"
@@ -195,6 +198,46 @@ export const DailyModal: React.FC<DailyModalProps> = ({
                             )
                           : "?"}{" "}
                         {t("dailyModal.days")}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Deferred tasks due today */}
+          {dueDeferredTasks.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+                <Sun className="w-5 h-5 mr-2 text-green-600" />
+                {t("dailyModal.deferredDueToday")}
+              </h3>
+              <div className="space-y-2">
+                {dueDeferredTasks.map((task) => (
+                  <div
+                    key={task.id.value}
+                    className="flex items-center p-3 bg-green-50 rounded-lg border border-green-200"
+                  >
+                    {onReturnTaskToToday && (
+                      <button
+                        onClick={() => onReturnTaskToToday(task.id.value)}
+                        className={`mr-3 p-1 rounded transition-colors ${
+                          todayTaskIds.includes(task.id.value)
+                            ? "text-green-500"
+                            : "text-gray-400 hover:text-green-500 hover:bg-green-100"
+                        }`}
+                        title={t("dailyModal.returnToToday")}
+                      >
+                        <Sun className="w-5 h-5" />
+                      </button>
+                    )}
+                    <div className="flex-1">
+                      <p className="text-gray-900 font-medium">
+                        {task.title.value}
+                      </p>
+                      <p className="text-xs text-green-700">
+                        {t(`categories.${task.category.toLowerCase()}`)}
                       </p>
                     </div>
                   </div>

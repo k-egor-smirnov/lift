@@ -36,8 +36,9 @@ export const DailyModalContainer: React.FC<DailyModalContainerProps> = () => {
   return (
     <DailyModal
       isVisible={isModalVisible}
-      unfinishedTasks={dailyModalData.unfinishedTasks}
+      previousDayTasks={dailyModalData.previousDayTasks}
       overdueInboxTasks={dailyModalData.overdueInboxTasks}
+      dueDeferredTasks={dailyModalData.dueDeferredTasks}
       regularInboxTasks={dailyModalData.regularInboxTasks}
       motivationalMessage={dailyModalData.motivationalMessage}
       date={dailyModalData.date}

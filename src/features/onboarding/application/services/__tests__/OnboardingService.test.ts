@@ -53,6 +53,7 @@ describe("OnboardingService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTaskRepository.findByCategoryAndStatus.mockResolvedValue([]);
     onboardingService = new OnboardingService(
       mockTaskRepository,
       mockDailySelectionRepository,
@@ -359,6 +360,19 @@ describe("OnboardingService", () => {
         fixedDate
       );
 
+      const deferredTask = new Task(
+        TaskId.generate(),
+        new NonEmptyTitle("Deferred Task"),
+        TaskCategory.DEFERRED,
+        TaskStatus.ACTIVE,
+        fixedDate.getTime(),
+        fixedDate,
+        fixedDate,
+        undefined,
+        fixedDate,
+        new Date("2023-01-02T00:00:00")
+      );
+
       // Mock yesterday's unfinished tasks
       mockDailySelectionRepository.getTasksForDay.mockResolvedValue([
         {
@@ -373,15 +387,23 @@ describe("OnboardingService", () => {
       // Mock overdue tasks
       mockTaskRepository.findOverdueTasks.mockResolvedValue([overdueTask]);
 
-      // Mock regular inbox tasks
-      mockTaskRepository.findByCategoryAndStatus.mockResolvedValue([
-        regularInboxTask,
-      ]);
+      mockTaskRepository.findByCategoryAndStatus.mockImplementation(
+        async (category) => {
+          if (category === TaskCategory.INBOX) {
+            return [regularInboxTask];
+          }
+          if (category === TaskCategory.DEFERRED) {
+            return [deferredTask];
+          }
+          return [];
+        }
+      );
 
       const result = await onboardingService.aggregateDailyModalData(3);
 
-      expect(result.unfinishedTasks).toHaveLength(1);
+      expect(result.previousDayTasks).toHaveLength(1);
       expect(result.overdueInboxTasks).toHaveLength(1);
+      expect(result.dueDeferredTasks).toHaveLength(1);
       expect(result.regularInboxTasks).toHaveLength(1);
       expect(result.shouldShow).toBe(true);
       expect(typeof result.motivationalMessage).toBe("string");
@@ -396,6 +418,7 @@ describe("OnboardingService", () => {
 
       mockDailySelectionRepository.getTasksForDay.mockResolvedValue([]);
       mockTaskRepository.findOverdueTasks.mockResolvedValue([]);
+      mockTaskRepository.findByCategoryAndStatus.mockResolvedValue([]);
 
       const result = await onboardingService.aggregateDailyModalData(3);
 

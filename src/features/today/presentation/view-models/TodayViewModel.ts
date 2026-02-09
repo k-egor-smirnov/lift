@@ -19,6 +19,13 @@ import {
   TaskEventType,
   AnyTaskEvent,
 } from "../../../../shared/domain/events/TaskEvent";
+import {
+  DEFAULT_USER_SETTINGS,
+  USER_SETTINGS_KEYS,
+  UserSettingsService,
+} from "../../../onboarding/application/services/UserSettingsService";
+import { UserSettingsRepositoryImpl } from "../../../../shared/infrastructure/repositories/UserSettingsRepositoryImpl";
+import { todoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 
 /**
  * Today view model state
@@ -34,6 +41,7 @@ export interface TodayViewModelState {
   completedCount: number;
   activeCount: number;
   autoRefreshEnabled: boolean;
+  startOfDayTime: string;
 
   // Actions
   loadTodayTasks: (date?: string, silent?: boolean) => Promise<void>;
@@ -76,6 +84,45 @@ export const createTodayViewModel = (
     completeTaskUseCase,
   } = dependencies;
   let unsubscribeFromEvents: (() => void) | null = null;
+  const userSettingsRepository = new UserSettingsRepositoryImpl(todoDatabase);
+  const userSettingsService = new UserSettingsService(userSettingsRepository);
+
+  const parseTimeToMinutes = (time: string) => {
+    const [hours, minutes] = time.split(":").map((part) => Number(part));
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+      return 9 * 60;
+    }
+    return hours * 60 + minutes;
+  };
+
+  const getEffectiveDateValue = (startOfDayTime: string) => {
+    const now = DateOnly.getCurrentDate();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const startMinutes = parseTimeToMinutes(startOfDayTime);
+    const today = DateOnly.fromDate(now);
+    if (nowMinutes < startMinutes) {
+      return today.subtractDays(1).value;
+    }
+    return today.value;
+  };
+
+  const getCurrentSelectionDate = async () => {
+    try {
+      const startOfDayTime = await userSettingsService.getStartOfDayTime();
+      return {
+        date: getEffectiveDateValue(startOfDayTime),
+        startOfDayTime,
+      };
+    } catch (error) {
+      console.warn("Failed to load start of day time:", error);
+      const fallback =
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME];
+      return {
+        date: getEffectiveDateValue(fallback),
+        startOfDayTime: fallback,
+      };
+    }
+  };
 
   const store = create<TodayViewModelState>((set, get) => ({
     // Initial state
@@ -83,11 +130,14 @@ export const createTodayViewModel = (
     loading: false,
     refreshing: false,
     error: null,
-    currentDate: DateOnly.today().value,
+    currentDate: getEffectiveDateValue(
+      DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME]
+    ),
     totalCount: 0,
     completedCount: 0,
     activeCount: 0,
     autoRefreshEnabled: true,
+    startOfDayTime: DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
 
     // Computed properties
     getActiveTasks: () => {
@@ -110,8 +160,8 @@ export const createTodayViewModel = (
     },
 
     isToday: () => {
-      const { currentDate } = get();
-      return currentDate === DateOnly.today().value;
+      const { currentDate, startOfDayTime } = get();
+      return currentDate === getEffectiveDateValue(startOfDayTime);
     },
 
     // Actions
@@ -127,8 +177,14 @@ export const createTodayViewModel = (
       }
 
       try {
+        let resolvedDate = date;
+        if (!resolvedDate) {
+          const selection = await getCurrentSelectionDate();
+          resolvedDate = selection.date;
+          set({ startOfDayTime: selection.startOfDayTime });
+        }
         const request: GetTodayTasksRequest = {
-          date,
+          date: resolvedDate,
           includeCompleted: true,
         };
 
@@ -250,10 +306,12 @@ export const createTodayViewModel = (
     },
 
     refreshToday: async () => {
-      // Always use the current date (which respects mocked date)
-      const today = DateOnly.today().value;
-      set({ currentDate: today });
-      await get().loadTodayTasks(today);
+      const selection = await getCurrentSelectionDate();
+      set({
+        currentDate: selection.date,
+        startOfDayTime: selection.startOfDayTime,
+      });
+      await get().loadTodayTasks(selection.date);
     },
 
     clearError: () => {

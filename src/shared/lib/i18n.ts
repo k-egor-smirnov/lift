@@ -87,8 +87,9 @@ const resources = {
       dailyModal: {
         goodMorning: "Good Morning!",
         closeModal: "Close modal",
-        unfinishedFromYesterday: "Unfinished from yesterday",
+        previousDayTasks: "Yesterday's Today list",
         overdueInboxTasks: "Overdue inbox tasks",
+        deferredDueToday: "Deferred tasks due today",
         inboxTasks: "Inbox tasks",
         needsReview: "Needs review",
         inInboxFor: "In inbox for",
@@ -249,8 +250,9 @@ const resources = {
       dailyModal: {
         goodMorning: "Доброе утро!",
         closeModal: "Закрыть модальное окно",
-        unfinishedFromYesterday: "Незавершенные со вчера",
+        previousDayTasks: "Вчерашний список Сегодня",
         overdueInboxTasks: "Просроченные задачи из входящих",
+        deferredDueToday: "Сегодняшние из отложенных",
         inboxTasks: "Задачи из входящих",
         needsReview: "Требует рассмотрения",
         inInboxFor: "Во входящих уже",
