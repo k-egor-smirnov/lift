@@ -36,6 +36,8 @@ describe("UserSettingsService", () => {
         inboxOverdueDays:
           DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
         keyboardShortcutsEnabled: true, // Default for non-mobile
+        startOfDayTime:
+          DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
       });
     });
 
@@ -43,6 +45,7 @@ describe("UserSettingsService", () => {
       mockUserSettingsRepository.getAll.mockResolvedValue({
         [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]: 5,
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: false,
+        [USER_SETTINGS_KEYS.START_OF_DAY_TIME]: "08:30",
       });
 
       const result = await userSettingsService.getUserSettings();
@@ -50,6 +53,7 @@ describe("UserSettingsService", () => {
       expect(result).toEqual({
         inboxOverdueDays: 5,
         keyboardShortcutsEnabled: false,
+        startOfDayTime: "08:30",
       });
     });
 
@@ -64,6 +68,8 @@ describe("UserSettingsService", () => {
       expect(result).toEqual({
         inboxOverdueDays: 7,
         keyboardShortcutsEnabled: true, // Default
+        startOfDayTime:
+          DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
       });
     });
   });
@@ -73,11 +79,13 @@ describe("UserSettingsService", () => {
       await userSettingsService.updateUserSettings({
         inboxOverdueDays: 5,
         keyboardShortcutsEnabled: false,
+        startOfDayTime: "07:45",
       });
 
       expect(mockUserSettingsRepository.setMany).toHaveBeenCalledWith({
         [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]: 5,
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: false,
+        [USER_SETTINGS_KEYS.START_OF_DAY_TIME]: "07:45",
       });
     });
 
@@ -170,6 +178,46 @@ describe("UserSettingsService", () => {
     });
   });
 
+  describe("getStartOfDayTime", () => {
+    it("should return stored value when it exists", async () => {
+      mockUserSettingsRepository.get.mockResolvedValue("08:15");
+
+      const result = await userSettingsService.getStartOfDayTime();
+
+      expect(result).toBe("08:15");
+      expect(mockUserSettingsRepository.get).toHaveBeenCalledWith(
+        USER_SETTINGS_KEYS.START_OF_DAY_TIME
+      );
+    });
+
+    it("should return default value when no value is stored", async () => {
+      mockUserSettingsRepository.get.mockResolvedValue(null);
+
+      const result = await userSettingsService.getStartOfDayTime();
+
+      expect(result).toBe(
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME]
+      );
+    });
+  });
+
+  describe("setStartOfDayTime", () => {
+    it("should set valid start of day time", async () => {
+      await userSettingsService.setStartOfDayTime("10:30");
+
+      expect(mockUserSettingsRepository.set).toHaveBeenCalledWith(
+        USER_SETTINGS_KEYS.START_OF_DAY_TIME,
+        "10:30"
+      );
+    });
+
+    it("should throw error for invalid start of day time", async () => {
+      await expect(
+        userSettingsService.setStartOfDayTime("99:99")
+      ).rejects.toThrow("Start of day time must be in HH:MM format");
+    });
+  });
+
   describe("resetToDefaults", () => {
     it("should clear all settings and set defaults", async () => {
       await userSettingsService.resetToDefaults();
@@ -179,6 +227,8 @@ describe("UserSettingsService", () => {
         [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]:
           DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: true, // Default for non-mobile
+        [USER_SETTINGS_KEYS.START_OF_DAY_TIME]:
+          DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
       });
     });
   });
@@ -194,6 +244,8 @@ describe("UserSettingsService", () => {
 
       expect(mockUserSettingsRepository.setMany).toHaveBeenCalledWith({
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: true,
+        [USER_SETTINGS_KEYS.START_OF_DAY_TIME]:
+          DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
       });
     });
 
@@ -201,6 +253,7 @@ describe("UserSettingsService", () => {
       mockUserSettingsRepository.getAll.mockResolvedValue({
         [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]: 5,
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: false,
+        [USER_SETTINGS_KEYS.START_OF_DAY_TIME]: "09:00",
       });
 
       await userSettingsService.initializeDefaults();
@@ -217,6 +270,8 @@ describe("UserSettingsService", () => {
         [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]:
           DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
         [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: true,
+        [USER_SETTINGS_KEYS.START_OF_DAY_TIME]:
+          DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
       });
     });
   });

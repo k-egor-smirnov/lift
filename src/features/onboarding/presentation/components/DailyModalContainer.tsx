@@ -11,11 +11,9 @@ interface DailyModalContainerProps {
  * Container component that manages the daily modal lifecycle
  * This should be included in the main app component
  */
-export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
-  overdueDays,
-}) => {
+export const DailyModalContainer: React.FC<DailyModalContainerProps> = () => {
   const { dailyModalData, isModalVisible, isLoading, error, hideDailyModal } =
-    useDailyModal(overdueDays);
+    useDailyModal();
 
   const { toggleTaskToday, todayTaskIds, loadTodayTaskIds } =
     useOnboardingViewModel();
@@ -38,8 +36,9 @@ export const DailyModalContainer: React.FC<DailyModalContainerProps> = ({
   return (
     <DailyModal
       isVisible={isModalVisible}
-      unfinishedTasks={dailyModalData.unfinishedTasks}
+      previousDayTasks={dailyModalData.previousDayTasks}
       overdueInboxTasks={dailyModalData.overdueInboxTasks}
+      dueDeferredTasks={dailyModalData.dueDeferredTasks}
       regularInboxTasks={dailyModalData.regularInboxTasks}
       motivationalMessage={dailyModalData.motivationalMessage}
       date={dailyModalData.date}

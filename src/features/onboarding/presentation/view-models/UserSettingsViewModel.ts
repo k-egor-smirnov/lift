@@ -20,6 +20,7 @@ interface UserSettingsState {
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   setInboxOverdueDays: (days: number) => Promise<void>;
   setKeyboardShortcutsEnabled: (enabled: boolean) => Promise<void>;
+  setStartOfDayTime: (time: string) => Promise<void>;
   resetToDefaults: () => Promise<void>;
   clearError: () => void;
 }
@@ -161,6 +162,39 @@ export const useUserSettingsViewModel = create<UserSettingsState>(
               error instanceof Error
                 ? error.message
                 : "Failed to update keyboard shortcuts setting",
+            isLoading: false,
+          });
+        }
+      },
+
+      // Set start of day time
+      setStartOfDayTime: async (time: string) => {
+        const currentSettings = get().settings;
+        if (!currentSettings) {
+          set({ error: "Settings not loaded" });
+          return;
+        }
+
+        set({ isLoading: true, error: null });
+
+        try {
+          await userSettingsService.setStartOfDayTime(time);
+
+          // Update local state
+          const updatedSettings = {
+            ...currentSettings,
+            startOfDayTime: time,
+          };
+          set({
+            settings: updatedSettings,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update start of day time",
             isLoading: false,
           });
         }

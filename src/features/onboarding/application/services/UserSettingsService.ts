@@ -6,6 +6,7 @@ import { UserSettingsRepository } from "../../../../shared/domain/repositories/U
 export const USER_SETTINGS_KEYS = {
   INBOX_OVERDUE_DAYS: "inboxOverdueDays",
   KEYBOARD_SHORTCUTS_ENABLED: "keyboardShortcutsEnabled",
+  START_OF_DAY_TIME: "startOfDayTime",
 } as const;
 
 /**
@@ -14,6 +15,7 @@ export const USER_SETTINGS_KEYS = {
 export const DEFAULT_USER_SETTINGS = {
   [USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS]: 3,
   [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]: true, // Default enabled on desktop, will be overridden on mobile
+  [USER_SETTINGS_KEYS.START_OF_DAY_TIME]: "09:00",
 } as const;
 
 /**
@@ -22,6 +24,7 @@ export const DEFAULT_USER_SETTINGS = {
 export interface UserSettings {
   inboxOverdueDays: number;
   keyboardShortcutsEnabled: boolean;
+  startOfDayTime: string;
 }
 
 /**
@@ -46,6 +49,9 @@ export class UserSettingsService {
       keyboardShortcutsEnabled:
         settings[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] ??
         this.getDefaultKeyboardShortcutsEnabled(),
+      startOfDayTime:
+        settings[USER_SETTINGS_KEYS.START_OF_DAY_TIME] ??
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
     };
 
     return result;
@@ -65,6 +71,14 @@ export class UserSettingsService {
     if (settings.keyboardShortcutsEnabled !== undefined) {
       settingsToUpdate[USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED] =
         settings.keyboardShortcutsEnabled;
+    }
+
+    if (settings.startOfDayTime !== undefined) {
+      if (!this.isValidTime(settings.startOfDayTime)) {
+        throw new Error("Start of day time must be in HH:MM format");
+      }
+      settingsToUpdate[USER_SETTINGS_KEYS.START_OF_DAY_TIME] =
+        settings.startOfDayTime;
     }
 
     await this.userSettingsRepository.setMany(settingsToUpdate);
@@ -116,6 +130,29 @@ export class UserSettingsService {
   }
 
   /**
+   * Get start of day time setting
+   */
+  async getStartOfDayTime(): Promise<string> {
+    const value = await this.userSettingsRepository.get<string>(
+      USER_SETTINGS_KEYS.START_OF_DAY_TIME
+    );
+    return value ?? DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME];
+  }
+
+  /**
+   * Set start of day time setting
+   */
+  async setStartOfDayTime(time: string): Promise<void> {
+    if (!this.isValidTime(time)) {
+      throw new Error("Start of day time must be in HH:MM format");
+    }
+    await this.userSettingsRepository.set(
+      USER_SETTINGS_KEYS.START_OF_DAY_TIME,
+      time
+    );
+  }
+
+  /**
    * Reset all settings to defaults
    */
   async resetToDefaults(): Promise<void> {
@@ -127,6 +164,8 @@ export class UserSettingsService {
         DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS],
       [USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED]:
         this.getDefaultKeyboardShortcutsEnabled(),
+      [USER_SETTINGS_KEYS.START_OF_DAY_TIME]:
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
     });
   }
 
@@ -148,6 +187,11 @@ export class UserSettingsService {
         this.getDefaultKeyboardShortcutsEnabled();
     }
 
+    if (!(USER_SETTINGS_KEYS.START_OF_DAY_TIME in existingSettings)) {
+      settingsToSet[USER_SETTINGS_KEYS.START_OF_DAY_TIME] =
+        DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME];
+    }
+
     if (Object.keys(settingsToSet).length > 0) {
       await this.userSettingsRepository.setMany(settingsToSet);
     }
@@ -166,5 +210,9 @@ export class UserSettingsService {
       return !isMobile;
     }
     return true; // Default to enabled on server/unknown environments
+  }
+
+  private isValidTime(time: string): boolean {
+    return /^([01]\d|2[0-3]):([0-5]\d)$/.test(time);
   }
 }

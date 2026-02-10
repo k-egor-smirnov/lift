@@ -22,6 +22,7 @@ import { formatTimeAgo } from "@/shared/utils/timeFormat";
 import { container } from "tsyringe";
 import { SupabaseClientFactory } from "@/shared/infrastructure/database/SupabaseClient";
 import { SUPABASE_CLIENT_FACTORY_TOKEN } from "@/shared/infrastructure/di/tokens";
+import { useUserSettingsViewModel } from "@/features/onboarding/presentation/view-models/UserSettingsViewModel";
 import {
   Settings as SettingsIcon,
   User as UserIcon,
@@ -62,6 +63,13 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const [connectionTestResult, setConnectionTestResult] = useState<
     string | null
   >(null);
+  const [startOfDayTime, setStartOfDayTime] = useState("09:00");
+
+  const {
+    settings: userSettings,
+    loadSettings: loadUserSettings,
+    setStartOfDayTime: saveStartOfDayTime,
+  } = useUserSettingsViewModel();
 
   // Get Supabase client
   const supabaseClientFactory = container.resolve<SupabaseClientFactory>(
@@ -222,6 +230,23 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
 
     setConnectionTestResult(testResults.join("\n"));
     setIsLoading(false);
+  };
+
+  useEffect(() => {
+    if (!userSettings) {
+      loadUserSettings();
+    }
+  }, [userSettings, loadUserSettings]);
+
+  useEffect(() => {
+    if (userSettings?.startOfDayTime) {
+      setStartOfDayTime(userSettings.startOfDayTime);
+    }
+  }, [userSettings]);
+
+  const handleStartOfDayTimeChange = async (value: string) => {
+    setStartOfDayTime(value);
+    await saveStartOfDayTime(value);
   };
 
   const now = useCurrentTime();
@@ -564,6 +589,27 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                     English
                   </Button>
                 </div>
+              </div>
+
+              <Separator />
+
+              {/* Start of Day Time */}
+              <div className="space-y-2">
+                <Label htmlFor="start-of-day-time">
+                  {t("settings.app.startOfDayTime")}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {t("settings.app.startOfDayTimeDescription")}
+                </p>
+                <Input
+                  id="start-of-day-time"
+                  type="time"
+                  value={startOfDayTime}
+                  onChange={(event) =>
+                    handleStartOfDayTimeChange(event.target.value)
+                  }
+                  className="max-w-[200px]"
+                />
               </div>
 
               <Separator />

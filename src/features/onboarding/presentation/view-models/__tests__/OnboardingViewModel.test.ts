@@ -8,8 +8,9 @@ import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
 vi.mock("../../application/services/OnboardingService", () => ({
   OnboardingService: vi.fn().mockImplementation(() => ({
     aggregateDailyModalData: vi.fn().mockResolvedValue({
-      unfinishedTasks: [],
+      previousDayTasks: [],
       overdueInboxTasks: [],
+      dueDeferredTasks: [],
       regularInboxTasks: [],
       motivationalMessage: "Test message",
       shouldShow: false,
@@ -132,8 +133,9 @@ describe("OnboardingViewModel", () => {
 
       // Set up initial state with modal visible and data
       const mockModalData = {
-        unfinishedTasks: [],
+        previousDayTasks: [],
         overdueInboxTasks: [],
+        dueDeferredTasks: [],
         regularInboxTasks: [],
         motivationalMessage: "Test message",
         shouldShow: true,
@@ -151,7 +153,7 @@ describe("OnboardingViewModel", () => {
       expect(result.current.isModalVisible).toBe(true);
 
       // Simulate day transition (move to next day)
-      (DateOnly.today as any).mockReturnValue({ value: "2023-12-02" });
+      vi.setSystemTime(new Date("2023-12-02T09:00:00"));
 
       await act(async () => {
         const dayChanged = result.current.checkDayTransition();
@@ -176,7 +178,7 @@ describe("OnboardingViewModel", () => {
       expect(result.current.isModalVisible).toBe(false);
 
       // Simulate day transition
-      (DateOnly.today as any).mockReturnValue({ value: "2023-12-02" });
+      vi.setSystemTime(new Date("2023-12-02T09:00:00"));
 
       await act(async () => {
         const dayChanged = result.current.checkDayTransition();

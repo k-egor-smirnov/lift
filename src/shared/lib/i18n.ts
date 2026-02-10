@@ -73,16 +73,23 @@ const resources = {
           title: "Application Settings",
           description: "Customize your app experience",
           language: "Language",
+          startOfDayTime: "Start of day time",
+          startOfDayTimeDescription:
+            "When the start of day button becomes available",
           debugMode: "Debug Mode",
           debugModeDescription: "Enable detailed logging for troubleshooting",
           info: "App Information",
         },
       },
+      todayView: {
+        startOfDay: "Start of day",
+      },
       dailyModal: {
         goodMorning: "Good Morning!",
         closeModal: "Close modal",
-        unfinishedFromYesterday: "Unfinished from yesterday",
+        previousDayTasks: "Yesterday's Today list",
         overdueInboxTasks: "Overdue inbox tasks",
+        deferredDueToday: "Deferred tasks due today",
         inboxTasks: "Inbox tasks",
         needsReview: "Needs review",
         inInboxFor: "In inbox for",
@@ -203,6 +210,8 @@ const resources = {
           title: "Настройки приложения",
           description: "Настройте ваше приложение",
           language: "Язык",
+          startOfDayTime: "Время начала дня",
+          startOfDayTimeDescription: "Когда кнопка начала дня станет доступной",
           debugMode: "Режим отладки",
           debugModeDescription:
             "Включить подробное логирование для диагностики",
@@ -218,6 +227,7 @@ const resources = {
           "Каждый день список сегодняшних задач сбрасывается",
         noTasksSelected: "Задачи не выбраны",
         startByAdding: "Начните сегодняшний день, выбрав задачи из категорий",
+        startOfDay: "Начало дня",
       },
       taskCard: {
         deferTask: "Отложить задачу",
@@ -240,8 +250,9 @@ const resources = {
       dailyModal: {
         goodMorning: "Доброе утро!",
         closeModal: "Закрыть модальное окно",
-        unfinishedFromYesterday: "Незавершенные со вчера",
+        previousDayTasks: "Вчерашний список Сегодня",
         overdueInboxTasks: "Просроченные задачи из входящих",
+        deferredDueToday: "Сегодняшние из отложенных",
         inboxTasks: "Задачи из входящих",
         needsReview: "Требует рассмотрения",
         inInboxFor: "Во входящих уже",

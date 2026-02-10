@@ -30,13 +30,17 @@ interface OnboardingState {
   // Modal shown tracking
   modalShownToday: boolean;
   currentDay: string; // Track current day to detect day transitions
+  startOfDayTime: string;
 
   // Actions
   loadDailyModalData: (overdueDays?: number) => Promise<void>;
   showDailyModal: () => void;
   hideDailyModal: () => void;
   markModalShownToday: () => void;
-  checkShouldShowModal: (overdueDays?: number) => Promise<boolean>;
+  checkShouldShowModal: (
+    overdueDays?: number,
+    options?: { log?: boolean }
+  ) => Promise<boolean>;
   checkDayTransition: () => boolean;
   resetForNewDay: (preserveModalData?: boolean) => void;
   reset: () => void;
@@ -85,6 +89,29 @@ const createOnboardingService = () => {
  */
 export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
   const onboardingService = createOnboardingService();
+  const userSettingsRepository = new UserSettingsRepositoryImpl(todoDatabase);
+  const userSettingsService = new UserSettingsService(userSettingsRepository);
+
+  const DEFAULT_START_OF_DAY_TIME = "09:00";
+
+  const parseTimeToMinutes = (time: string) => {
+    const [hours, minutes] = time.split(":").map((part) => Number(part));
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+      return 9 * 60;
+    }
+    return hours * 60 + minutes;
+  };
+
+  const getEffectiveDateValue = (startOfDayTime: string) => {
+    const now = DateOnly.getCurrentDate();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const startMinutes = parseTimeToMinutes(startOfDayTime);
+    const today = DateOnly.fromDate(now);
+    if (nowMinutes < startMinutes) {
+      return today.subtractDays(1).value;
+    }
+    return today.value;
+  };
 
   // Subscribe to task events for automatic updates
   taskEventBus.subscribe(TaskEventType.TASK_ADDED_TO_TODAY, () => {
@@ -96,18 +123,35 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
   });
 
   // Check if modal was already shown today (using localStorage)
-  const getModalShownKey = () => {
-    const today = DateOnly.today().value;
-    return `dailyModal_shown_${today}`;
+  const getModalShownKey = (day: string) => `dailyModal_shown_${day}`;
+
+  const wasModalShownToday = (day: string) => {
+    return localStorage.getItem(getModalShownKey(day)) === "true";
   };
 
-  const wasModalShownToday = () => {
-    return localStorage.getItem(getModalShownKey()) === "true";
+  const markModalAsShown = (day: string) => {
+    localStorage.setItem(getModalShownKey(day), "true");
   };
 
-  const markModalAsShown = () => {
-    localStorage.setItem(getModalShownKey(), "true");
-  };
+  const initialDay = getEffectiveDateValue(DEFAULT_START_OF_DAY_TIME);
+
+  userSettingsService
+    .getStartOfDayTime()
+    .then((time) => {
+      const effectiveDay = getEffectiveDateValue(time);
+      set({
+        startOfDayTime: time,
+        currentDay: effectiveDay,
+        modalShownToday: wasModalShownToday(effectiveDay),
+      });
+    })
+    .catch(() => {
+      set({
+        startOfDayTime: DEFAULT_START_OF_DAY_TIME,
+        currentDay: initialDay,
+        modalShownToday: wasModalShownToday(initialDay),
+      });
+    });
 
   return {
     // Initial state
@@ -116,8 +160,9 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     isLoading: false,
     error: null,
     todayTaskIds: [],
-    modalShownToday: wasModalShownToday(),
-    currentDay: DateOnly.today().value, // Initialize with current day
+    modalShownToday: wasModalShownToday(initialDay),
+    currentDay: initialDay,
+    startOfDayTime: DEFAULT_START_OF_DAY_TIME,
 
     // Load daily modal data
     loadDailyModalData: async (overdueDays?: number) => {
@@ -148,18 +193,23 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
 
     // Hide the daily modal and mark as shown
     hideDailyModal: () => {
+      const { currentDay } = get();
       set({ isModalVisible: false, modalShownToday: true });
-      markModalAsShown();
+      markModalAsShown(currentDay);
     },
 
     // Mark modal as shown for today
     markModalShownToday: () => {
+      const { currentDay } = get();
       set({ modalShownToday: true });
-      markModalAsShown();
+      markModalAsShown(currentDay);
     },
 
     // Check if modal should be shown
-    checkShouldShowModal: async (overdueDays?: number) => {
+    checkShouldShowModal: async (
+      overdueDays?: number,
+      options?: { log?: boolean }
+    ) => {
       const state = get();
 
       // Don't show if already shown today
@@ -168,8 +218,10 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
       }
 
       try {
-        const shouldShow =
-          await onboardingService.shouldShowDailyModal(overdueDays);
+        const shouldShow = await onboardingService.shouldShowDailyModal(
+          overdueDays,
+          options
+        );
         return shouldShow;
       } catch (error) {
         console.error("Error checking if modal should show:", error);
@@ -180,7 +232,7 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     // Check if day has transitioned
     checkDayTransition: () => {
       const state = get();
-      const today = DateOnly.today().value;
+      const today = getEffectiveDateValue(state.startOfDayTime);
 
       if (state.currentDay !== today) {
         // Day has changed, reset for new day but preserve modal data if modal is visible
@@ -194,9 +246,10 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     // Reset state for new day
     resetForNewDay: (preserveModalData = false) => {
       const state = get();
+      const today = getEffectiveDateValue(state.startOfDayTime);
       set({
         modalShownToday: false,
-        currentDay: DateOnly.today().value,
+        currentDay: today,
         // Preserve modal data and visibility if modal is currently shown
         // This ensures that if user left app open over weekend, they can still see Friday's tasks on Monday
         dailyModalData: preserveModalData ? state.dailyModalData : null,
@@ -208,14 +261,16 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
 
     // Reset state
     reset: () => {
+      const today = getEffectiveDateValue(DEFAULT_START_OF_DAY_TIME);
       set({
         dailyModalData: null,
         isModalVisible: false,
         isLoading: false,
         error: null,
         modalShownToday: false,
-        currentDay: DateOnly.today().value,
+        currentDay: today,
         todayTaskIds: [],
+        startOfDayTime: DEFAULT_START_OF_DAY_TIME,
       });
     },
 

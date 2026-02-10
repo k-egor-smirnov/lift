@@ -23,6 +23,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     loadSettings,
     setInboxOverdueDays,
     setKeyboardShortcutsEnabled,
+    setStartOfDayTime,
     resetToDefaults,
     clearError,
   } = useUserSettingsViewModel();
@@ -30,6 +31,8 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const [localInboxDays, setLocalInboxDays] = useState<number>(3);
   const [localKeyboardShortcuts, setLocalKeyboardShortcuts] =
     useState<boolean>(true);
+  const [localStartOfDayTime, setLocalStartOfDayTime] =
+    useState<string>("09:00");
 
   // Load settings when modal opens
   useEffect(() => {
@@ -43,6 +46,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     if (settings) {
       setLocalInboxDays(settings.inboxOverdueDays);
       setLocalKeyboardShortcuts(settings.keyboardShortcutsEnabled);
+      setLocalStartOfDayTime(settings.startOfDayTime);
     }
   }, [settings]);
 
@@ -54,6 +58,11 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const handleKeyboardShortcutsChange = async (enabled: boolean) => {
     setLocalKeyboardShortcuts(enabled);
     await setKeyboardShortcutsEnabled(enabled);
+  };
+
+  const handleStartOfDayTimeChange = async (time: string) => {
+    setLocalStartOfDayTime(time);
+    await setStartOfDayTime(time);
   };
 
   const handleResetToDefaults = async () => {
@@ -203,6 +212,22 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                     </ul>
                   </div>
                 )}
+              </div>
+
+              {/* Start of Day Time Setting */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t("settings.app.startOfDayTime")}
+                </label>
+                <p className="text-sm text-gray-600 mb-3">
+                  {t("settings.app.startOfDayTimeDescription")}
+                </p>
+                <input
+                  type="time"
+                  value={localStartOfDayTime}
+                  onChange={(e) => handleStartOfDayTimeChange(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
               </div>
             </div>
           )}
