@@ -21,6 +21,7 @@ interface SidebarProps {
   hasOverdueTasks: boolean;
   isMobileMenuOpen: boolean;
   onMobileMenuClose: () => void;
+  showTodayHighlight: boolean;
 }
 
 const getCategoryInfo = (category: TaskCategory, t: any) => {
@@ -45,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   hasOverdueTasks,
   isMobileMenuOpen,
   onMobileMenuClose,
+  showTodayHighlight,
 }) => {
   const { t } = useTranslation();
 
@@ -122,44 +124,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <nav className="flex-1 p-4 space-y-1 flex flex-col" role="list">
         <div className="space-y-1">
-          {menuItems.map((item) => (
-            <Button
-              key={item.id}
-              variant={activeView === item.id ? "secondary" : "ghost"}
-              onClick={() => handleItemClick(item.id)}
-              className={cn(
-                "w-full justify-between h-auto p-3 text-left font-normal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
-                activeView === item.id &&
-                  "bg-primary/10 text-primary hover:bg-primary/15"
-              )}
-              data-testid={`sidebar-${item.id.toLowerCase()}`}
-              aria-current={activeView === item.id ? "page" : undefined}
-              aria-label={`${item.name}${
-                item.count !== null ? ` (${item.count} tasks)` : ""
-              }`}
-              role="listitem"
-            >
-              <div className="flex items-center space-x-3">
-                <item.icon className="w-5 h-5" aria-hidden="true" />
-                <span className="font-medium">{item.name}</span>
-              </div>
-              {item.count !== null && (
-                <span
-                  className={cn(
-                    "px-2 py-1 text-xs rounded-full font-medium",
-                    activeView === item.id
-                      ? "bg-primary/20 text-primary"
-                      : item.id === TaskCategory.INBOX && hasOverdueTasks
-                        ? "text-muted-foreground bg-red-300/20"
-                        : "bg-muted text-muted-foreground"
+          {menuItems.map((item) => {
+            const shouldHighlightToday =
+              item.id === "today" &&
+              showTodayHighlight &&
+              activeView !== "today";
+
+            return (
+              <Button
+                key={item.id}
+                variant={activeView === item.id ? "secondary" : "ghost"}
+                onClick={() => handleItemClick(item.id)}
+                className={cn(
+                  "w-full justify-between h-auto p-3 text-left font-normal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
+                  activeView === item.id &&
+                    "bg-primary/10 text-primary hover:bg-primary/15",
+                  shouldHighlightToday &&
+                    "border border-amber-300/80 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                )}
+                data-testid={`sidebar-${item.id.toLowerCase()}`}
+                aria-current={activeView === item.id ? "page" : undefined}
+                aria-label={`${item.name}${
+                  item.count !== null ? ` (${item.count} tasks)` : ""
+                }`}
+                role="listitem"
+              >
+                <div className="flex items-center space-x-3">
+                  <item.icon className="w-5 h-5" aria-hidden="true" />
+                  <span className="font-medium">{item.name}</span>
+                  {shouldHighlightToday && (
+                    <span
+                      className="ml-2 inline-block h-2 w-2 rounded-full bg-amber-500"
+                      aria-hidden="true"
+                    />
                   )}
-                  aria-label={`${item.count} tasks`}
-                >
-                  {item.count}
-                </span>
-              )}
-            </Button>
-          ))}
+                </div>
+                {item.count !== null && (
+                  <span
+                    className={cn(
+                      "inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-medium",
+                      activeView === item.id
+                        ? "bg-primary/20 text-primary"
+                        : item.id === TaskCategory.INBOX && hasOverdueTasks
+                          ? "text-muted-foreground bg-red-300/20"
+                          : "bg-muted text-muted-foreground"
+                    )}
+                    aria-label={`${item.count} tasks`}
+                  >
+                    {item.count}
+                  </span>
+                )}
+              </Button>
+            );
+          })}
         </div>
 
         {/* Settings at the bottom */}

@@ -31,6 +31,7 @@ interface OnboardingState {
   modalShownToday: boolean;
   currentDay: string; // Track current day to detect day transitions
   startOfDayTime: string;
+  isStartOfDayAvailable: boolean;
 
   // Actions
   loadDailyModalData: (overdueDays?: number) => Promise<void>;
@@ -47,6 +48,9 @@ interface OnboardingState {
   returnTaskToToday: (taskId: string) => Promise<void>;
   toggleTaskToday: (taskId: string) => Promise<void>;
   loadTodayTaskIds: () => Promise<void>;
+  refreshStartOfDayAvailability: () => Promise<void>;
+  startStartOfDayAvailabilityMonitoring: () => void;
+  stopStartOfDayAvailabilityMonitoring: () => void;
 }
 
 /**
@@ -93,6 +97,8 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
   const userSettingsService = new UserSettingsService(userSettingsRepository);
 
   const DEFAULT_START_OF_DAY_TIME = "09:00";
+  let startOfDayAvailabilityInterval: ReturnType<typeof setInterval> | null =
+    null;
 
   const parseTimeToMinutes = (time: string) => {
     const [hours, minutes] = time.split(":").map((part) => Number(part));
@@ -163,6 +169,7 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     modalShownToday: wasModalShownToday(initialDay),
     currentDay: initialDay,
     startOfDayTime: DEFAULT_START_OF_DAY_TIME,
+    isStartOfDayAvailable: false,
 
     // Load daily modal data
     loadDailyModalData: async (overdueDays?: number) => {
@@ -194,14 +201,18 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
     // Hide the daily modal and mark as shown
     hideDailyModal: () => {
       const { currentDay } = get();
-      set({ isModalVisible: false, modalShownToday: true });
+      set({
+        isModalVisible: false,
+        modalShownToday: true,
+        isStartOfDayAvailable: false,
+      });
       markModalAsShown(currentDay);
     },
 
     // Mark modal as shown for today
     markModalShownToday: () => {
       const { currentDay } = get();
-      set({ modalShownToday: true });
+      set({ modalShownToday: true, isStartOfDayAvailable: false });
       markModalAsShown(currentDay);
     },
 
@@ -256,6 +267,7 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
         isModalVisible: preserveModalData ? state.isModalVisible : false,
         error: null,
         todayTaskIds: [],
+        isStartOfDayAvailable: false,
       });
     },
 
@@ -271,6 +283,7 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
         currentDay: today,
         todayTaskIds: [],
         startOfDayTime: DEFAULT_START_OF_DAY_TIME,
+        isStartOfDayAvailable: false,
       });
     },
 
@@ -334,6 +347,48 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
       } catch (error) {
         console.error("Error loading today task IDs:", error);
       }
+    },
+
+    refreshStartOfDayAvailability: async () => {
+      try {
+        get().checkDayTransition();
+
+        const state = get();
+        if (state.modalShownToday) {
+          set({ isStartOfDayAvailable: false });
+          return;
+        }
+
+        const shouldShow = await onboardingService.shouldShowDailyModal(
+          undefined,
+          { log: false }
+        );
+
+        set({ isStartOfDayAvailable: shouldShow });
+      } catch (error) {
+        console.error("Error checking start of day availability:", error);
+        set({ isStartOfDayAvailable: false });
+      }
+    },
+
+    startStartOfDayAvailabilityMonitoring: () => {
+      if (startOfDayAvailabilityInterval) {
+        return;
+      }
+
+      void get().refreshStartOfDayAvailability();
+      startOfDayAvailabilityInterval = setInterval(() => {
+        void get().refreshStartOfDayAvailability();
+      }, 60000);
+    },
+
+    stopStartOfDayAvailabilityMonitoring: () => {
+      if (!startOfDayAvailabilityInterval) {
+        return;
+      }
+
+      clearInterval(startOfDayAvailabilityInterval);
+      startOfDayAvailabilityInterval = null;
     },
   };
 });

@@ -23,25 +23,34 @@ export const DailyModalContainer: React.FC<DailyModalContainerProps> = () => {
     loadTodayTaskIds();
   }, [loadTodayTaskIds]);
 
-  // Don't render anything if there's an error or no data
-  if (error || !dailyModalData) {
+  // Don't render anything if modal is hidden and data is not ready yet
+  if (!isModalVisible && !dailyModalData) {
     return null;
   }
 
-  // Show loading state if needed
-  if (isLoading) {
+  // Show loading state only while we don't have any data yet
+  if (isLoading && !dailyModalData) {
     return null; // Could show a loading spinner if desired
   }
+
+  const safeDailyModalData = dailyModalData ?? {
+    previousDayTasks: [],
+    overdueInboxTasks: [],
+    dueDeferredTasks: [],
+    regularInboxTasks: [],
+    motivationalMessage: error ?? "",
+    date: new Date().toISOString().split("T")[0],
+  };
 
   return (
     <DailyModal
       isVisible={isModalVisible}
-      previousDayTasks={dailyModalData.previousDayTasks}
-      overdueInboxTasks={dailyModalData.overdueInboxTasks}
-      dueDeferredTasks={dailyModalData.dueDeferredTasks}
-      regularInboxTasks={dailyModalData.regularInboxTasks}
-      motivationalMessage={dailyModalData.motivationalMessage}
-      date={dailyModalData.date}
+      previousDayTasks={safeDailyModalData.previousDayTasks}
+      overdueInboxTasks={safeDailyModalData.overdueInboxTasks}
+      dueDeferredTasks={safeDailyModalData.dueDeferredTasks}
+      regularInboxTasks={safeDailyModalData.regularInboxTasks}
+      motivationalMessage={safeDailyModalData.motivationalMessage}
+      date={safeDailyModalData.date}
       onClose={hideDailyModal}
       onReturnTaskToToday={toggleTaskToday}
       todayTaskIds={todayTaskIds}

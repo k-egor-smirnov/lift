@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
 import { TaskId } from "../shared/domain/value-objects/TaskId";
@@ -63,6 +69,12 @@ export const MVPApp: React.FC = () => {
   const [lastLogs, setLastLogs] = useState<Record<string, LogEntry>>({});
   const [todayTaskIds, setTodayTaskIds] = useState<string[]>([]);
   const lastLoadDateRef = useRef<string>(DateOnly.today().value);
+
+  const {
+    isStartOfDayAvailable,
+    startStartOfDayAvailabilityMonitoring,
+    stopStartOfDayAvailabilityMonitoring,
+  } = useOnboardingViewModel();
 
   // Check if device is mobile and in development mode
   const isMobile = () => {
@@ -248,6 +260,17 @@ export const MVPApp: React.FC = () => {
       clearInterval(interval);
     };
   }, [lastLoadDateRef, loadTodayTaskIds]);
+
+  useEffect(() => {
+    startStartOfDayAvailabilityMonitoring();
+
+    return () => {
+      stopStartOfDayAvailabilityMonitoring();
+    };
+  }, [
+    startStartOfDayAvailabilityMonitoring,
+    stopStartOfDayAvailabilityMonitoring,
+  ]);
 
   // Subscribe to task events for auto-updating todayTaskIds
   useEffect(() => {
@@ -789,6 +812,7 @@ export const MVPApp: React.FC = () => {
         hasOverdueTasks={hasOverdueTasks}
         isMobileMenuOpen={isMobileMenuOpen}
         onMobileMenuClose={handleMobileMenuClose}
+        showTodayHighlight={isStartOfDayAvailable}
       />
 
       {/* Main Content */}
