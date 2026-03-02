@@ -68,20 +68,16 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   const screens = [
     { id: "today", label: "Сегодня", component: "today" },
     { id: "categories", label: "Категории", component: "categories" },
-    { id: "inbox", label: "Inbox", category: TaskCategory.INBOX },
-    { id: "simple", label: "Simple", category: TaskCategory.SIMPLE },
-    { id: "focus", label: "Focus", category: TaskCategory.FOCUS },
   ];
 
+  const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null);
+
   const handleCategoryClick = (category: TaskCategory) => {
-    const screenIndex = screens.findIndex(s => s.category === category);
-    if (screenIndex !== -1 && containerRef.current) {
-      const screenWidth = containerRef.current.clientWidth;
-      containerRef.current.scrollTo({
-        left: screenWidth * screenIndex,
-        behavior: 'smooth'
-      });
-    }
+    setSelectedCategory(category);
+  };
+
+  const handleCategoryClose = () => {
+    setSelectedCategory(null);
   };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -90,10 +86,9 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
     const newActiveScreen = Math.round(scrollLeft / screenWidth);
     if (newActiveScreen !== activeScreen) {
       setActiveScreen(newActiveScreen);
-      // Update category based on screen (skip categories screen at index 1)
-      const screen = screens[newActiveScreen];
-      if (screen.category) {
-        setNewTaskCategory(screen.category);
+      // Reset selected category when scrolling
+      if (selectedCategory) {
+        setSelectedCategory(null);
       }
     }
   };
@@ -159,7 +154,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
         {/* Categories Screen */}
         <div
-          className="w-full h-full flex-shrink-0 overflow-y-auto pb-32 px-4 py-6"
+          className="w-full h-full flex-shrink-0 overflow-y-auto pb-24 px-4 py-6"
           style={{ 
             scrollSnapAlign: "start",
             scrollSnapStop: "always"
@@ -167,208 +162,280 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         >
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Категории</h2>
-            <p className="text-gray-500 text-sm">Выберите категорию для просмотра задач</p>
+            <p className="text-gray-500 text-sm">Все задачи по категориям</p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-6">
             {Object.entries(categoryConfig).map(([cat, config]) => {
               const Icon = config.icon;
               const categoryTasks = tasks.filter(
                 (task) => task.category === cat
               );
               const activeTasks = categoryTasks.filter(t => !t.completedAt);
-              const completedTasks = categoryTasks.filter(t => t.completedAt);
 
               return (
-                <button
-                  key={cat}
-                  onClick={() => handleCategoryClick(cat as TaskCategory)}
-                  className={`w-full p-4 rounded-xl ${config.bgColor} border-2 border-transparent hover:border-gray-300 transition-all active:scale-98 text-left`}
-                >
+                <div key={cat} className="space-y-2">
+                  {/* Category Header */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg bg-white/50`}>
-                        <Icon className={`w-6 h-6 ${config.color}`} />
-                      </div>
-                      <div>
-                        <h3 className={`font-semibold ${config.color}`}>
-                          {config.label}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {activeTasks.length} активных
-                          {completedTasks.length > 0 && `, ${completedTasks.length} выполнено`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-gray-400">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
+                    <div className="flex items-center gap-2">
+                      <Icon className={`w-5 h-5 ${config.color}`} />
+                      <h3 className={`font-semibold ${config.color}`}>
+                        {config.label}
+                      </h3>
+                      <span className="text-sm text-gray-500">
+                        {categoryTasks.length}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Preview of tasks */}
-                  {activeTasks.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-black/10">
-                      <div className="space-y-1">
+                  {/* Tasks Preview */}
+                  <div className="pl-7 space-y-1">
+                    {activeTasks.length === 0 ? (
+                      <p className="text-sm text-gray-400 italic">Нет задач</p>
+                    ) : (
+                      <>
                         {activeTasks.slice(0, 2).map(task => (
-                          <div key={task.id.value} className="text-sm text-gray-700 truncate">
-                            • {task.title.toString()}
+                          <div 
+                            key={task.id.value} 
+                            className="text-sm text-gray-700 flex items-start gap-2"
+                          >
+                            <span className="text-gray-400 mt-0.5">•</span>
+                            <span className="flex-1 truncate">{task.title.toString()}</span>
                           </div>
                         ))}
                         {activeTasks.length > 2 && (
-                          <div className="text-sm text-gray-500">
-                            и ещё {activeTasks.length - 2}...
-                          </div>
+                          <p className="text-sm text-gray-500">
+                            и ещё {activeTasks.length - 2}
+                          </p>
                         )}
-                      </div>
-                    </div>
-                  )}
-                </button>
+                      </>
+                    )}
+
+                    {/* Open Category Button */}
+                    {categoryTasks.length > 0 && (
+                      <button
+                        onClick={() => handleCategoryClick(cat as TaskCategory)}
+                        className={`mt-2 text-sm font-medium ${config.color} hover:underline`}
+                      >
+                        Открыть {config.label} →
+                      </button>
+                    )}
+                  </div>
+                </div>
               );
             })}
           </div>
         </div>
-
-        {/* Category Task Screens */}
-        {screens.slice(2).map((screen) => {
-          const config = categoryConfig[screen.category!];
-          const Icon = config.icon;
-          const categoryTasks = tasks.filter(
-            (task) => task.category === screen.category
-          );
-
-          return (
-            <div
-              key={screen.id}
-              className="w-full h-full flex-shrink-0 overflow-y-auto pb-32 px-4 py-6"
-              style={{ 
-                scrollSnapAlign: "start",
-                scrollSnapStop: "always"
-              }}
-            >
-              {/* Header */}
-              <div className="mb-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className={`p-2 rounded-lg ${config.bgColor}`}>
-                    <Icon className={`w-5 h-5 ${config.color}`} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    {screen.label}
-                  </h2>
-                </div>
-                <p className="text-gray-500 text-sm">
-                  {categoryTasks.length} задач
-                </p>
-              </div>
-
-              {/* Task List */}
-              <div className="space-y-3">
-                {categoryTasks.length === 0 ? (
-                  <div className="text-center py-12 text-gray-400">
-                    <Icon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p>Нет задач в этой категории</p>
-                  </div>
-                ) : (
-                  <TaskList
-                    tasks={categoryTasks}
-                    onEdit={onEditTask}
-                    onDelete={onDeleteTask}
-                    onDefer={onDefer}
-                    onUndefer={onUndefer}
-                    onReorder={onReorderTasks}
-                    onLoadTaskLogs={onLoadTaskLogs}
-                    onCreateLog={onCreateLog}
-                    onComplete={onComplete}
-                  />
-                )}
-              </div>
-            </div>
-          );
-        })}
       </div>
 
-      {/* Bottom Task Input - Fixed */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
-        {/* Category picker dropdown */}
-        {showCategoryPicker && (
-          <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
-            <div className="p-2 grid grid-cols-3 gap-2">
-              {Object.entries(categoryConfig).map(([cat, config]) => {
-                const Icon = config.icon;
-                const isSelected = cat === newTaskCategory;
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => {
-                      setNewTaskCategory(cat as TaskCategory);
-                      setShowCategoryPicker(false);
-                      inputRef.current?.focus();
-                    }}
-                    className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-all ${
-                      isSelected
-                        ? `${config.bgColor} ${config.color} ring-2 ring-offset-1`
-                        : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-xs font-medium">{config.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Main input area */}
-        <div className="flex items-center gap-2 p-3">
-          {/* Category selector button */}
-          <button
-            onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg ${currentCategory.bgColor} ${currentCategory.color} transition-all active:scale-95`}
-          >
-            <CategoryIcon className="w-4 h-4" />
-          </button>
-
-          {/* Text input */}
-          <div className="flex-1 relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Добавить задачу..."
-              className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-              autoComplete="off"
-            />
-          </div>
-
-          {/* Submit button */}
-          {newTaskTitle.trim() && (
+      {/* Category Detail Modal/Overlay */}
+      {selectedCategory && (
+        <div className="fixed inset-0 bg-white z-50 flex flex-col">
+          {/* Header */}
+          <div className="flex items-center gap-3 p-4 border-b border-gray-200">
             <button
-              onClick={handleCreateTask}
-              className="p-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:scale-95 transition-all"
+              onClick={handleCategoryClose}
+              className="p-2 -ml-2 text-gray-600 hover:text-gray-900"
             >
-              <Plus className="w-5 h-5" />
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
-          )}
-        </div>
+            <div className="flex items-center gap-2">
+              {(() => {
+                const config = categoryConfig[selectedCategory];
+                const Icon = config.icon;
+                return (
+                  <>
+                    <Icon className={`w-5 h-5 ${config.color}`} />
+                    <h2 className="text-xl font-bold text-gray-900">
+                      {config.label}
+                    </h2>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
 
-        {/* Screen indicator dots */}
-        <div className="flex justify-center gap-2 pb-2">
-          {screens.map((_, index) => (
-            <div
-              key={index}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === activeScreen
-                  ? "bg-blue-500 w-4"
-                  : "bg-gray-300"
-              }`}
-            />
-          ))}
+          {/* Task List */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 pb-32">
+            {(() => {
+              const categoryTasks = tasks.filter(
+                (task) => task.category === selectedCategory
+              );
+              return categoryTasks.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  {(() => {
+                    const config = categoryConfig[selectedCategory];
+                    const Icon = config.icon;
+                    return <Icon className="w-12 h-12 mx-auto mb-3 opacity-50" />;
+                  })()}
+                  <p>Нет задач в этой категории</p>
+                </div>
+              ) : (
+                <TaskList
+                  tasks={categoryTasks}
+                  onEdit={onEditTask}
+                  onDelete={onDeleteTask}
+                  onDefer={onDefer}
+                  onUndefer={onUndefer}
+                  onReorder={onReorderTasks}
+                  onLoadTaskLogs={onLoadTaskLogs}
+                  onCreateLog={onCreateLog}
+                  onComplete={onComplete}
+                />
+              );
+            })()}
+          </div>
+
+          {/* Task Input for Category */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
+            {showCategoryPicker && (
+              <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+                <div className="p-2 grid grid-cols-3 gap-2">
+                  {Object.entries(categoryConfig).map(([cat, config]) => {
+                    const Icon = config.icon;
+                    const isSelected = cat === newTaskCategory;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          setNewTaskCategory(cat as TaskCategory);
+                          setShowCategoryPicker(false);
+                          inputRef.current?.focus();
+                        }}
+                        className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-all ${
+                          isSelected
+                            ? `${config.bgColor} ${config.color} ring-2 ring-offset-1`
+                            : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span className="text-xs font-medium">{config.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 p-3">
+              <button
+                onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg ${currentCategory.bgColor} ${currentCategory.color} transition-all active:scale-95`}
+              >
+                <CategoryIcon className="w-4 h-4" />
+              </button>
+
+              <div className="flex-1 relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Добавить задачу..."
+                  className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                  autoComplete="off"
+                />
+              </div>
+
+              {newTaskTitle.trim() && (
+                <button
+                  onClick={handleCreateTask}
+                  className="p-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:scale-95 transition-all"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Bottom Task Input - Only on Today screen */}
+      {activeScreen === 0 && !selectedCategory && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
+          {/* Category picker dropdown */}
+          {showCategoryPicker && (
+            <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+              <div className="p-2 grid grid-cols-3 gap-2">
+                {Object.entries(categoryConfig).map(([cat, config]) => {
+                  const Icon = config.icon;
+                  const isSelected = cat === newTaskCategory;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => {
+                        setNewTaskCategory(cat as TaskCategory);
+                        setShowCategoryPicker(false);
+                        inputRef.current?.focus();
+                      }}
+                      className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-all ${
+                        isSelected
+                          ? `${config.bgColor} ${config.color} ring-2 ring-offset-1`
+                          : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-xs font-medium">{config.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Main input area */}
+          <div className="flex items-center gap-2 p-3">
+            {/* Category selector button */}
+            <button
+              onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg ${currentCategory.bgColor} ${currentCategory.color} transition-all active:scale-95`}
+            >
+              <CategoryIcon className="w-4 h-4" />
+            </button>
+
+            {/* Text input */}
+            <div className="flex-1 relative">
+              <input
+                ref={inputRef}
+                type="text"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Добавить задачу..."
+                className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                autoComplete="off"
+              />
+            </div>
+
+            {/* Submit button */}
+            {newTaskTitle.trim() && (
+              <button
+                onClick={handleCreateTask}
+                className="p-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:scale-95 transition-all"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          {/* Screen indicator dots */}
+          <div className="flex justify-center gap-2 pb-2">
+            {screens.map((_, index) => (
+              <div
+                key={index}
+                className={`w-2 h-2 rounded-full transition-all ${
+                  index === activeScreen
+                    ? "bg-blue-500 w-4"
+                    : "bg-gray-300"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
