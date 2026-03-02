@@ -177,7 +177,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
           <div className="mb-6">
             <div className="flex items-center justify-center gap-3">
               <h2 className="text-2xl font-bold text-gray-900">
-                Today's Tasks
+                {t("todayView.title", "Today's Tasks")}
               </h2>
               {isStartOfDayAvailable && (
                 <button

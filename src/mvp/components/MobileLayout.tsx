@@ -3,21 +3,23 @@ import { TaskCategory } from "../../shared/domain/types";
 import { TodayMobileView } from "../../features/today/presentation/components/TodayMobileView";
 import { TaskList } from "../../features/tasks/presentation/components/TaskList";
 import { Task } from "../../shared/domain/entities/Task";
+import { TaskId } from "../../shared/domain/value-objects/TaskId";
 import { TodayViewModelDependencies } from "../../features/today/presentation/view-models/TodayViewModel";
+import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { Plus, Inbox, Zap, Target, Clock } from "lucide-react";
 
 interface MobileLayoutProps {
   todayDependencies: TodayViewModelDependencies;
   tasks: Task[];
-  onEditTask: (task: Task) => void;
+  onEditTask: (taskId: string, newTitle: string) => void;
   onDeleteTask: (taskId: string) => void;
-  onDefer: (taskId: string) => void;
-  onUndefer: (taskId: string) => void;
-  onReorderTasks: (taskId: string, newStatus: string) => void;
-  onLoadTaskLogs: (taskId: string) => void;
-  onCreateLog: (taskId: string, content: string) => void;
+  onDefer: (taskId: string, deferDate: Date) => void;
+  onUndefer: (taskId: TaskId) => Promise<void>;
+  onReorderTasks: (tasks: Task[]) => void;
+  onLoadTaskLogs: (taskId: string) => Promise<LogEntry[]>;
+  onCreateLog: (taskId: string, message: string) => Promise<boolean>;
   onCreateTask: (title: string, category: TaskCategory) => Promise<void>;
-  onToggleComplete: (taskId: string) => void;
+  onComplete: (taskId: string) => void;
 }
 
 const categoryConfig = {
@@ -52,7 +54,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   onLoadTaskLogs,
   onCreateLog,
   onCreateTask,
-  onToggleComplete,
+  onComplete,
 }) => {
   const [activeScreen, setActiveScreen] = useState(0);
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -183,10 +185,9 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                     onDefer={onDefer}
                     onUndefer={onUndefer}
                     onReorder={onReorderTasks}
-                    onLoadLogs={onLoadTaskLogs}
+                    onLoadTaskLogs={onLoadTaskLogs}
                     onCreateLog={onCreateLog}
-                    onToggleComplete={onToggleComplete}
-                    hideCategorySelection={true}
+                    onComplete={onComplete}
                   />
                 )}
               </div>

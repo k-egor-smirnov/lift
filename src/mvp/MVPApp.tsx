@@ -792,7 +792,7 @@ export const MVPApp: React.FC = () => {
         onLoadTaskLogs={loadTaskLogs}
         onCreateLog={handleCreateTaskLog}
         onCreateTask={handleMobileCreateTask}
-        onToggleComplete={handleToggleComplete}
+        onComplete={handleCompleteTask}
       />
     );
   }
