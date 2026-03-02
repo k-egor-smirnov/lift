@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskList } from "../../../tasks/presentation/components/TaskList";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -176,19 +176,20 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
         <div className="px-4 py-6">
           {/* Header */}
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 text-center">
-              Today's Tasks
-            </h2>
-            {isStartOfDayAvailable && (
-              <div className="mt-4 flex justify-center">
+            <div className="flex items-center justify-center gap-3">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Today's Tasks
+              </h2>
+              {isStartOfDayAvailable && (
                 <button
                   onClick={handleStartOfDay}
-                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100"
+                  className="group flex items-center gap-1 px-2 py-1 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 text-amber-600 text-xs font-medium shadow-sm hover:shadow-md hover:border-amber-300 transition-all"
+                  title={t("todayView.startOfDay")}
                 >
-                  {t("todayView.startOfDay")}
+                  <Sun className="w-3 h-3 text-amber-500" />
                 </button>
-              </div>
-            )}
+              )}
+            </div>
             {allTasks.length > 0 && (
               <p className="text-center text-gray-500 mt-2">
                 {activeTasks.length} active, {completedTasks.length} completed
