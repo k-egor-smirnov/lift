@@ -8,7 +8,6 @@ import { TodayViewModelDependencies } from "../../features/today/presentation/vi
 import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { Plus, Inbox, Zap, Target, Clock } from "lucide-react";
 import "./MobileLayout.css";
-import "./MobileLayout.css";
 
 interface MobileLayoutProps {
   todayDependencies: TodayViewModelDependencies;
@@ -131,7 +130,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-x-auto overflow-y-hidden flex relative"
+        className="mobile-scroll-container flex-1 overflow-x-auto overflow-y-hidden flex relative"
         style={{
           scrollSnapType: "x mandatory",
           scrollBehavior: "smooth",
