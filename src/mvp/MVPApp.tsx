@@ -88,6 +88,15 @@ export const MVPApp: React.FC = () => {
   const shouldUseMobileView =
     isMobile() && activeView === "today";
 
+  // Debug logging
+  console.log('Mobile Detection:', {
+    isMobile: isMobile(),
+    activeView,
+    shouldUseMobileView,
+    userAgent: navigator.userAgent,
+    windowWidth: window.innerWidth
+  });
+
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
   const taskEventAdapter = getService<TaskEventAdapter>(
