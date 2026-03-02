@@ -67,10 +67,22 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
   const screens = [
     { id: "today", label: "Сегодня", component: "today" },
+    { id: "categories", label: "Категории", component: "categories" },
     { id: "inbox", label: "Inbox", category: TaskCategory.INBOX },
     { id: "simple", label: "Simple", category: TaskCategory.SIMPLE },
     { id: "focus", label: "Focus", category: TaskCategory.FOCUS },
   ];
+
+  const handleCategoryClick = (category: TaskCategory) => {
+    const screenIndex = screens.findIndex(s => s.category === category);
+    if (screenIndex !== -1 && containerRef.current) {
+      const screenWidth = containerRef.current.clientWidth;
+      containerRef.current.scrollTo({
+        left: screenWidth * screenIndex,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollLeft = e.currentTarget.scrollLeft;
@@ -78,7 +90,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
     const newActiveScreen = Math.round(scrollLeft / screenWidth);
     if (newActiveScreen !== activeScreen) {
       setActiveScreen(newActiveScreen);
-      // Update category based on screen
+      // Update category based on screen (skip categories screen at index 1)
       const screen = screens[newActiveScreen];
       if (screen.category) {
         setNewTaskCategory(screen.category);
@@ -121,12 +133,16 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         style={{
           scrollSnapType: "x mandatory",
           scrollBehavior: "smooth",
+          overscrollBehaviorX: "contain",
         }}
       >
         {/* Today Screen */}
         <div
           className="w-full h-full flex-shrink-0 overflow-y-auto pb-32"
-          style={{ scrollSnapAlign: "start" }}
+          style={{ 
+            scrollSnapAlign: "start",
+            scrollSnapStop: "always"
+          }}
         >
           <TodayMobileView
             dependencies={todayDependencies}
@@ -141,8 +157,81 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
           />
         </div>
 
-        {/* Category Screens */}
-        {screens.slice(1).map((screen) => {
+        {/* Categories Screen */}
+        <div
+          className="w-full h-full flex-shrink-0 overflow-y-auto pb-32 px-4 py-6"
+          style={{ 
+            scrollSnapAlign: "start",
+            scrollSnapStop: "always"
+          }}
+        >
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Категории</h2>
+            <p className="text-gray-500 text-sm">Выберите категорию для просмотра задач</p>
+          </div>
+
+          <div className="space-y-3">
+            {Object.entries(categoryConfig).map(([cat, config]) => {
+              const Icon = config.icon;
+              const categoryTasks = tasks.filter(
+                (task) => task.category === cat
+              );
+              const activeTasks = categoryTasks.filter(t => !t.completedAt);
+              const completedTasks = categoryTasks.filter(t => t.completedAt);
+
+              return (
+                <button
+                  key={cat}
+                  onClick={() => handleCategoryClick(cat as TaskCategory)}
+                  className={`w-full p-4 rounded-xl ${config.bgColor} border-2 border-transparent hover:border-gray-300 transition-all active:scale-98 text-left`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg bg-white/50`}>
+                        <Icon className={`w-6 h-6 ${config.color}`} />
+                      </div>
+                      <div>
+                        <h3 className={`font-semibold ${config.color}`}>
+                          {config.label}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {activeTasks.length} активных
+                          {completedTasks.length > 0 && `, ${completedTasks.length} выполнено`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-gray-400">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Preview of tasks */}
+                  {activeTasks.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-black/10">
+                      <div className="space-y-1">
+                        {activeTasks.slice(0, 2).map(task => (
+                          <div key={task.id.value} className="text-sm text-gray-700 truncate">
+                            • {task.title.toString()}
+                          </div>
+                        ))}
+                        {activeTasks.length > 2 && (
+                          <div className="text-sm text-gray-500">
+                            и ещё {activeTasks.length - 2}...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Category Task Screens */}
+        {screens.slice(2).map((screen) => {
           const config = categoryConfig[screen.category!];
           const Icon = config.icon;
           const categoryTasks = tasks.filter(
@@ -153,7 +242,10 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
             <div
               key={screen.id}
               className="w-full h-full flex-shrink-0 overflow-y-auto pb-32 px-4 py-6"
-              style={{ scrollSnapAlign: "start" }}
+              style={{ 
+                scrollSnapAlign: "start",
+                scrollSnapStop: "always"
+              }}
             >
               {/* Header */}
               <div className="mb-6">
