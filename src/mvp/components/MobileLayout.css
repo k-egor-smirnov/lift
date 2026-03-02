@@ -15,7 +15,7 @@
 }
 
 .mobile-input-container {
-  animation: shrink-and-fade linear forwards;
+  animation: shrink-and-fade linear both;
   animation-timeline: --mobile-horizontal-scroll;
   animation-range: 0% 50%;
   overflow: hidden;
