@@ -8,42 +8,6 @@ import { TodayViewModelDependencies } from "../../features/today/presentation/vi
 import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { Plus, Inbox, Zap, Target, Clock } from "lucide-react";
 
-// CSS for scroll-driven animation (modern API)
-const scrollAnimationStyles = `
-  @keyframes slide-down-fade {
-    from {
-      transform: translateY(0);
-      opacity: 1;
-    }
-    to {
-      transform: translateY(100%);
-      opacity: 0;
-    }
-  }
-  
-  .scroll-container-timeline {
-    scroll-timeline-name: --mobile-scroll;
-    scroll-timeline-axis: x;
-  }
-  
-  .input-scroll-animation {
-    animation: slide-down-fade linear;
-    animation-timeline: --mobile-scroll;
-    animation-range: 0% 50%;
-  }
-  
-  @supports not (animation-timeline: scroll()) {
-    /* Fallback for browsers without scroll-driven animations */
-    .input-scroll-animation {
-      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
-    }
-    .input-scroll-animation.hidden {
-      transform: translateY(100%);
-      opacity: 0;
-    }
-  }
-`;
-
 interface MobileLayoutProps {
   todayDependencies: TodayViewModelDependencies;
   tasks: Task[];
@@ -107,6 +71,10 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   ];
 
   const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null);
+  const [inputTranslateY, setInputTranslateY] = useState(0);
+  const [inputOpacity, setInputOpacity] = useState(1);
+  const [inputTranslateY, setInputTranslateY] = useState(0);
+  const [inputOpacity, setInputOpacity] = useState(1);
 
   const handleCategoryClick = (category: TaskCategory) => {
     setSelectedCategory(category);
@@ -120,6 +88,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
     const scrollLeft = e.currentTarget.scrollLeft;
     const screenWidth = e.currentTarget.clientWidth;
     const newActiveScreen = Math.round(scrollLeft / screenWidth);
+    
     if (newActiveScreen !== activeScreen) {
       setActiveScreen(newActiveScreen);
       // Reset selected category when scrolling
@@ -127,6 +96,11 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         setSelectedCategory(null);
       }
     }
+    
+    // Smooth input animation based on scroll position
+    const scrollProgress = Math.min(scrollLeft / (screenWidth * 0.5), 1);
+    setInputTranslateY(scrollProgress * 100);
+    setInputOpacity(1 - scrollProgress);
   };
 
   const handleCreateTask = async () => {
@@ -394,8 +368,15 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
       {/* Bottom Bar - Dots always visible, Input animates */}
       {!selectedCategory && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
-          {/* Task Input - Scroll-driven animation */}
-          <div className="input-scroll-animation">
+          {/* Task Input - Smooth scroll-based animation */}
+          <div 
+            className="transition-transform-opacity"
+            style={{
+              transform: `translateY(${inputTranslateY}%)`,
+              opacity: inputOpacity,
+              transition: 'transform 0.1s ease-out, opacity 0.1s ease-out'
+            }}
+          >
             {/* Category picker dropdown */}
             {showCategoryPicker && (
               <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
