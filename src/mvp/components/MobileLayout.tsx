@@ -127,19 +127,17 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   });
 
   return (
-    <>
-      <style>{scrollAnimationStyles}</style>
-      <div className="h-screen w-full overflow-hidden bg-gray-50 flex flex-col">
-        {/* Scroll container with snap */}
-        <div
-          ref={containerRef}
-          onScroll={handleScroll}
-          className="flex-1 overflow-x-auto overflow-y-hidden flex scroll-container-timeline"
-          style={{
-            scrollSnapType: "x mandatory",
-            scrollBehavior: "smooth",
-            overscrollBehaviorX: "contain",
-          }}
+    <div className="h-screen w-full overflow-hidden bg-gray-50 flex flex-col">
+      {/* Scroll container with snap */}
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-x-auto overflow-y-hidden flex"
+        style={{
+          scrollSnapType: "x mandatory",
+          scrollBehavior: "smooth",
+          overscrollBehaviorX: "contain",
+        }}
         >
         {/* Today Screen */}
         <div
@@ -453,6 +451,5 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         </div>
       )}
     </div>
-    </>
   );
 };
