@@ -10,15 +10,20 @@
   }
 }
 
+.mobile-scroll-container {
+  scroll-timeline-name: --mobile-scroll;
+  scroll-timeline-axis: x;
+}
+
 .mobile-input-container {
   animation: shrink-and-fade linear both;
-  animation-timeline: scroll(x nearest);
+  animation-timeline: --mobile-scroll;
   animation-range: 0% 50%;
   overflow: hidden;
 }
 
 /* Fallback for browsers without scroll-driven animations */
-@supports not (animation-timeline: scroll(x)) {
+@supports not (animation-timeline: --mobile-scroll) {
   .mobile-input-container {
     max-height: 120px;
     opacity: 1;

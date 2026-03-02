@@ -130,7 +130,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-x-auto overflow-y-hidden flex"
+        className="flex-1 overflow-x-auto overflow-y-hidden flex relative"
         style={{
           scrollSnapType: "x mandatory",
           scrollBehavior: "smooth",
