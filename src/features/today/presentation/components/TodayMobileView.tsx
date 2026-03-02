@@ -12,6 +12,8 @@ import { getService, tokens } from "../../../../shared/infrastructure/di";
 import { ResultUtils } from "../../../../shared/domain/Result";
 import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-cases/RevertTaskCompletionUseCase";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
+import { TaskCategory } from "../../../../shared/domain/types";
+import { MobileTaskInput } from "../../../../shared/ui/components/MobileTaskInput";
 
 interface TodayMobileViewProps {
   dependencies: TodayViewModelDependencies;
@@ -23,7 +25,7 @@ interface TodayMobileViewProps {
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
-  onCreateTask?: (title: string) => Promise<void>;
+  onCreateTask?: (title: string, category: TaskCategory) => Promise<void>;
 }
 
 export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
@@ -39,9 +41,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   onCreateTask,
 }) => {
   const { t } = useTranslation();
-  const [newTaskTitle, setNewTaskTitle] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // Use global store
   const {
@@ -146,18 +146,9 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     }
   };
 
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTaskTitle.trim() && onCreateTask) {
-      await onCreateTask(newTaskTitle.trim());
-      setNewTaskTitle("");
-      // Scroll back to center after creating task
-      if (containerRef.current) {
-        containerRef.current.scrollTo({
-          top: containerRef.current.clientHeight,
-          behavior: "smooth",
-        });
-      }
+  const handleCreateTask = async (title: string, category: TaskCategory) => {
+    if (title.trim() && onCreateTask) {
+      await onCreateTask(title.trim(), category);
     }
   };
 
@@ -177,93 +168,43 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
 
   return (
     <div className="h-screen w-full overflow-hidden bg-gray-50">
-      {/* Scroll container with snap points */}
+      {/* Scroll container */}
       <div
         ref={containerRef}
-        className="h-full overflow-y-auto"
-        style={{
-          scrollSnapType: "y mandatory",
-          scrollBehavior: "smooth",
-        }}
+        className="h-full overflow-y-auto pb-24"
       >
-        {/* Empty top section for scroll snap */}
-        <div
-          className="h-screen flex-shrink-0"
-          style={{ scrollSnapAlign: "start" }}
-        />
-
-        {/* Center section - Input field */}
-        <div
-          className="h-screen flex-shrink-0 flex items-center justify-center px-6"
-          style={{ scrollSnapAlign: "start" }}
-        >
-          <div className="w-full max-w-md">
-            <form onSubmit={handleCreateTask} className="relative">
-              <input
-                ref={inputRef}
-                type="text"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder={t("todayView.addNewTask") || "Add a new task..."}
-                className="w-full px-6 py-4 text-lg bg-white border-2 border-gray-200 rounded-2xl shadow-lg focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
-                autoComplete="off"
-              />
-              {newTaskTitle.trim() && (
+        <div className="px-4 py-6">
+          {/* Header */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 text-center">
+              Today's Tasks
+            </h2>
+            {isStartOfDayAvailable && (
+              <div className="mt-4 flex justify-center">
                 <button
-                  type="submit"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors duration-200"
+                  onClick={handleStartOfDay}
+                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100"
                 >
-                  <Plus className="w-5 h-5" />
+                  {t("todayView.startOfDay")}
                 </button>
-              )}
-            </form>
+              </div>
+            )}
+            {allTasks.length > 0 && (
+              <p className="text-center text-gray-500 mt-2">
+                {activeTasks.length} active, {completedTasks.length} completed
+              </p>
+            )}
 
-            {/* Subtle hint text */}
-            <p className="text-center text-gray-400 text-sm mt-4">
-              {allTasks.length > 0
-                ? "Swipe down to see your tasks"
-                : "Start by adding your first task"}
-            </p>
+            {/* Refreshing indicator */}
+            {refreshing && (
+              <div className="flex items-center justify-center mt-3">
+                <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm">
+                  <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  Обновление...
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-
-        {/* Bottom section - Task list */}
-        <div
-          className="min-h-screen flex-shrink-0 bg-white"
-          style={{ scrollSnapAlign: "start" }}
-        >
-          <div className="px-4 py-6">
-            {/* Header */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 text-center">
-                Today's Tasks
-              </h2>
-              {isStartOfDayAvailable && (
-                <div className="mt-4 flex justify-center">
-                  <button
-                    onClick={handleStartOfDay}
-                    className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100"
-                  >
-                    {t("todayView.startOfDay")}
-                  </button>
-                </div>
-              )}
-              {allTasks.length > 0 && (
-                <p className="text-center text-gray-500 mt-2">
-                  {activeTasks.length} active, {completedTasks.length} completed
-                </p>
-              )}
-
-              {/* Refreshing indicator */}
-              {refreshing && (
-                <div className="flex items-center justify-center mt-3">
-                  <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm">
-                    <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    Обновление...
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Error Message */}
             {error && (
@@ -390,8 +331,10 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
               </>
             )}
           </div>
-        </div>
       </div>
+      
+      {/* Mobile Task Input - fixed at bottom */}
+      <MobileTaskInput onCreateTask={handleCreateTask} />
     </div>
   );
 };

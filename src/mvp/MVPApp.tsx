@@ -719,11 +719,11 @@ export const MVPApp: React.FC = () => {
   // Note: Removed handleTodayRefresh as it's replaced by event bus auto-refresh
 
   const handleMobileCreateTask = useCallback(
-    async (title: string): Promise<void> => {
+    async (title: string, category: TaskCategory = TaskCategory.INBOX): Promise<void> => {
       try {
         const success = await createTask({
           title,
-          category: TaskCategory.INBOX,
+          category,
         });
         if (success) {
           // Get the newly created task and add it to today
