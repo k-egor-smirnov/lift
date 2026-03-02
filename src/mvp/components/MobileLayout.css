@@ -11,7 +11,8 @@
 }
 
 .mobile-scroll-container {
-  scroll-timeline: --mobile-horizontal-scroll x;
+  scroll-timeline-name: --mobile-horizontal-scroll;
+  scroll-timeline-axis: x;
 }
 
 .mobile-input-container {
