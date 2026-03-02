@@ -8,6 +8,42 @@ import { TodayViewModelDependencies } from "../../features/today/presentation/vi
 import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { Plus, Inbox, Zap, Target, Clock } from "lucide-react";
 
+// CSS for scroll-driven animation (modern API)
+const scrollAnimationStyles = `
+  @keyframes slide-down-fade {
+    from {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+  
+  .scroll-container-timeline {
+    scroll-timeline-name: --mobile-scroll;
+    scroll-timeline-axis: x;
+  }
+  
+  .input-scroll-animation {
+    animation: slide-down-fade linear;
+    animation-timeline: --mobile-scroll;
+    animation-range: 0% 50%;
+  }
+  
+  @supports not (animation-timeline: scroll()) {
+    /* Fallback for browsers without scroll-driven animations */
+    .input-scroll-animation {
+      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    }
+    .input-scroll-animation.hidden {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+`;
+
 interface MobileLayoutProps {
   todayDependencies: TodayViewModelDependencies;
   tasks: Task[];
@@ -71,7 +107,6 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   ];
 
   const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null);
-  const [isInputVisible, setIsInputVisible] = useState(true);
 
   const handleCategoryClick = (category: TaskCategory) => {
     setSelectedCategory(category);
@@ -92,9 +127,6 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         setSelectedCategory(null);
       }
     }
-    
-    // Hide input when scrolling away from Today screen
-    setIsInputVisible(newActiveScreen === 0 && scrollLeft < screenWidth * 0.3);
   };
 
   const handleCreateTask = async () => {
@@ -123,18 +155,20 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   });
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-gray-50 flex flex-col">
-      {/* Scroll container with snap */}
-      <div
-        ref={containerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-x-auto overflow-y-hidden flex"
-        style={{
-          scrollSnapType: "x mandatory",
-          scrollBehavior: "smooth",
-          overscrollBehaviorX: "contain",
-        }}
-      >
+    <>
+      <style>{scrollAnimationStyles}</style>
+      <div className="h-screen w-full overflow-hidden bg-gray-50 flex flex-col">
+        {/* Scroll container with snap */}
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-x-auto overflow-y-hidden flex scroll-container-timeline"
+          style={{
+            scrollSnapType: "x mandatory",
+            scrollBehavior: "smooth",
+            overscrollBehaviorX: "contain",
+          }}
+        >
         {/* Today Screen */}
         <div
           className="w-full h-full flex-shrink-0 overflow-y-auto pb-32"
@@ -360,14 +394,8 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
       {/* Bottom Bar - Dots always visible, Input animates */}
       {!selectedCategory && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
-          {/* Task Input - Animated */}
-          <div
-            className={`transition-all duration-300 ease-in-out overflow-hidden ${
-              isInputVisible && activeScreen === 0
-                ? "max-h-24 opacity-100"
-                : "max-h-0 opacity-0"
-            }`}
-          >
+          {/* Task Input - Scroll-driven animation */}
+          <div className="input-scroll-animation">
             {/* Category picker dropdown */}
             {showCategoryPicker && (
               <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
@@ -446,5 +474,6 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         </div>
       )}
     </div>
+    </>
   );
 };
