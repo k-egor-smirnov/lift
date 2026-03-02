@@ -86,10 +86,7 @@ export const MVPApp: React.FC = () => {
   };
 
   const shouldUseMobileView =
-    false &&
-    process.env.NODE_ENV === "development" &&
-    isMobile() &&
-    activeView === "today";
+    isMobile() && activeView === "today";
 
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
