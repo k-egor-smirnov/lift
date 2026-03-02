@@ -29,7 +29,7 @@
     opacity: 1;
     transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
   }
-  
+
   .mobile-input-container.hidden {
     max-height: 0;
     opacity: 0;
