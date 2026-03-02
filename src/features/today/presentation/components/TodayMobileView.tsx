@@ -13,7 +13,6 @@ import { ResultUtils } from "../../../../shared/domain/Result";
 import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-cases/RevertTaskCompletionUseCase";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 import { TaskCategory } from "../../../../shared/domain/types";
-import { MobileTaskInput } from "../../../../shared/ui/components/MobileTaskInput";
 
 interface TodayMobileViewProps {
   dependencies: TodayViewModelDependencies;
@@ -333,9 +332,6 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
             )}
           </div>
       </div>
-      
-      {/* Mobile Task Input - fixed at bottom */}
-      <MobileTaskInput onCreateTask={handleCreateTask} />
     </div>
   );
 };
