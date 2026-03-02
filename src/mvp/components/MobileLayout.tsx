@@ -71,6 +71,8 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   ];
 
   const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null);
+  const [isInputVisible, setIsInputVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
 
   const handleCategoryClick = (category: TaskCategory) => {
     setSelectedCategory(category);
@@ -91,6 +93,9 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         setSelectedCategory(null);
       }
     }
+
+    // Hide input when scrolling away from Today screen
+    setIsInputVisible(newActiveScreen === 0 && scrollLeft < screenWidth * 0.3);
   };
 
   const handleCreateTask = async () => {
@@ -133,7 +138,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
       >
         {/* Today Screen */}
         <div
-          className="w-full h-full flex-shrink-0 overflow-y-auto pb-32"
+          className="w-full h-full flex-shrink-0 overflow-y-auto pb-28"
           style={{ 
             scrollSnapAlign: "start",
             scrollSnapStop: "always"
@@ -154,7 +159,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
         {/* Categories Screen */}
         <div
-          className="w-full h-full flex-shrink-0 overflow-y-auto pb-24 px-4 py-6"
+          className="w-full h-full flex-shrink-0 overflow-y-auto pb-20 px-4 py-6"
           style={{ 
             scrollSnapAlign: "start",
             scrollSnapStop: "always"
@@ -175,8 +180,11 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
               return (
                 <div key={cat} className="space-y-2">
-                  {/* Category Header */}
-                  <div className="flex items-center justify-between">
+                  {/* Category Header - Clickable */}
+                  <button
+                    onClick={() => handleCategoryClick(cat as TaskCategory)}
+                    className="flex items-center justify-between w-full hover:opacity-70 transition-opacity"
+                  >
                     <div className="flex items-center gap-2">
                       <Icon className={`w-5 h-5 ${config.color}`} />
                       <h3 className={`font-semibold ${config.color}`}>
@@ -186,7 +194,10 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                         {categoryTasks.length}
                       </span>
                     </div>
-                  </div>
+                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
 
                   {/* Tasks Preview */}
                   <div className="pl-7 space-y-1">
@@ -212,14 +223,12 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                     )}
 
                     {/* Open Category Button */}
-                    {categoryTasks.length > 0 && (
-                      <button
-                        onClick={() => handleCategoryClick(cat as TaskCategory)}
-                        className={`mt-2 text-sm font-medium ${config.color} hover:underline`}
-                      >
-                        Открыть {config.label} →
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleCategoryClick(cat as TaskCategory)}
+                      className={`mt-2 text-sm font-medium ${config.color} hover:underline`}
+                    >
+                      Открыть {config.label} →
+                    </button>
                   </div>
                 </div>
               );
@@ -353,83 +362,88 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         </div>
       )}
 
-      {/* Bottom Task Input - Only on Today screen */}
-      {activeScreen === 0 && !selectedCategory && (
+      {/* Bottom Bar - Dots always visible, Input animates */}
+      {!selectedCategory && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
-          {/* Category picker dropdown */}
-          {showCategoryPicker && (
-            <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
-              <div className="p-2 grid grid-cols-3 gap-2">
-                {Object.entries(categoryConfig).map(([cat, config]) => {
-                  const Icon = config.icon;
-                  const isSelected = cat === newTaskCategory;
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => {
-                        setNewTaskCategory(cat as TaskCategory);
-                        setShowCategoryPicker(false);
-                        inputRef.current?.focus();
-                      }}
-                      className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-all ${
-                        isSelected
-                          ? `${config.bgColor} ${config.color} ring-2 ring-offset-1`
-                          : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span className="text-xs font-medium">{config.label}</span>
-                    </button>
-                  );
-                })}
+          {/* Task Input - Animated */}
+          <div 
+            className={`transition-all duration-300 ease-in-out overflow-hidden ${
+              isInputVisible && activeScreen === 0
+                ? 'max-h-20 opacity-100'
+                : 'max-h-0 opacity-0'
+            }`}
+          >
+            {/* Category picker dropdown */}
+            {showCategoryPicker && (
+              <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+                <div className="p-2 grid grid-cols-3 gap-2">
+                  {Object.entries(categoryConfig).map(([cat, config]) => {
+                    const Icon = config.icon;
+                    const isSelected = cat === newTaskCategory;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          setNewTaskCategory(cat as TaskCategory);
+                          setShowCategoryPicker(false);
+                          inputRef.current?.focus();
+                        }}
+                        className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-all ${
+                          isSelected
+                            ? `${config.bgColor} ${config.color} ring-2 ring-offset-1`
+                            : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span className="text-xs font-medium">{config.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Main input area */}
-          <div className="flex items-center gap-2 p-3">
-            {/* Category selector button */}
-            <button
-              onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg ${currentCategory.bgColor} ${currentCategory.color} transition-all active:scale-95`}
-            >
-              <CategoryIcon className="w-4 h-4" />
-            </button>
-
-            {/* Text input */}
-            <div className="flex-1 relative">
-              <input
-                ref={inputRef}
-                type="text"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Добавить задачу..."
-                className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                autoComplete="off"
-              />
-            </div>
-
-            {/* Submit button */}
-            {newTaskTitle.trim() && (
-              <button
-                onClick={handleCreateTask}
-                className="p-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:scale-95 transition-all"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
             )}
+
+            <div className="flex items-center gap-2 p-3">
+              <button
+                onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg ${currentCategory.bgColor} ${currentCategory.color} transition-all active:scale-95`}
+              >
+                <CategoryIcon className="w-4 h-4" />
+              </button>
+
+              <div className="flex-1 relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Добавить задачу..."
+                  className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                  autoComplete="off"
+                />
+              </div>
+
+              {newTaskTitle.trim() && (
+                <button
+                  onClick={handleCreateTask}
+                  className="p-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:scale-95 transition-all"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Screen indicator dots */}
-          <div className="flex justify-center gap-2 pb-2">
+          {/* Screen indicator dots - Always visible */}
+          <div className="flex justify-center gap-2 py-3">
             {screens.map((_, index) => (
               <div
                 key={index}
-                className={`w-2 h-2 rounded-full transition-all ${
+                className={`h-1.5 rounded-full transition-all duration-300 ${
                   index === activeScreen
-                    ? "bg-blue-500 w-4"
-                    : "bg-gray-300"
+                    ? "bg-blue-500 w-6"
+                    : "bg-gray-300 w-1.5"
                 }`}
               />
             ))}
