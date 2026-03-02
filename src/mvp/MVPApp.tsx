@@ -783,7 +783,7 @@ export const MVPApp: React.FC = () => {
     return (
       <MobileLayout
         todayDependencies={todayDependencies}
-        tasks={tasks}
+        tasks={getFilteredTasks()}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
         onDefer={handleDeferTask}
