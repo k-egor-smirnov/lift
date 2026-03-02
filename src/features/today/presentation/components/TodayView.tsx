@@ -228,16 +228,19 @@ export const TodayView: React.FC<TodayViewProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto relative">
+      {/* Start of Day - subtle floating badge */}
       {isStartOfDayAvailable && (
-        <div className="mb-6 flex justify-center sm:justify-start">
-          <button
-            onClick={handleStartOfDay}
-            className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100"
-          >
+        <button
+          onClick={handleStartOfDay}
+          className="absolute -top-2 right-0 group flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 text-amber-700 text-xs font-medium shadow-sm hover:shadow-md hover:border-amber-300 transition-all duration-200"
+          title={t("todayView.startOfDay")}
+        >
+          <Sun className="w-3.5 h-3.5 text-amber-500 group-hover:text-amber-600 transition-colors" />
+          <span className="opacity-70 group-hover:opacity-100 transition-opacity">
             {t("todayView.startOfDay")}
-          </button>
-        </div>
+          </span>
+        </button>
       )}
       {/* Stats */}
       <div className="mb-8">

@@ -15,6 +15,7 @@ import { TodayMobileView } from "../features/today/presentation/components/Today
 import { AllLogsView } from "../features/logs/presentation/components";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
+import { MobileLayout } from "./components/MobileLayout";
 import {
   createTaskViewModel,
   TaskViewModelDependencies,
@@ -76,20 +77,13 @@ export const MVPApp: React.FC = () => {
     stopStartOfDayAvailabilityMonitoring,
   } = useOnboardingViewModel();
 
-  // Check if device is mobile and in development mode
+  // Check if device is mobile based on viewport
   const isMobile = () => {
-    return (
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      ) || window.innerWidth <= 768
-    );
+    return window.innerWidth <= 640;
   };
 
   const shouldUseMobileView =
-    false &&
-    process.env.NODE_ENV === "development" &&
-    isMobile() &&
-    activeView === "today";
+    isMobile() && activeView === "today";
 
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
@@ -787,8 +781,9 @@ export const MVPApp: React.FC = () => {
   // If mobile view should be used, render it directly without sidebar/header
   if (shouldUseMobileView) {
     return (
-      <TodayMobileView
-        dependencies={todayDependencies}
+      <MobileLayout
+        todayDependencies={todayDependencies}
+        tasks={getFilteredTasks()}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
         onDefer={handleDeferTask}
@@ -796,8 +791,8 @@ export const MVPApp: React.FC = () => {
         onReorderTasks={handleReorderTasks}
         onLoadTaskLogs={loadTaskLogs}
         onCreateLog={handleCreateTaskLog}
-        lastLogs={lastLogs}
         onCreateTask={handleMobileCreateTask}
+        onComplete={handleCompleteTask}
       />
     );
   }
