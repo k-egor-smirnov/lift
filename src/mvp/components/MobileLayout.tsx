@@ -8,6 +8,7 @@ import { TodayViewModelDependencies } from "../../features/today/presentation/vi
 import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { Plus, Inbox, Zap, Target, Clock } from "lucide-react";
 import "./MobileLayout.css";
+import "./MobileLayout.css";
 
 interface MobileLayoutProps {
   todayDependencies: TodayViewModelDependencies;
