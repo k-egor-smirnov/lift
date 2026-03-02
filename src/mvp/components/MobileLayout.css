@@ -1,0 +1,36 @@
+/* Scroll-driven animation for mobile input */
+@keyframes shrink-and-fade {
+  from {
+    max-height: 120px;
+    opacity: 1;
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+  }
+}
+
+.mobile-scroll-container {
+  scroll-timeline: --mobile-horizontal-scroll x;
+}
+
+.mobile-input-container {
+  animation: shrink-and-fade linear forwards;
+  animation-timeline: --mobile-horizontal-scroll;
+  animation-range: 0% 50%;
+  overflow: hidden;
+}
+
+/* Fallback for browsers without scroll-driven animations */
+@supports not (animation-timeline: --mobile-horizontal-scroll) {
+  .mobile-input-container {
+    max-height: 120px;
+    opacity: 1;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+  }
+  
+  .mobile-input-container.hidden {
+    max-height: 0;
+    opacity: 0;
+  }
+}

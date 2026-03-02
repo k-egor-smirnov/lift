@@ -7,6 +7,7 @@ import { TaskId } from "../../shared/domain/value-objects/TaskId";
 import { TodayViewModelDependencies } from "../../features/today/presentation/view-models/TodayViewModel";
 import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { Plus, Inbox, Zap, Target, Clock } from "lucide-react";
+import "./MobileLayout.css";
 
 interface MobileLayoutProps {
   todayDependencies: TodayViewModelDependencies;
@@ -71,8 +72,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   ];
 
   const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null);
-  const [inputTranslateY, setInputTranslateY] = useState(0);
-  const [inputOpacity, setInputOpacity] = useState(1);
+  const [isInputHidden, setIsInputHidden] = useState(false);
 
   const handleCategoryClick = (category: TaskCategory) => {
     setSelectedCategory(category);
@@ -95,10 +95,8 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
       }
     }
     
-    // Smooth input animation based on scroll position
-    const scrollProgress = Math.min(scrollLeft / (screenWidth * 0.5), 1);
-    setInputTranslateY(scrollProgress * 100);
-    setInputOpacity(1 - scrollProgress);
+    // Fallback for browsers without scroll-driven animations
+    setIsInputHidden(scrollLeft > screenWidth * 0.25);
   };
 
   const handleCreateTask = async () => {
@@ -132,7 +130,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-x-auto overflow-y-hidden flex"
+        className="flex-1 overflow-x-auto overflow-y-hidden flex mobile-scroll-container"
         style={{
           scrollSnapType: "x mandatory",
           scrollBehavior: "smooth",
@@ -364,15 +362,8 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
       {/* Bottom Bar - Dots always visible, Input animates */}
       {!selectedCategory && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
-          {/* Task Input - Smooth scroll-based animation */}
-          <div 
-            className="transition-transform-opacity"
-            style={{
-              transform: `translateY(${inputTranslateY}%)`,
-              opacity: inputOpacity,
-              transition: 'transform 0.1s ease-out, opacity 0.1s ease-out'
-            }}
-          >
+          {/* Task Input - Scroll-driven animation */}
+          <div className={`mobile-input-container ${isInputHidden ? 'hidden' : ''}`}>
             {/* Category picker dropdown */}
             {showCategoryPicker && (
               <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
