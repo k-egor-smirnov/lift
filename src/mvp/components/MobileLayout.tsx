@@ -73,8 +73,6 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null);
   const [inputTranslateY, setInputTranslateY] = useState(0);
   const [inputOpacity, setInputOpacity] = useState(1);
-  const [inputTranslateY, setInputTranslateY] = useState(0);
-  const [inputOpacity, setInputOpacity] = useState(1);
 
   const handleCategoryClick = (category: TaskCategory) => {
     setSelectedCategory(category);
