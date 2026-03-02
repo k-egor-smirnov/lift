@@ -138,9 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={cn(
                   "w-full justify-between h-auto p-3 text-left font-normal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
                   activeView === item.id &&
-                    "bg-primary/10 text-primary hover:bg-primary/15",
-                  shouldHighlightToday &&
-                    "border border-amber-300/80 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                    "bg-primary/10 text-primary hover:bg-primary/15"
                 )}
                 data-testid={`sidebar-${item.id.toLowerCase()}`}
                 aria-current={activeView === item.id ? "page" : undefined}
@@ -154,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span className="font-medium">{item.name}</span>
                   {shouldHighlightToday && (
                     <span
-                      className="ml-2 inline-block h-2 w-2 rounded-full bg-amber-500"
+                      className="ml-1 inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse"
                       aria-hidden="true"
                     />
                   )}
