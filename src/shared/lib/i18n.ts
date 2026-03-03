@@ -262,6 +262,7 @@ const resources = {
         noTasksInCategory: "Нет задач в этой категории",
         noTasks: "Нет задач",
         andMore: "и ещё",
+        backToToday: "Назад к сегодня",
       },
       toasts: {
         taskCompleted: "Задача выполнена",

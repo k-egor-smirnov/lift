@@ -159,8 +159,23 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
             }}
           >
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("mobileLayout.categories")}</h2>
-              <p className="text-gray-500 text-sm">{t("mobileLayout.allTasksByCategory")}</p>
+              <div className="flex items-center gap-3 mb-2">
+                <button
+                  onClick={() => {
+                    if (containerRef.current) {
+                      containerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+                    }
+                  }}
+                  className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label={t("mobileLayout.backToToday")}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <h2 className="text-2xl font-bold text-gray-900">{t("mobileLayout.categories")}</h2>
+              </div>
+              <p className="text-gray-500 text-sm pl-8">{t("mobileLayout.allTasksByCategory")}</p>
             </div>
 
             <div className="space-y-6">
@@ -349,14 +364,16 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
               ) : (
                 <TaskList
                   tasks={categoryTasks}
+                  currentCategory={selectedCategory}
+                  showTodayButton={true}
                   onEdit={onEditTask}
                   onDelete={onDeleteTask}
                   onDefer={onDefer}
                   onUndefer={onUndefer}
-                  onReorder={onReorderTasks}
                   onLoadTaskLogs={onLoadTaskLogs}
                   onCreateLog={onCreateLog}
                   onComplete={onComplete}
+                  onAddToToday={onAddToToday}
                 />
               );
             })()}
