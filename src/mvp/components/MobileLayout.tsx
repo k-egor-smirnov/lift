@@ -235,9 +235,9 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
         {/* Bottom Bar - inside scroll container for scroll-driven animation */}
         {!selectedCategory && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
-            {/* Task Input - Scroll-driven animation */}
-            <div className="mobile-input-container">
+          <div className="fixed bottom-0 left-0 right-0 bg-white safe-area-bottom z-50 flex flex-col">
+            {/* Task Input - slides down under pagination */}
+            <div className={`mobile-input-container ${isInputHidden ? 'hidden' : ''}`}>
               {/* Category picker dropdown */}
               {showCategoryPicker && (
                 <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
@@ -300,8 +300,8 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
               </div>
             </div>
 
-            {/* Screen indicator dots - Always visible */}
-            <div className="flex justify-center gap-2 py-3">
+            {/* Screen indicator dots - Always visible on top */}
+            <div className="mobile-pagination flex justify-center gap-2 py-3">
               {screens.map((_, index) => (
                 <div
                   key={index}

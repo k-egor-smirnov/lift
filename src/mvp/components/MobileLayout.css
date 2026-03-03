@@ -1,37 +1,47 @@
-/* Scroll-driven animation for mobile input */
-@keyframes shrink-and-fade {
-  from {
-    max-height: 120px;
-    opacity: 1;
-  }
-  to {
-    max-height: 0;
-    opacity: 0;
-  }
-}
-
+/* Scroll-driven animation for mobile input - GPU accelerated */
 .mobile-scroll-container {
   scroll-timeline-name: --mobile-scroll;
   scroll-timeline-axis: x;
 }
 
+/* Input slides down under pagination */
 .mobile-input-container {
-  animation: shrink-and-fade linear both;
+  border-top: 1px solid #e5e7eb;
+  background: white;
+  transform: translateY(0);
+  animation: slide-down linear both;
   animation-timeline: --mobile-scroll;
   animation-range: 0% 50%;
-  overflow: hidden;
+  /* Prevent input from showing outside container when hidden */
+  position: relative;
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/* Pagination stays visible on top, covers sliding input */
+.mobile-pagination {
+  position: relative;
+  z-index: 2;
+  background: white;
+  /* Shadow to indicate input is hidden underneath */
+  box-shadow: 0 -1px 0 #e5e7eb;
 }
 
 /* Fallback for browsers without scroll-driven animations */
 @supports not (animation-timeline: --mobile-scroll) {
   .mobile-input-container {
-    max-height: 120px;
-    opacity: 1;
-    transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+    transform: translateY(0);
+    transition: transform 0.3s ease-out;
   }
 
   .mobile-input-container.hidden {
-    max-height: 0;
-    opacity: 0;
+    transform: translateY(100%);
   }
 }
