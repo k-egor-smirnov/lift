@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, Zap, Target, Inbox, ChevronDown } from "lucide-react";
 import { TaskCategory } from "../../domain/types";
 
@@ -32,6 +33,7 @@ export const MobileTaskInput: React.FC<MobileTaskInputProps> = ({
   onCreateTask,
   defaultCategory = TaskCategory.INBOX,
 }) => {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<TaskCategory>(defaultCategory);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -114,7 +116,7 @@ export const MobileTaskInput: React.FC<MobileTaskInputProps> = ({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Добавить задачу..."
+            placeholder={t("tasks.addTaskPlaceholder")}
             disabled={isSubmitting}
             className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
             autoComplete="off"
