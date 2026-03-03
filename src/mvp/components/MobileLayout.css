@@ -5,6 +5,12 @@
 }
 
 /* Input slides down under pagination */
+.mobile-input-wrapper {
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
 .mobile-input-container {
   border-top: 1px solid #e5e7eb;
   background: white;
@@ -12,8 +18,6 @@
   animation: slide-down linear both;
   animation-timeline: --mobile-scroll;
   animation-range: 0% 50%;
-  /* Prevent input from showing outside container when hidden */
-  position: relative;
 }
 
 @keyframes slide-down {
@@ -25,13 +29,12 @@
   }
 }
 
-/* Pagination stays visible on top, covers sliding input */
+/* Pagination stays visible on top */
 .mobile-pagination {
   position: relative;
   z-index: 2;
   background: white;
-  /* Shadow to indicate input is hidden underneath */
-  box-shadow: 0 -1px 0 #e5e7eb;
+  border-top: 1px solid #e5e7eb;
 }
 
 /* Fallback for browsers without scroll-driven animations */
@@ -41,7 +44,7 @@
     transition: transform 0.3s ease-out;
   }
 
-  .mobile-input-container.hidden {
+  .mobile-input-wrapper.hidden .mobile-input-container {
     transform: translateY(100%);
   }
 }

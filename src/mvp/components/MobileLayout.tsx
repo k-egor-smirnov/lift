@@ -235,9 +235,11 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
         {/* Bottom Bar - inside scroll container for scroll-driven animation */}
         {!selectedCategory && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white safe-area-bottom z-50 flex flex-col">
-            {/* Task Input - slides down under pagination */}
-            <div className={`mobile-input-container ${isInputHidden ? 'hidden' : ''}`}>
+          <div className="fixed bottom-0 left-0 right-0 bg-white safe-area-bottom z-50 flex flex-col overflow-hidden">
+            {/* Input wrapper with overflow:hidden to clip sliding content */}
+            <div className={`mobile-input-wrapper ${isInputHidden ? 'hidden' : ''}`}>
+              {/* Task Input - slides down under pagination */}
+              <div className="mobile-input-container">
               {/* Category picker dropdown */}
               {showCategoryPicker && (
                 <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
@@ -298,6 +300,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                   </button>
                 )}
               </div>
+            </div>
             </div>
 
             {/* Screen indicator dots - Always visible on top */}
