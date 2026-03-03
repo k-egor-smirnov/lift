@@ -72,7 +72,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   ];
 
   const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null);
-  const [isInputHidden, setIsInputHidden] = useState(false);
+  const [inputTransform, setInputTransform] = useState(0);
 
   const handleCategoryClick = (category: TaskCategory) => {
     setSelectedCategory(category);
@@ -89,14 +89,15 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
     
     if (newActiveScreen !== activeScreen) {
       setActiveScreen(newActiveScreen);
-      // Reset selected category when scrolling
       if (selectedCategory) {
         setSelectedCategory(null);
       }
     }
     
-    // Fallback for browsers without scroll-driven animations
-    setIsInputHidden(scrollLeft > screenWidth * 0.25);
+    // Calculate transform progress (0 to 1) for input hide animation
+    const maxScroll = screenWidth * 0.5;
+    const progress = Math.min(scrollLeft / maxScroll, 1);
+    setInputTransform(progress);
   };
 
   const handleCreateTask = async () => {
@@ -233,13 +234,18 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
           </div>
         </div>
 
-        {/* Bottom Bar - inside scroll container for scroll-driven animation */}
+        {/* Bottom Bar */}
         {!selectedCategory && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white safe-area-bottom z-50 flex flex-col overflow-hidden">
+          <div 
+            className="fixed bottom-0 left-0 right-0 bg-white safe-area-bottom z-50 flex flex-col overflow-hidden"
+          >
             {/* Input wrapper with overflow:hidden to clip sliding content */}
-            <div className={`mobile-input-wrapper ${isInputHidden ? 'hidden' : ''}`}>
+            <div className="mobile-input-wrapper">
               {/* Task Input - slides down under pagination */}
-              <div className="mobile-input-container">
+              <div 
+                className="mobile-input-container"
+                style={{ transform: `translateY(${inputTransform * 100}%)` }}
+              >
               {/* Category picker dropdown */}
               {showCategoryPicker && (
                 <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
@@ -300,7 +306,6 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                   </button>
                 )}
               </div>
-            </div>
             </div>
 
             {/* Screen indicator dots - Always visible on top */}

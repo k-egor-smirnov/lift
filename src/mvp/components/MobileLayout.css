@@ -1,10 +1,4 @@
-/* Scroll-driven animation for mobile input - GPU accelerated */
-.mobile-scroll-container {
-  scroll-timeline-name: --mobile-scroll;
-  scroll-timeline-axis: x;
-}
-
-/* Input slides down under pagination */
+/* Mobile input animation - JS-driven transform for better compatibility */
 .mobile-input-wrapper {
   overflow: hidden;
   position: relative;
@@ -14,19 +8,9 @@
 .mobile-input-container {
   border-top: 1px solid #e5e7eb;
   background: white;
-  transform: translateY(0);
-  animation: slide-down linear both;
-  animation-timeline: --mobile-scroll;
-  animation-range: 0% 50%;
-}
-
-@keyframes slide-down {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(100%);
-  }
+  /* Transform is controlled via JS inline style */
+  transition: transform 0.05s linear;
+  will-change: transform;
 }
 
 /* Pagination stays visible on top */
@@ -35,16 +19,4 @@
   z-index: 2;
   background: white;
   border-top: 1px solid #e5e7eb;
-}
-
-/* Fallback for browsers without scroll-driven animations */
-@supports not (animation-timeline: --mobile-scroll) {
-  .mobile-input-container {
-    transform: translateY(0);
-    transition: transform 0.3s ease-out;
-  }
-
-  .mobile-input-wrapper.hidden .mobile-input-container {
-    transform: translateY(100%);
-  }
 }
