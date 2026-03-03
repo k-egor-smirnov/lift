@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Task } from "../../domain/entities/Task";
@@ -17,6 +18,7 @@ export const DeferTaskModal: React.FC<DeferTaskModalProps> = ({
   onClose,
   onDefer,
 }) => {
+  const { t } = useTranslation();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -49,9 +51,9 @@ export const DeferTaskModal: React.FC<DeferTaskModalProps> = ({
   };
 
   const presets = [
-    { label: "Через день", date: getPresetDate(1) },
-    { label: "Через 2 дня", date: getPresetDate(2) },
-    { label: "В начале недели", date: getNextWeekStart() },
+    { label: t("defer.inOneDay"), date: getPresetDate(1) },
+    { label: t("defer.inTwoDays"), date: getPresetDate(2) },
+    { label: t("defer.atWeekStart"), date: getNextWeekStart() },
   ];
 
   if (!isOpen) return null;
@@ -59,22 +61,22 @@ export const DeferTaskModal: React.FC<DeferTaskModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4">
-        <h2 className="text-xl font-semibold mb-4">Отложить задачу</h2>
+        <h2 className="text-xl font-semibold mb-4">{t("defer.title")}</h2>
 
         <div className="mb-4">
-          <p className="text-gray-600 mb-2">Задача: {task.title.value}</p>
+          <p className="text-gray-600 mb-2">{t("defer.taskLabel")}: {task.title.value}</p>
         </div>
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Выберите дату:
+            {t("defer.selectDate")}:
           </label>
           <DatePicker
             selected={selectedDate}
             onChange={(date) => setSelectedDate(date)}
             minDate={new Date()}
             dateFormat="dd.MM.yyyy"
-            placeholderText="Выберите дату"
+            placeholderText={t("defer.selectDate")}
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             locale="ru"
           />
@@ -82,7 +84,7 @@ export const DeferTaskModal: React.FC<DeferTaskModalProps> = ({
 
         <div className="mb-6">
           <p className="text-sm font-medium text-gray-700 mb-2">
-            Быстрый выбор:
+            {t("defer.quickSelect")}:
           </p>
           <div className="flex flex-wrap gap-2">
             {presets.map((preset, index) => (
@@ -103,14 +105,14 @@ export const DeferTaskModal: React.FC<DeferTaskModalProps> = ({
             disabled={isLoading}
             className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
           >
-            Отмена
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleDefer}
             disabled={!selectedDate || isLoading}
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
-            {isLoading ? "Откладываю..." : "Отложить"}
+            {isLoading ? t("defer.deferring") : t("defer.defer")}
           </button>
         </div>
       </div>

@@ -308,6 +308,17 @@ const resources = {
         checklist: "Чеклист",
         insertLink: "Вставить ссылку",
       },
+      defer: {
+        title: "Отложить задачу",
+        taskLabel: "Задача",
+        selectDate: "Выберите дату",
+        quickSelect: "Быстрый выбор",
+        inOneDay: "Через день",
+        inTwoDays: "Через 2 дня",
+        atWeekStart: "В начале недели",
+        deferring: "Откладываю...",
+        defer: "Отложить",
+      },
       config: {
         missingSupabaseEnv: "Отсутствуют обязательные переменные окружения для Supabase. Убедитесь, что VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY установлены.",
         invalidSupabaseUrl: "Некорректный URL Supabase",
