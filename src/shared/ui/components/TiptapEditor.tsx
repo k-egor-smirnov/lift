@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
@@ -24,9 +25,10 @@ interface TiptapEditorProps {
 export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   content = "",
   onChange,
-  placeholder = "Добавьте заметку...",
+  placeholder,
   className = "",
 }) => {
+  const { t } = useTranslation();
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -56,7 +58,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
       attributes: {
         class:
           "prose prose-sm max-w-none focus:outline-none min-h-[120px] p-3 border rounded-md",
-        placeholder,
+        placeholder: placeholder || t("ui.addNote"),
       },
     },
   });
@@ -72,7 +74,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   }
 
   const addLink = () => {
-    const url = window.prompt("Введите URL:");
+    const url = window.prompt(t("toasts.enterUrl"));
     if (url) {
       editor.chain().focus().setLink({ href: url }).run();
     }
@@ -88,7 +90,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("bold") ? "bg-gray-300" : ""
           }`}
-          title="Жирный"
+          title={t("ui.bold")}
         >
           <Bold className="w-4 h-4" />
         </button>
@@ -99,7 +101,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("italic") ? "bg-gray-300" : ""
           }`}
-          title="Курсив"
+          title={t("ui.italic")}
         >
           <Italic className="w-4 h-4" />
         </button>
@@ -110,7 +112,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("strike") ? "bg-gray-300" : ""
           }`}
-          title="Зачёркнутый"
+          title={t("ui.strikethrough")}
         >
           <Strikethrough className="w-4 h-4" />
         </button>
@@ -123,7 +125,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("bulletList") ? "bg-gray-300" : ""
           }`}
-          title="Маркированный список"
+          title={t("ui.bulletList")}
         >
           <List className="w-4 h-4" />
         </button>
@@ -134,7 +136,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("orderedList") ? "bg-gray-300" : ""
           }`}
-          title="Нумерованный список"
+          title={t("ui.orderedList")}
         >
           <ListOrdered className="w-4 h-4" />
         </button>
@@ -145,7 +147,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("taskList") ? "bg-gray-300" : ""
           }`}
-          title="Чеклист"
+          title={t("ui.checklist")}
         >
           <CheckSquare className="w-4 h-4" />
         </button>
@@ -158,7 +160,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("link") ? "bg-gray-300" : ""
           }`}
-          title="Вставить ссылку"
+          title={t("ui.insertLink")}
         >
           <LinkIcon className="w-4 h-4" />
         </button>
