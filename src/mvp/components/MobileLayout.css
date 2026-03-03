@@ -1,16 +1,47 @@
-/* Mobile input animation - JS-driven transform for better compatibility */
+/* Scroll-driven animation for mobile input */
+.mobile-scroll-container {
+  scroll-timeline-name: --mobile-scroll;
+  scroll-timeline-axis: x;
+}
+
+/* Bottom bar - positioned at bottom, child of scroll container */
+.mobile-bottom-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Input wrapper clips the sliding content */
 .mobile-input-wrapper {
   overflow: hidden;
   position: relative;
   z-index: 1;
 }
 
+/* Input slides down under pagination */
 .mobile-input-container {
   border-top: 1px solid #e5e7eb;
   background: white;
-  /* Transform is controlled via JS inline style */
-  transition: transform 0.05s linear;
-  will-change: transform;
+  transform: translateY(0);
+  animation: slide-down linear both;
+  animation-timeline: --mobile-scroll;
+  animation-range: 0% 50%;
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
 }
 
 /* Pagination stays visible on top */
