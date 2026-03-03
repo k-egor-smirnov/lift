@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../domain/types";
 import { Check } from "lucide-react";
 
@@ -11,8 +12,9 @@ interface InlineTaskCreatorProps {
 export const InlineTaskCreator: React.FC<InlineTaskCreatorProps> = ({
   onCreateTask,
   category,
-  placeholder = "Добавить новую задачу...",
+  placeholder,
 }) => {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,7 +73,7 @@ export const InlineTaskCreator: React.FC<InlineTaskCreatorProps> = ({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={placeholder || t("ui.addNewTaskPlaceholder")}
           disabled={isSubmitting}
           className="flex-1 text-sm border-0 focus:outline-none focus:ring-0 p-1 placeholder-gray-400"
         />
@@ -80,7 +82,7 @@ export const InlineTaskCreator: React.FC<InlineTaskCreatorProps> = ({
             onClick={handleSubmit}
             disabled={isSubmitting}
             className="p-1 text-green-600 hover:text-green-700 disabled:text-gray-400 transition-colors"
-            title="Создать задачу"
+            title={t("toasts.createTask")}
           >
             <Check className="w-4 h-4" />
           </button>

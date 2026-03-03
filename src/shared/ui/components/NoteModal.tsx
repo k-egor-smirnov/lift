@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { TiptapEditor } from "./TiptapEditor";
 
@@ -17,6 +18,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   initialContent = "",
   taskTitle,
 }) => {
+  const { t } = useTranslation();
   const [content, setContent] = useState(initialContent);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -81,7 +83,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
           <TiptapEditor
             content={content}
             onChange={setContent}
-            placeholder="Добавьте заметку к задаче..."
+            placeholder={t("ui.addNotePlaceholder")}
             className="h-full"
           />
         </div>
@@ -93,14 +95,14 @@ export const NoteModal: React.FC<NoteModalProps> = ({
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             disabled={isSaving}
           >
-            Отмена
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSave}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isSaving}
           >
-            {isSaving ? "Сохранение..." : "Сохранить"}
+            {isSaving ? t("toasts.saving") : t("toasts.save")}
           </button>
         </div>
       </div>

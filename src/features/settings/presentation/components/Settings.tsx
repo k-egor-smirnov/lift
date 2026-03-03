@@ -54,7 +54,6 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const { t } = useTranslation();
 
   // App settings
   const [language, setLanguage] = useState(i18n.language);
