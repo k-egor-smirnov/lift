@@ -224,8 +224,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         {/* Bottom Bar - child of scroll container for scroll-driven animations */}
         {!selectedCategory && (
           <div className="mobile-bottom-bar">
-            <div className="mobile-input-wrapper">
-              <div className="mobile-input-container">
+            <div className="mobile-input-container">
                 {showCategoryPicker && (
                   <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
                     <div className="p-2 grid grid-cols-3 gap-2">
@@ -285,7 +284,6 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                     </button>
                   )}
                 </div>
-              </div>
             </div>
 
             <div className="mobile-pagination flex justify-center gap-2 py-3">
