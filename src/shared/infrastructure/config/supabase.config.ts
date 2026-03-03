@@ -3,6 +3,8 @@
  * Содержит настройки подключения и параметры синхронизации
  */
 
+import i18n from "i18next";
+
 export interface SupabaseEnvironmentConfig {
   url: string;
   anonKey: string;
@@ -45,10 +47,7 @@ export function getSupabaseConfig(): SupabaseConfig {
 
   // Проверяем обязательные переменные
   if (!url || !anonKey) {
-    throw new Error(
-      "Отсутствуют обязательные переменные окружения для Supabase. " +
-        "Убедитесь, что VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY установлены."
-    );
+    throw new Error(i18n.t("config.missingSupabaseEnv"));
   }
 
   return {
@@ -78,36 +77,36 @@ export function validateSupabaseConfig(config: SupabaseConfig): void {
 
   // Проверяем URL
   if (!environment.url || !isValidUrl(environment.url)) {
-    throw new Error("Некорректный URL Supabase");
+    throw new Error(i18n.t("config.invalidSupabaseUrl"));
   }
 
   // Проверяем ключи
   if (!environment.anonKey || environment.anonKey.length < 10) {
-    throw new Error("Некорректный anon key для Supabase");
+    throw new Error(i18n.t("config.invalidSupabaseKey"));
   }
 
   // Проверяем параметры синхронизации
   if (sync.autoSyncInterval < 60000) {
     // Минимум 1 минута
-    throw new Error("Интервал автосинхронизации не может быть меньше 1 минуты");
+    throw new Error(i18n.t("config.syncIntervalTooShort"));
   }
 
   if (sync.maxRetryAttempts < 1 || sync.maxRetryAttempts > 10) {
-    throw new Error("Количество попыток должно быть от 1 до 10");
+    throw new Error(i18n.t("config.retryCountInvalid"));
   }
 
   if (sync.retryDelay < 1000) {
     // Минимум 1 секунда
-    throw new Error("Задержка между попытками не может быть меньше 1 секунды");
+    throw new Error(i18n.t("config.retryDelayTooShort"));
   }
 
   if (sync.batchSize < 1 || sync.batchSize > 1000) {
-    throw new Error("Размер батча должен быть от 1 до 1000");
+    throw new Error(i18n.t("config.batchSizeInvalid"));
   }
 
   if (sync.syncTimeout < 5000) {
     // Минимум 5 секунд
-    throw new Error("Таймаут синхронизации не может быть меньше 5 секунд");
+    throw new Error(i18n.t("config.syncTimeoutTooShort"));
   }
 }
 

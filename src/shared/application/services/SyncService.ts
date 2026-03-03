@@ -1,4 +1,5 @@
 import { injectable, inject } from "tsyringe";
+import i18n from "i18next";
 import { TaskRepository } from "../../domain/repositories/TaskRepository";
 import type { SyncRepository } from "../../domain/repositories/SyncRepository";
 import {
@@ -38,7 +39,7 @@ export class SyncService {
           success: false,
           syncedCount: 0,
           conflictsCount: 0,
-          errors: [{ message: "Нет подключения к сети", type: "network" }],
+          errors: [{ message: i18n.t("toasts.networkError"), type: "network" }],
           lastSyncTimestamp: new Date(),
         };
       }
@@ -95,7 +96,7 @@ export class SyncService {
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "Неизвестная ошибка синхронизации";
+          : i18n.t("toasts.unknownSyncError");
 
       return {
         success: false,
@@ -141,7 +142,7 @@ export class SyncService {
           conflictsResolved: 0,
           error: {
             code: "NETWORK_ERROR",
-            message: "Нет подключения к сети",
+            message: i18n.t("toasts.networkError"),
           },
         };
       }
@@ -162,7 +163,7 @@ export class SyncService {
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "Ошибка принудительной отправки";
+          : i18n.t("toasts.forcePushError");
       return {
         success: false,
         pushedCount: 0,
