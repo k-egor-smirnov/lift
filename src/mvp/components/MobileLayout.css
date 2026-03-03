@@ -35,8 +35,7 @@
   }
 }
 
-/* Pagination - always visible, white bg with border */
+/* Pagination - no border, border is on input-container */
 .mobile-pagination {
   background: white;
-  border-top: 1px solid #e5e7eb;
 }
