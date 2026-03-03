@@ -3,6 +3,7 @@ import {
   getSyncService,
   getRealtimeService,
 } from "../di/syncContainer";
+import i18n from "i18next";
 import { SyncService } from "../../application/services/SyncService";
 import { SupabaseRealtimeService } from "../services/SupabaseRealtimeService";
 import { getSupabaseConfig } from "../config/supabase.config";
@@ -204,7 +205,7 @@ export class SyncInitializer {
         lastSyncAt: null,
         error: {
           code: "STATUS_ERROR",
-          message: "Ошибка получения статуса",
+          message: i18n.t("toasts.statusError"),
           details: error,
         },
         isRealtimeConnected: false,
