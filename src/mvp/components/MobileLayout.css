@@ -44,3 +44,8 @@
   z-index: 10;
   background: white;
 }
+
+/* Prevent iOS zoom on input focus */
+.mobile-input-container input {
+  font-size: 16px;
+}

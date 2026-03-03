@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { TodayMobileView } from "../../features/today/presentation/components/TodayMobileView";
 import { TaskList } from "../../features/tasks/presentation/components/TaskList";
@@ -65,10 +66,11 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
 
   const screens = [
-    { id: "today", label: "Сегодня", component: "today" },
-    { id: "categories", label: "Категории", component: "categories" },
+    { id: "today", label: t("mobileLayout.today"), component: "today" },
+    { id: "categories", label: t("mobileLayout.categories"), component: "categories" },
   ];
 
   const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null);
@@ -157,8 +159,8 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
             }}
           >
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Категории</h2>
-              <p className="text-gray-500 text-sm">Все задачи по категориям</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("mobileLayout.categories")}</h2>
+              <p className="text-gray-500 text-sm">{t("mobileLayout.allTasksByCategory")}</p>
             </div>
 
             <div className="space-y-6">
@@ -185,7 +187,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
                     <div className="pl-7 space-y-1">
                       {activeTasks.length === 0 ? (
-                        <p className="text-sm text-gray-400 italic">Нет задач</p>
+                        <p className="text-sm text-gray-400 italic">{t("mobileLayout.noTasks")}</p>
                       ) : (
                         <>
                           {activeTasks.slice(0, 2).map(task => (
@@ -199,7 +201,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                           ))}
                           {activeTasks.length > 2 && (
                             <p className="text-sm text-gray-500">
-                              и ещё {activeTasks.length - 2}
+                              {t("mobileLayout.andMore")} {activeTasks.length - 2}
                             </p>
                           )}
                         </>
@@ -210,7 +212,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                           onClick={() => handleCategoryClick(cat as TaskCategory)}
                           className={`mt-2 text-sm font-medium ${config.color} hover:underline`}
                         >
-                          Открыть {config.label} →
+                        {t("mobileLayout.openCategory")} {config.label} →
                         </button>
                       )}
                     </div>
@@ -269,7 +271,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                       value={newTaskTitle}
                       onChange={(e) => setNewTaskTitle(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder="Добавить задачу..."
+                    placeholder={t("tasks.addTaskPlaceholder")}
                       className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
                       autoComplete="off"
                     />
@@ -342,7 +344,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                     const Icon = config.icon;
                     return <Icon className="w-12 h-12 mx-auto mb-3 opacity-50" />;
                   })()}
-                  <p>Нет задач в этой категории</p>
+                  <p>{t("mobileLayout.noTasksInCategory")}</p>
                 </div>
               ) : (
                 <TaskList
@@ -405,7 +407,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Добавить задачу..."
+                  placeholder={t("tasks.addTaskPlaceholder")}
                   className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
                   autoComplete="off"
                 />

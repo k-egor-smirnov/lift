@@ -246,6 +246,16 @@ const resources = {
       },
       tasks: {
         newTask: "Новая задача",
+        addTaskPlaceholder: "Добавить задачу...",
+      },
+      mobileLayout: {
+        today: "Сегодня",
+        categories: "Категории",
+        openCategory: "Открыть",
+        allTasksByCategory: "Все задачи по категориям",
+        noTasksInCategory: "Нет задач в этой категории",
+        noTasks: "Нет задач",
+        andMore: "и ещё",
       },
       dailyModal: {
         goodMorning: "Доброе утро!",
