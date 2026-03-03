@@ -16,26 +16,31 @@
   flex-direction: column;
 }
 
-/* Input container slides down, has border and white bg */
+/* Input container slides down and fades */
 .mobile-input-container {
   border-top: 1px solid #e5e7eb;
   background: white;
   transform: translateY(0);
-  animation: slide-down linear both;
+  opacity: 1;
+  animation: slide-down-fade linear both;
   animation-timeline: --mobile-scroll;
   animation-range: 0% 50%;
 }
 
-@keyframes slide-down {
+@keyframes slide-down-fade {
   from {
     transform: translateY(0);
+    opacity: 1;
   }
   to {
     transform: translateY(100%);
+    opacity: 0;
   }
 }
 
-/* Pagination - no border, border is on input-container */
+/* Pagination - always on top */
 .mobile-pagination {
+  position: relative;
+  z-index: 10;
   background: white;
 }
