@@ -1,4 +1,5 @@
 import { injectable, inject } from "tsyringe";
+import i18n from "i18next";
 import type { SyncRepository } from "../../domain/repositories/SyncRepository";
 import {
   SyncResult,
@@ -65,7 +66,7 @@ export class SupabaseSyncRepository implements SyncRepository {
         if (!this.userId) {
           result.error = {
             code: "AUTH_ERROR",
-            message: "Пользователь не авторизован",
+            message: i18n.t("toasts.unauthorized"),
           };
           return result;
         }
@@ -105,7 +106,7 @@ export class SupabaseSyncRepository implements SyncRepository {
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "Неизвестная ошибка синхронизации";
+          : i18n.t("toasts.unknownSyncError");
       result.error = {
         code: "SYNC_ERROR",
         message: errorMessage,
@@ -392,7 +393,7 @@ export class SupabaseSyncRepository implements SyncRepository {
         if (!this.userId) {
           result.error = {
             code: "AUTH_ERROR",
-            message: "Пользователь не авторизован",
+            message: i18n.t("toasts.unauthorized"),
           };
           return result;
         }
@@ -425,7 +426,7 @@ export class SupabaseSyncRepository implements SyncRepository {
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "Неизвестная ошибка синхронизации daily selection entries";
+          : i18n.t("toasts.unknownSyncError");
       result.error = {
         code: "SYNC_ERROR",
         message: errorMessage,
@@ -450,7 +451,7 @@ export class SupabaseSyncRepository implements SyncRepository {
         if (!this.userId) {
           result.error = {
             code: "AUTH_ERROR",
-            message: "Пользователь не авторизован",
+            message: i18n.t("toasts.unauthorized"),
           };
           return result;
         }
@@ -484,7 +485,7 @@ export class SupabaseSyncRepository implements SyncRepository {
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "Неизвестная ошибка синхронизации task logs";
+          : i18n.t("toasts.unknownSyncError");
       result.error = {
         code: "SYNC_ERROR",
         message: errorMessage,
