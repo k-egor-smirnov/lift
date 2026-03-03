@@ -260,7 +260,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   onClick={handleOpenNoteModal}
                   className="absolute bottom-2.5 right-2.5 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
                   aria-label={t("taskCard.noteExists")}
-                  title="Редактировать заметку"
+                  title={t("taskCard.editNote")}
                 >
                   <FileText className="w-3.5 h-3.5" />
                 </button>
@@ -281,8 +281,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <button
                 onClick={handleOpenNoteModal}
                 className="absolute bottom-2.5 right-2.5 text-gray-300 hover:text-gray-500 transition-colors cursor-pointer opacity-0 hover:opacity-100 group-hover:opacity-100"
-                aria-label="Добавить заметку"
-                title="Заметка"
+                aria-label={t("taskCard.addNote")}
+                title={t("taskCard.note")}
               >
                 <FileText className="w-3.5 h-3.5" />
               </button>

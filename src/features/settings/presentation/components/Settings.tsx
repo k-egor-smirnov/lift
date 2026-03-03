@@ -54,6 +54,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   // App settings
   const [language, setLanguage] = useState(i18n.language);
@@ -164,7 +165,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
     try {
       // Тест 1: Проверка статуса браузера
       testResults.push(
-        `✓ Статус браузера: ${navigator.onLine ? "Онлайн" : "Оффлайн"}`
+        `✓ ${t("settings.app.browserStatus")}: ${navigator.onLine ? t("settings.sync.online") : t("settings.sync.offline")}`
       );
 
       // Тест 2: Проверка конфигурации Supabase
@@ -486,8 +487,8 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                         <li>Неправильная конфигурация Supabase</li>
                       </ul>
                       <div className="text-xs mt-2">
-                        Статус браузера:{" "}
-                        {navigator.onLine ? "Онлайн" : "Оффлайн"}
+                        {t("settings.app.browserStatus")}:{" "}
+                        {navigator.onLine ? t("settings.sync.online") : t("settings.sync.offline")}
                       </div>
                     </div>
                   </AlertDescription>
@@ -539,7 +540,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                     className="w-full"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Тестирование..." : "Тестировать подключение"}
+                    {isLoading ? t("settings.app.testingConnection") : t("settings.app.testConnection")}
                   </Button>
                 </div>
 

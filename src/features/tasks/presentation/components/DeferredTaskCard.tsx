@@ -49,32 +49,32 @@ export const DeferredTaskCard: React.FC<DeferredTaskCardProps> = ({
           <div className="flex items-center text-sm text-gray-600 mb-3">
             <Clock className="w-4 h-4 mr-1" />
             <span>
-              Отложено до:{" "}
+              {t("taskCard.deferredUntil")}:{" "}
               {task.deferredUntil
                 ? formatDate(task.deferredUntil)
-                : "Не указано"}
+                : t("taskCard.notSpecified")}
             </span>
           </div>
 
           {isOverdue && (
             <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200 mb-2">
               <Clock className="w-3 h-3 mr-1" />
-              Срок истёк
+              {t("taskCard.deadlineExpired")}
             </div>
           )}
 
           <div className="text-xs text-gray-500">
-            Исходная категория:{" "}
+            {t("taskCard.originalCategory")}:{" "}
             {task.originalCategory
               ? t(`categories.${task.originalCategory.toLowerCase()}`)
-              : "Не указана"}
+              : t("taskCard.notSpecifiedFemale")}
           </div>
         </div>
 
         <button
           onClick={handleUndefer}
           className="ml-4 p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-          title="Восстановить задачу"
+          title={t("taskCard.restoreTask")}
         >
           <RotateCcw className="w-4 h-4" />
         </button>

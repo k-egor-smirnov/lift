@@ -239,6 +239,9 @@ const resources = {
         notSpecified: "Не указано",
         notSpecifiedFemale: "Не указана",
         restoreTask: "Восстановить задачу",
+        deferredUntil: "Отложено до",
+        originalCategory: "Исходная категория",
+        deadlineExpired: "Срок истёк",
       },
       tasks: {
         newTask: "Новая задача",
@@ -268,6 +271,8 @@ const resources = {
         syncInitFailed: "Не удалось инициализировать сервисы синхронизации",
         syncError: "Ошибка синхронизации",
         syncSendError: "Ошибка отправки данных",
+        realtimeEnableFailed: "Не удалось включить real-time обновления",
+        realtimeSubscriptionError: "Ошибка подписки на изменения PostgreSQL. Проверьте настройки Realtime в Supabase",
       },
       dailyModal: {
         goodMorning: "Доброе утро!",

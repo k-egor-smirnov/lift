@@ -135,7 +135,7 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
               className="flex items-center gap-2 sm:hidden"
             >
               <FileText className="w-4 h-4" />
-              {hasNote ? "Редактировать заметку" : "Добавить заметку"}
+              {hasNote ? t("taskCard.editNote") : t("taskCard.addNote")}
             </DropdownMenuItem>
           )}
           {showDeferButton && onDefer && !isCompleted && (

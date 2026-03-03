@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   getSyncService,
   getRealtimeService,
@@ -43,6 +44,7 @@ export interface UseSyncReturn {
  * Предоставляет состояние синхронизации и методы управления
  */
 export function useSync(): UseSyncReturn {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<SyncStatus>({
     isOnline: navigator.onLine,
     isSyncing: false,
@@ -67,7 +69,7 @@ export function useSync(): UseSyncReturn {
         ...prev,
         error: {
           code: "INITIALIZATION_ERROR",
-          message: "Не удалось инициализировать сервисы синхронизации",
+          message: t("toasts.syncInitFailed"),
           details: error,
         },
       }));
@@ -148,7 +150,7 @@ export function useSync(): UseSyncReturn {
     } catch (error) {
       const syncError: SyncError = {
         code: "SYNC_ERROR",
-        message: "Ошибка синхронизации",
+        message: t("toasts.syncError"),
         details: error,
       };
 
@@ -190,7 +192,7 @@ export function useSync(): UseSyncReturn {
     } catch (error) {
       const syncError: SyncError = {
         code: "PUSH_ERROR",
-        message: "Ошибка отправки данных",
+        message: t("toasts.syncSendError"),
         details: error,
       };
 
@@ -249,7 +251,7 @@ export function useSync(): UseSyncReturn {
     } catch (error) {
       console.error("Failed to enable realtime:", error);
 
-      let errorMessage = "Не удалось включить real-time обновления";
+      let errorMessage = t("toasts.realtimeEnableFailed");
       let errorCode = "REALTIME_ERROR";
 
       // Проверяем специфичные ошибки
@@ -260,8 +262,7 @@ export function useSync(): UseSyncReturn {
             "Realtime не включен для таблицы в Supabase. Выполните миграцию 002_enable_realtime.sql";
           errorCode = "REALTIME_NOT_ENABLED";
         } else if (errorStr.includes("postgres_changes")) {
-          errorMessage =
-            "Ошибка подписки на изменения PostgreSQL. Проверьте настройки Realtime в Supabase";
+          errorMessage = t("toasts.realtimeSubscriptionError");
           errorCode = "POSTGRES_CHANGES_ERROR";
         }
       }

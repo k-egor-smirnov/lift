@@ -285,7 +285,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
           <InlineTaskCreator
             onCreateTask={onCreateTask}
             category={TaskCategory.INBOX}
-            placeholder="Добавить задачу на сегодня..."
+            placeholder={t("todayView.addTaskPlaceholder")}
           />
         </div>
       )}
