@@ -81,14 +81,14 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
       const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(
         (t) => t.task.id.value === taskId
       );
-      const taskTitle = taskInfo?.task.title.value || "Задача";
+      const taskTitle = taskInfo?.task.title.value || t("tasks.newTask");
 
       await completeTask(taskId);
 
       // Show success toast with undo option
       toast.success(`${taskTitle} выполнена`, {
         action: {
-          label: "Отменить",
+          label: t("toasts.undo"),
           onClick: async () => {
             await handleRevertCompletion(taskId);
           },
@@ -97,7 +97,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
       });
     } catch (error) {
       console.error("Error completing task:", error);
-      toast.error("Не удалось выполнить задачу");
+      toast.error(t("toasts.completeFailed"));
     }
   };
 
@@ -109,15 +109,15 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
       const result = await revertUseCase.execute({ taskId });
 
       if (ResultUtils.isSuccess(result)) {
-        toast.success("Выполнение задачи отменено");
+        toast.success(t("toasts.completionUndone"));
         // Reload today's tasks to reflect changes (silent refresh)
         await loadTodayTasks(undefined, true);
       } else {
-        toast.error("Не удалось отменить выполнение задачи");
+        toast.error(t("toasts.completionUndoFailed"));
       }
     } catch (error) {
       console.error("Error reverting task completion:", error);
-      toast.error("Произошла ошибка при отмене");
+      toast.error(t("toasts.undoError"));
     }
   };
 

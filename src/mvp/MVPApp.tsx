@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
 import { TaskId } from "../shared/domain/value-objects/TaskId";
@@ -59,6 +60,7 @@ import { ResultUtils } from "@/shared/domain/Result";
 import { DateOnly } from "@/shared/domain/value-objects/DateOnly";
 
 export const MVPApp: React.FC = () => {
+  const { t } = useTranslation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [activeView, setActiveView] = useState<
@@ -432,9 +434,9 @@ export const MVPApp: React.FC = () => {
         await completeTask(taskId);
 
         // Show success toast with undo option
-        toast.success("Задача выполнена", {
+        toast.success(t("toasts.taskCompleted"), {
           action: {
-            label: "Отменить",
+            label: t("toasts.undo"),
             onClick: async () => {
               try {
                 const revertUseCase = getService<any>(
@@ -443,16 +445,16 @@ export const MVPApp: React.FC = () => {
                 const result = await revertUseCase.execute({ taskId });
 
                 if (ResultUtils.isSuccess(result)) {
-                  toast.success("Выполнение задачи отменено");
+                  toast.success(t("toasts.completionUndone"));
                   // Reload tasks to reflect changes
                   await loadTasks({ silent: true });
                   // Note: Event bus will handle today updates automatically
                 } else {
-                  toast.error("Не удалось отменить выполнение задачи");
+                  toast.error(t("toasts.completionUndoFailed"));
                 }
               } catch (error) {
                 console.error("Error reverting task completion:", error);
-                toast.error("Произошла ошибка при отмене");
+                toast.error(t("toasts.undoError"));
               }
             },
           },
@@ -460,7 +462,7 @@ export const MVPApp: React.FC = () => {
         });
       } catch (error) {
         console.error("Error completing task:", error);
-        toast.error("Не удалось выполнить задачу");
+        toast.error(t("toasts.completeFailed"));
       }
     },
     [completeTask, loadTasks]
@@ -555,11 +557,11 @@ export const MVPApp: React.FC = () => {
           toast.success(`Задача отложена до ${deferDate.toLocaleDateString()}`);
         } else {
           console.error("Failed to defer task:", result.error);
-          toast.error("Не удалось отложить задачу");
+          toast.error(t("toasts.deferFailed"));
         }
       } catch (error) {
         console.error("Error deferring task:", error);
-        toast.error("Не удалось отложить задачу");
+        toast.error(t("toasts.deferFailed"));
       }
     },
     [deferTaskUseCase, loadTasks, removeTaskFromTodayUseCase]
@@ -576,14 +578,14 @@ export const MVPApp: React.FC = () => {
         if (result.success) {
           // Reload tasks to reflect the changes
           await loadTasks({ silent: true });
-          toast.success("Задача возвращена из отложенных");
+          toast.success(t("toasts.undeferSuccess"));
         } else {
           console.error("Failed to undefer task:", result.error);
-          toast.error("Не удалось вернуть задачу из отложенных");
+          toast.error(t("toasts.undeferFailed"));
         }
       } catch (error) {
         console.error("Error undeferring task:", error);
-        toast.error("Не удалось вернуть задачу из отложенных");
+        toast.error(t("toasts.undeferError"));
       }
     },
     [undeferTaskUseCase, loadTasks]
