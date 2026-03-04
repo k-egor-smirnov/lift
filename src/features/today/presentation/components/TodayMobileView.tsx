@@ -191,7 +191,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
             </div>
             {allTasks.length > 0 && (
               <p className="text-center text-gray-500 mt-2">
-                {activeTasks.length} active, {completedTasks.length} completed
+                {activeTasks.length} {t("todayView.active").toLowerCase()}, {completedTasks.length} {t("todayView.completed").toLowerCase()}
               </p>
             )}
 
@@ -200,7 +200,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
               <div className="flex items-center justify-center mt-3">
                 <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm">
                   <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  Обновление...
+                  {t("todayView.refreshing")}
                 </div>
               </div>
             )}
@@ -235,7 +235,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
             {loading && (
               <div className="text-center py-8">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p className="mt-2 text-gray-600">Loading tasks...</p>
+                <p className="mt-2 text-gray-600">{t("todayView.loadingTasks")}</p>
               </div>
             )}
 
@@ -261,10 +261,10 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                       </svg>
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      No tasks for today
+                      {t("todayView.noTasksForToday")}
                     </h3>
                     <p className="text-gray-500">
-                      Swipe up to add your first task
+                      {t("todayView.swipeUpToAdd")}
                     </p>
                   </div>
                 ) : (
@@ -274,7 +274,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                           <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                          Active ({activeTasks.length})
+                          {t("todayView.active")} ({activeTasks.length})
                         </h3>
                         <TaskList
                           tasks={activeTasks.map((taskInfo) => taskInfo.task)}
@@ -302,7 +302,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                       <div className={activeTasks.length > 0 ? "mt-8" : ""}>
                         <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                           <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                          Completed ({completedTasks.length})
+                          {t("todayView.completed")} ({completedTasks.length})
                         </h3>
                         <TaskList
                           tasks={completedTasks.map(
