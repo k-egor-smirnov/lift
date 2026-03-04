@@ -110,14 +110,14 @@ export const TodayView: React.FC<TodayViewProps> = ({
       const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(
         (t) => t.task.id.value === taskId
       );
-      const taskTitle = taskInfo?.task.title.value || "Task";
+      const taskTitle = taskInfo?.task.title.value || t("tasks.newTask");
 
       const success = await completeTask(taskId);
       if (success) {
         // Show success toast with undo option
-        toast.success(`"${taskTitle}" completed!`, {
+        toast.success(t("todayView.taskCompleted", { title: taskTitle }), {
           action: {
-            label: "Undo",
+            label: t("toasts.undo"),
             onClick: async () => {
               await handleRevertCompletion(taskId);
             },
@@ -128,7 +128,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
       return success;
     } catch (error) {
       console.error("Error completing task:", error);
-      toast.error("Failed to complete task");
+      toast.error(t("toasts.completeFailed"));
       return false;
     }
   };
@@ -145,18 +145,18 @@ export const TodayView: React.FC<TodayViewProps> = ({
         const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(
           (t) => t.task.id.value === taskId
         );
-        const taskTitle = taskInfo?.task.title.value || "Task";
-        toast.success(`"${taskTitle}" reverted to active!`);
+        const taskTitle = taskInfo?.task.title.value || t("tasks.newTask");
+        toast.success(t("todayView.taskReverted", { title: taskTitle }));
         // Reload today's tasks to reflect changes (silent refresh)
         await loadTodayTasks(undefined, true);
         return true;
       } else {
-        toast.error("Failed to revert task completion");
+        toast.error(t("toasts.completionUndoFailed"));
         return false;
       }
     } catch (error) {
       console.error("Error reverting task completion:", error);
-      toast.error("Failed to revert task completion");
+      toast.error(t("toasts.undoError"));
       return false;
     }
   };
@@ -212,13 +212,13 @@ export const TodayView: React.FC<TodayViewProps> = ({
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     if (dateString === todayString) {
-      return "Today";
+      return t("todayView.today");
     } else if (dateString === yesterday.toISOString().split("T")[0]) {
-      return "Yesterday";
+      return t("todayView.yesterday");
     } else if (dateString === tomorrow.toISOString().split("T")[0]) {
-      return "Tomorrow";
+      return t("todayView.tomorrow");
     } else {
-      return date.toLocaleDateString("en-US", {
+      return date.toLocaleDateString("ru-RU", {
         weekday: "long",
         year: "numeric",
         month: "long",
@@ -315,7 +315,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onClick={clearError}
                 className="text-red-400 hover:text-red-600"
               >
-                <span className="sr-only">Dismiss</span>
+                <span className="sr-only">{t("todayView.dismiss")}</span>
                 <svg
                   className="h-5 w-5"
                   viewBox="0 0 20 20"
@@ -337,7 +337,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
       {loading && (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-2 text-gray-600">Loading today's tasks...</p>
+          <p className="mt-2 text-gray-600">{t("todayView.loading")}</p>
         </div>
       )}
 

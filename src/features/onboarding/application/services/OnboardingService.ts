@@ -11,6 +11,7 @@ import { RemoveTaskFromTodayUseCase } from "../../../../shared/application/use-c
 import { CreateSystemLogUseCase } from "../../../../shared/application/use-cases/CreateSystemLogUseCase";
 import { EventBus } from "../../../../shared/domain/events/EventBus";
 import { container, tokens } from "../../../../shared/infrastructure/di";
+import i18n from "../../../../shared/lib/i18n";
 
 /**
  * Data aggregated for the daily modal
@@ -31,19 +32,6 @@ export interface DailyModalData {
 export class OnboardingService {
   private readonly DEFAULT_OVERDUE_DAYS = 3;
   private readonly DEFAULT_START_OF_DAY_TIME = "09:00";
-
-  private readonly motivationalMessages = [
-    "Ready to make today amazing? Let's tackle your tasks!",
-    "A new day, a fresh start! What will you accomplish today?",
-    "Every small step counts. Let's begin your productive day!",
-    "Today is full of possibilities. Which tasks will you conquer?",
-    "Your future self will thank you for what you do today!",
-    "Progress, not perfection. Let's make today count!",
-    "Great things happen when you stay focused. Ready to start?",
-    "Today's efforts are tomorrow's results. Let's get started!",
-    "You've got this! Time to turn your plans into action.",
-    "Success is built one task at a time. Let's begin!",
-  ];
 
   private readonly createSystemLogUseCase: CreateSystemLogUseCase;
 
@@ -100,10 +88,8 @@ export class OnboardingService {
    * Get a random motivational message
    */
   getRandomMotivationalMessage(): string {
-    const randomIndex = Math.floor(
-      Math.random() * this.motivationalMessages.length
-    );
-    return this.motivationalMessages[randomIndex];
+    const randomIndex = Math.floor(Math.random() * 10) + 1;
+    return i18n.t(`dailyModal.motivational.${randomIndex}`);
   }
 
   /**
