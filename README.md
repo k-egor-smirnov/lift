@@ -148,24 +148,23 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 - [Настройка аутентификации](https://supabase.com/docs/guides/auth)
 - [Row Level Security](https://supabase.com/docs/guides/auth/row-level-security)
 
-### Запуск
+### Конфигурация Supabase
 
-```bash
-# Режим разработки
-npm run dev
+1. Создайте проект на [Supabase](https://supabase.com)
+2. Скопируйте URL и anon key из настроек проекта
+3. Добавьте в `.env.local`:
 
-# Сборка для продакшена
-npm run build
-
-# Предпросмотр продакшен сборки
-npm run preview
-
-# Запуск тестов
-npm run test
-
-# E2E тестирование
-npx playwright test
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
+
+4. Выполните SQL миграции из `supabase/migrations/`
+
+📚 **Подробная документация по Supabase:**
+- [Официальная документация](https://supabase.com/docs)
+- [Настройка аутентификации](https://supabase.com/docs/guides/auth)
+- [Row Level Security](https://supabase.com/docs/guides/auth/row-level-security)
 
 ---
 
