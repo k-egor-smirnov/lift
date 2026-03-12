@@ -7,12 +7,15 @@ import {
   Clock,
   FileText,
   Settings,
+  Smile,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
 import { cn } from "../../shared/lib/utils";
 import LiftLogo from "../../../assets/icon.png";
+import { getRandomJoke } from "../../shared/utils/jokes";
+import { toast } from "sonner";
 
 interface SidebarProps {
   activeView: "today" | "logs" | "settings" | TaskCategory;
@@ -83,6 +86,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ) => {
     onViewChange(viewId);
     onMobileMenuClose();
+  };
+
+  const handleShowJoke = () => {
+    const joke = getRandomJoke();
+    toast.success("😄 Анекдот", {
+      description: joke,
+      duration: 8000,
+    });
   };
 
   const sidebarContent = (
@@ -179,6 +190,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Settings at the bottom */}
         <div className="mt-auto pt-4 border-t">
+          <Button
+            variant="ghost"
+            onClick={handleShowJoke}
+            className="w-full justify-start h-auto p-3 text-left font-normal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            aria-label="Показать анекдот"
+            role="listitem"
+          >
+            <div className="flex items-center space-x-3">
+              <Smile className="w-5 h-5" aria-hidden="true" />
+              <span className="font-medium">Анекдот</span>
+            </div>
+          </Button>
           <Button
             variant={activeView === settingsItem.id ? "secondary" : "ghost"}
             onClick={() => handleItemClick(settingsItem.id)}
