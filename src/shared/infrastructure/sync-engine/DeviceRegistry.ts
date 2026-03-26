@@ -1,9 +1,10 @@
 import { ConnectedDevice, DevicePlatform } from "./types";
 
-const STORAGE_KEY = "lift.sync.connected-devices";
-
 export class DeviceRegistry {
-  constructor(private currentDeviceId: string) {}
+  constructor(
+    private currentDeviceId: string,
+    private userId: string = "anonymous"
+  ) {}
 
   list(): ConnectedDevice[] {
     return this.load().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
@@ -35,7 +36,13 @@ export class DeviceRegistry {
   remove(deviceId: string): void {
     const devices = this.load().map((device) =>
       device.id === deviceId
-        ? { ...device, isRevoked: true, lastSeenAt: new Date().toISOString() }
+        ? {
+            ...device,
+            isRevoked: true,
+            isCurrent:
+              deviceId === this.currentDeviceId ? false : device.isCurrent,
+            lastSeenAt: new Date().toISOString(),
+          }
         : device
     );
 
@@ -51,6 +58,7 @@ export class DeviceRegistry {
     if (existing) {
       existing.lastSeenAt = new Date().toISOString();
       existing.isCurrent = true;
+      existing.isRevoked = false;
       this.save(devices);
       return existing;
     }
@@ -72,7 +80,7 @@ export class DeviceRegistry {
   }
 
   private load(): ConnectedDevice[] {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(this.getStorageKey());
     if (!raw) return [];
 
     try {
@@ -83,6 +91,10 @@ export class DeviceRegistry {
   }
 
   private save(devices: ConnectedDevice[]): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(devices));
+    localStorage.setItem(this.getStorageKey(), JSON.stringify(devices));
+  }
+
+  private getStorageKey(): string {
+    return `lift.sync.connected-devices:${this.userId}`;
   }
 }

@@ -80,6 +80,19 @@ const resources = {
           debugModeDescription: "Enable detailed logging for troubleshooting",
           info: "App Information",
         },
+        deviceSync: {
+          title: "Device Sync Engine (Yjs + MLS)",
+          description: "Manage trusted devices and MLS session corner cases",
+          deviceNameLabel: "Device name",
+          deviceNamePlaceholder: "New device label",
+          addDevice: "Add device",
+          group: "Group",
+          epoch: "Epoch",
+          pendingCommits: "Pending commits",
+          current: "Current",
+          revoked: "Revoked",
+          remove: "Remove",
+        },
       },
       todayView: {
         title: "Today's Tasks",
@@ -89,7 +102,8 @@ const resources = {
         noTasksSelected: "No tasks selected for today",
         startByAdding: "Start by adding tasks from your inbox",
         tip: "Tip",
-        dailySelectionResets: "Daily selection resets at midnight. Tasks will remain in your inbox.",
+        dailySelectionResets:
+          "Daily selection resets at midnight. Tasks will remain in your inbox.",
         activeTasks: "Active Tasks",
         completedTasks: "Completed Tasks",
         addTaskPlaceholder: "Add task to today...",
@@ -260,6 +274,20 @@ const resources = {
           testingConnection: "Тестирование...",
           testConnection: "Тестировать подключение",
         },
+        deviceSync: {
+          title: "Движок синхронизации устройств (Yjs + MLS)",
+          description:
+            "Управление доверенными устройствами и corner-case сценариями MLS",
+          deviceNameLabel: "Название устройства",
+          deviceNamePlaceholder: "Название нового устройства",
+          addDevice: "Добавить устройство",
+          group: "Группа",
+          epoch: "Эпоха",
+          pendingCommits: "Ожидающие коммиты",
+          current: "Текущее",
+          revoked: "Отозвано",
+          remove: "Удалить",
+        },
       },
       taskCard: {
         deferTask: "Отложить задачу",
@@ -315,7 +343,8 @@ const resources = {
         syncError: "Ошибка синхронизации",
         syncSendError: "Ошибка отправки данных",
         realtimeEnableFailed: "Не удалось включить real-time обновления",
-        realtimeSubscriptionError: "Ошибка подписки на изменения PostgreSQL. Проверьте настройки Realtime в Supabase",
+        realtimeSubscriptionError:
+          "Ошибка подписки на изменения PostgreSQL. Проверьте настройки Realtime в Supabase",
         networkError: "Нет подключения к сети",
         unknownSyncError: "Неизвестная ошибка синхронизации",
         forcePushError: "Ошибка принудительной отправки",
@@ -363,7 +392,8 @@ const resources = {
         noTasksSelected: "Нет задач на сегодня",
         startByAdding: "Начните с добавления задач из входящих",
         tip: "Совет",
-        dailySelectionResets: "Список на сегодня обновляется в полночь. Задачи останутся во входящих.",
+        dailySelectionResets:
+          "Список на сегодня обновляется в полночь. Задачи останутся во входящих.",
         activeTasks: "Активные задачи",
         completedTasks: "Выполненные",
         addTaskPlaceholder: "Добавить задачу на сегодня...",
@@ -382,14 +412,18 @@ const resources = {
         loadingTasks: "Загрузка задач...",
       },
       config: {
-        missingSupabaseEnv: "Отсутствуют обязательные переменные окружения для Supabase. Убедитесь, что VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY установлены.",
+        missingSupabaseEnv:
+          "Отсутствуют обязательные переменные окружения для Supabase. Убедитесь, что VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY установлены.",
         invalidSupabaseUrl: "Некорректный URL Supabase",
         invalidSupabaseKey: "Некорректный anon key для Supabase",
-        syncIntervalTooShort: "Интервал автосинхронизации не может быть меньше 1 минуты",
+        syncIntervalTooShort:
+          "Интервал автосинхронизации не может быть меньше 1 минуты",
         retryCountInvalid: "Количество попыток должно быть от 1 до 10",
-        retryDelayTooShort: "Задержка между попытками не может быть меньше 1 секунды",
+        retryDelayTooShort:
+          "Задержка между попытками не может быть меньше 1 секунды",
         batchSizeInvalid: "Размер батча должен быть от 1 до 1000",
-        syncTimeoutTooShort: "Таймаут синхронизации не может быть меньше 5 секунд",
+        syncTimeoutTooShort:
+          "Таймаут синхронизации не может быть меньше 5 секунд",
       },
       dailyModal: {
         goodMorning: "Доброе утро!",

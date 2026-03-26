@@ -16,13 +16,34 @@ function fromBase64(value: string): Uint8Array {
 }
 
 async function deriveEpochKey(
+  exporterSecret: Uint8Array,
   groupId: string,
   epoch: number
 ): Promise<CryptoKey> {
-  const source = new TextEncoder().encode(`${groupId}:${epoch}:lift-sync`);
-  const digest = await crypto.subtle.digest("SHA-256", source);
+  const encoder = new TextEncoder();
+  const info = encoder.encode(`lift-sync:${groupId}:${epoch}`);
+  const salt = encoder.encode(`lift-sync-salt:${groupId}`);
 
-  return crypto.subtle.importKey("raw", digest, "AES-GCM", false, [
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    exporterSecret,
+    "HKDF",
+    false,
+    ["deriveBits"]
+  );
+
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt,
+      info,
+    },
+    keyMaterial,
+    256
+  );
+
+  return crypto.subtle.importKey("raw", derivedBits, "AES-GCM", false, [
     "encrypt",
     "decrypt",
   ]);
@@ -34,7 +55,8 @@ export class YjsMlsSyncEngine {
   constructor(
     readonly sessionManager: MlsGroupSessionManager,
     readonly userId: string,
-    readonly currentDevice: ConnectedDevice
+    readonly currentDevice: ConnectedDevice,
+    private readonly exporterSecret: Uint8Array
   ) {
     this.doc = new Y.Doc();
   }
@@ -46,7 +68,11 @@ export class YjsMlsSyncEngine {
   async buildEncryptedUpdate(): Promise<EncryptedSyncUpdate> {
     const update = Y.encodeStateAsUpdate(this.doc);
     const snapshot = this.sessionManager.getSnapshot();
-    const key = await deriveEpochKey(snapshot.groupId, snapshot.epoch);
+    const key = await deriveEpochKey(
+      this.exporterSecret,
+      snapshot.groupId,
+      snapshot.epoch
+    );
     const iv = crypto.getRandomValues(new Uint8Array(12));
 
     const cipherBuffer = await crypto.subtle.encrypt(
@@ -64,7 +90,6 @@ export class YjsMlsSyncEngine {
       sourceDeviceId: this.currentDevice.id,
       encryptedPayload: toBase64(encryptedPayload),
       iv: toBase64(iv),
-      authTag: `epoch-${snapshot.epoch}`,
       epoch: snapshot.epoch,
       createdAt: new Date().toISOString(),
     };
@@ -80,12 +105,11 @@ export class YjsMlsSyncEngine {
       );
     }
 
-    if (update.epoch > snapshot.epoch) {
-      this.sessionManager.markExternalCommitPending();
-      this.sessionManager.applyCommit(update.epoch);
-    }
-
-    const key = await deriveEpochKey(update.groupId, update.epoch);
+    const key = await deriveEpochKey(
+      this.exporterSecret,
+      update.groupId,
+      update.epoch
+    );
 
     const decrypted = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv: fromBase64(update.iv) },
@@ -94,5 +118,10 @@ export class YjsMlsSyncEngine {
     );
 
     Y.applyUpdate(this.doc, new Uint8Array(decrypted));
+
+    if (update.epoch > snapshot.epoch) {
+      this.sessionManager.markExternalCommitPending();
+      this.sessionManager.applyCommit(update.epoch);
+    }
   }
 }

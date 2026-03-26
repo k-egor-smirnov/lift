@@ -26,7 +26,6 @@ export interface EncryptedSyncUpdate {
   sourceDeviceId: string;
   encryptedPayload: string;
   iv: string;
-  authTag: string;
   epoch: number;
   createdAt: string;
 }

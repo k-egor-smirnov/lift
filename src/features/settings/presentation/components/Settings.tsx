@@ -80,7 +80,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
     addDevice,
     revokeDevice,
     mlsState,
-  } = useDeviceSyncManagement();
+  } = useDeviceSyncManagement(user?.id ?? "anonymous");
 
   // Get Supabase client
   const supabaseClientFactory = container.resolve<SupabaseClientFactory>(
@@ -656,9 +656,9 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
 
           <Card>
             <CardHeader>
-              <CardTitle>Device Sync Engine (Yjs + MLS)</CardTitle>
+              <CardTitle>{t("settings.deviceSync.title")}</CardTitle>
               <CardDescription>
-                Manage trusted devices and MLS session corner cases.
+                {t("settings.deviceSync.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -668,26 +668,34 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                 </Alert>
               )}
 
+              <Label htmlFor="device-sync-name">
+                {t("settings.deviceSync.deviceNameLabel")}
+              </Label>
               <div className="flex gap-2">
                 <Input
+                  id="device-sync-name"
                   value={deviceName}
                   onChange={(event) => setDeviceName(event.target.value)}
-                  placeholder="New device label"
+                  placeholder={t("settings.deviceSync.deviceNamePlaceholder")}
+                  aria-label={t("settings.deviceSync.deviceNameLabel")}
                 />
                 <Button type="button" onClick={() => addDevice("web")}>
-                  Add device
+                  {t("settings.deviceSync.addDevice")}
                 </Button>
               </div>
 
               <div className="rounded-md border p-3 text-sm">
                 <p>
-                  Group: <b>{mlsState?.groupId ?? "-"}</b>
+                  {t("settings.deviceSync.group")}:{" "}
+                  <b>{mlsState?.groupId ?? "-"}</b>
                 </p>
                 <p>
-                  Epoch: <b>{mlsState?.epoch ?? 0}</b>
+                  {t("settings.deviceSync.epoch")}:{" "}
+                  <b>{mlsState?.epoch ?? 0}</b>
                 </p>
                 <p>
-                  Pending commits: <b>{mlsState?.pendingCommits ?? 0}</b>
+                  {t("settings.deviceSync.pendingCommits")}:{" "}
+                  <b>{mlsState?.pendingCommits ?? 0}</b>
                 </p>
               </div>
 
@@ -704,9 +712,13 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {device.isCurrent && <Badge>Current</Badge>}
+                      {device.isCurrent && (
+                        <Badge>{t("settings.deviceSync.current")}</Badge>
+                      )}
                       {device.isRevoked && (
-                        <Badge variant="secondary">Revoked</Badge>
+                        <Badge variant="secondary">
+                          {t("settings.deviceSync.revoked")}
+                        </Badge>
                       )}
                       {!device.isCurrent && !device.isRevoked && (
                         <Button
@@ -715,7 +727,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                           type="button"
                           onClick={() => revokeDevice(device.id)}
                         >
-                          Remove
+                          {t("settings.deviceSync.remove")}
                         </Button>
                       )}
                     </div>

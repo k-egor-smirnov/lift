@@ -62,6 +62,24 @@ export class MlsGroupSessionManager {
     this.state.hasExternalCommit = true;
   }
 
+  updateDevices(devices: ConnectedDevice[]): void {
+    const known = new Map(
+      this.state.devices.map((device) => [device.id, device])
+    );
+
+    this.state.devices = devices.map((device) => {
+      const previous = known.get(device.id);
+      if (!previous) {
+        return device;
+      }
+
+      return {
+        ...device,
+        isRevoked: device.isRevoked || previous.isRevoked,
+      };
+    });
+  }
+
   addDevice(device: ConnectedDevice): void {
     if (this.state.pendingCommits > 0) {
       throw new MlsCornerCaseError(
@@ -108,6 +126,11 @@ export class MlsGroupSessionManager {
         `Device ${deviceId} is not present in MLS group`,
         { deviceId }
       );
+    }
+
+    if (member.isRevoked) {
+      member.lastSeenAt = new Date().toISOString();
+      return;
     }
 
     member.isRevoked = true;
