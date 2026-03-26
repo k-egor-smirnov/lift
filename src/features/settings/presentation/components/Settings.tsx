@@ -23,6 +23,7 @@ import { container } from "tsyringe";
 import { SupabaseClientFactory } from "@/shared/infrastructure/database/SupabaseClient";
 import { SUPABASE_CLIENT_FACTORY_TOKEN } from "@/shared/infrastructure/di/tokens";
 import { useUserSettingsViewModel } from "@/features/onboarding/presentation/view-models/UserSettingsViewModel";
+import { useDeviceSyncManagement } from "@/features/settings/presentation/hooks/useDeviceSyncManagement";
 import {
   Settings as SettingsIcon,
   User as UserIcon,
@@ -70,6 +71,16 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
     loadSettings: loadUserSettings,
     setStartOfDayTime: saveStartOfDayTime,
   } = useUserSettingsViewModel();
+
+  const {
+    devices,
+    error: deviceManagementError,
+    deviceName,
+    setDeviceName,
+    addDevice,
+    revokeDevice,
+    mlsState,
+  } = useDeviceSyncManagement();
 
   // Get Supabase client
   const supabaseClientFactory = container.resolve<SupabaseClientFactory>(
@@ -487,7 +498,9 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                       </ul>
                       <div className="text-xs mt-2">
                         {t("settings.app.browserStatus")}:{" "}
-                        {navigator.onLine ? t("settings.sync.online") : t("settings.sync.offline")}
+                        {navigator.onLine
+                          ? t("settings.sync.online")
+                          : t("settings.sync.offline")}
                       </div>
                     </div>
                   </AlertDescription>
@@ -539,7 +552,9 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                     className="w-full"
                     disabled={isLoading}
                   >
-                    {isLoading ? t("settings.app.testingConnection") : t("settings.app.testConnection")}
+                    {isLoading
+                      ? t("settings.app.testingConnection")
+                      : t("settings.app.testConnection")}
                   </Button>
                 </div>
 
@@ -635,6 +650,77 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                   <div>Build: {import.meta.env.MODE}</div>
                   <div>Real-time Status: {realtimeStatus}</div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Device Sync Engine (Yjs + MLS)</CardTitle>
+              <CardDescription>
+                Manage trusted devices and MLS session corner cases.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {deviceManagementError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{deviceManagementError}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex gap-2">
+                <Input
+                  value={deviceName}
+                  onChange={(event) => setDeviceName(event.target.value)}
+                  placeholder="New device label"
+                />
+                <Button type="button" onClick={() => addDevice("web")}>
+                  Add device
+                </Button>
+              </div>
+
+              <div className="rounded-md border p-3 text-sm">
+                <p>
+                  Group: <b>{mlsState?.groupId ?? "-"}</b>
+                </p>
+                <p>
+                  Epoch: <b>{mlsState?.epoch ?? 0}</b>
+                </p>
+                <p>
+                  Pending commits: <b>{mlsState?.pendingCommits ?? 0}</b>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {devices.map((device) => (
+                  <div
+                    key={device.id}
+                    className="flex items-center justify-between rounded-md border p-2"
+                  >
+                    <div>
+                      <p className="font-medium">{device.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {device.platform} · {device.id.slice(0, 8)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {device.isCurrent && <Badge>Current</Badge>}
+                      {device.isRevoked && (
+                        <Badge variant="secondary">Revoked</Badge>
+                      )}
+                      {!device.isCurrent && !device.isRevoked && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          type="button"
+                          onClick={() => revokeDevice(device.id)}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
