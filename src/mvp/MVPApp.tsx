@@ -813,6 +813,14 @@ export const MVPApp: React.FC = () => {
     [tags, taskTags, getTaskCountByTag]
   );
 
+  const activeTagName = useMemo(() => {
+    if (!activeView.startsWith("tag:")) {
+      return undefined;
+    }
+    const activeTagId = activeView.slice(4);
+    return tags.find((tag) => tag.id === activeTagId)?.name;
+  }, [activeView, tags]);
+
   // Show loading state while database is initializing
   if (!isDbReady) {
     return (
@@ -833,14 +841,6 @@ export const MVPApp: React.FC = () => {
     activeView.startsWith("tag:")
       ? TaskCategory.INBOX
       : activeView;
-
-  const activeTagName = useMemo(() => {
-    if (!activeView.startsWith("tag:")) {
-      return undefined;
-    }
-    const activeTagId = activeView.slice(4);
-    return tags.find((tag) => tag.id === activeTagId)?.name;
-  }, [activeView, tags]);
   const hideCategorySelection = activeView !== "today";
 
   // If mobile view should be used, render it directly without sidebar/header
