@@ -17,6 +17,10 @@ export const TaskLogsDisplay: React.FC<TaskLogsDisplayProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const now = useCurrentTime();
+  const handleOpenLogModal = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    onToggleLogHistory();
+  };
 
   if (!lastLog && !onCreateLog) {
     return null;
@@ -29,7 +33,8 @@ export const TaskLogsDisplay: React.FC<TaskLogsDisplayProps> = ({
         {lastLog ? (
           <div
             className="cursor-pointer hover:text-gray-700 transition-colors"
-            onClick={onToggleLogHistory}
+            onClick={handleOpenLogModal}
+            data-no-card-edit
           >
             {t("taskCard.lastLog")} {lastLog.message} (
             {formatTimeAgo(lastLog.createdAt, now, t, i18n.language)})
@@ -37,7 +42,8 @@ export const TaskLogsDisplay: React.FC<TaskLogsDisplayProps> = ({
         ) : (
           <div
             className="cursor-pointer hover:text-gray-700 transition-colors"
-            onClick={onToggleLogHistory}
+            onClick={handleOpenLogModal}
+            data-no-card-edit
           >
             {t("taskCard.noLogsYet")}
           </div>
