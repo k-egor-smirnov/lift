@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
@@ -19,12 +19,7 @@ import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
 import { TaskDeferModal } from "./task-card/TaskDeferModal";
-import { NoteModal } from "../../../../shared/ui/components/NoteModal";
-import { Check, FileText, ListChecks, ListTodo } from "lucide-react";
-import {
-  parseChecklistProgress,
-  formatChecklistProgress,
-} from "../../../../shared/utils/checklistUtils";
+import { TaskEditFormData, TaskEditModal } from "./task-card/TaskEditModal";
 
 // Хуки
 import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
@@ -32,7 +27,6 @@ import { useTaskLogs } from "./task-card/hooks/useTaskLogs";
 import { useTaskDefer } from "./task-card/hooks/useTaskDefer";
 import { useTaskNote } from "../hooks/useTaskNote";
 import { TaskViewModel } from "../view-models/TaskViewModel";
-import { usePointerCapability } from "../../../../shared/infrastructure/services/usePointerCapability";
 
 interface TaskCardProps {
   task: Task;
@@ -75,8 +69,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const pointerDownCoordsRef = useRef<{ x: number; y: number } | null>(null);
+  const draggedBetweenDownAndClickRef = useRef(false);
 
-  // Хуки для управления состоянием
   const {
     isEditing,
     editTitle,
@@ -116,13 +112,62 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onDefer,
   });
 
-  const {
-    isOpen: showNoteModal,
-    isSaving,
-    openNote: handleOpenNoteModal,
-    closeNote: handleCloseNoteModal,
-    saveNote: handleSaveNote,
-  } = useTaskNote(task.id.value, task.note, taskViewModel!);
+  const { saveNote: handleSaveNote } = useTaskNote(
+    task.id.value,
+    task.note,
+    taskViewModel!
+  );
+
+  const handleSaveTaskChanges = async (data: TaskEditFormData) => {
+    if (data.title !== task.title.value) {
+      onEdit(task.id.value, data.title);
+    }
+
+    if (taskViewModel && data.category !== task.category) {
+      await taskViewModel.getState().updateTask({
+        taskId: task.id.value,
+        category: data.category,
+      });
+    }
+
+    if ((task.note || "") !== data.note) {
+      await handleSaveNote(data.note);
+    }
+  };
+
+  const handleCardClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (isEditing || isDraggingState || draggedBetweenDownAndClickRef.current) {
+      draggedBetweenDownAndClickRef.current = false;
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(
+        "[data-no-card-edit],button,a,input,textarea,select,[role='button'],[contenteditable='true']"
+      )
+    ) {
+      return;
+    }
+
+    setShowEditModal(true);
+  };
+
+  const handlePointerDownCapture = (event: React.PointerEvent<HTMLElement>) => {
+    pointerDownCoordsRef.current = { x: event.clientX, y: event.clientY };
+    draggedBetweenDownAndClickRef.current = false;
+  };
+
+  const handlePointerMoveCapture = (event: React.PointerEvent<HTMLElement>) => {
+    const start = pointerDownCoordsRef.current;
+    if (!start) return;
+
+    const distance =
+      Math.abs(event.clientX - start.x) + Math.abs(event.clientY - start.y);
+    if (distance > 6) {
+      draggedBetweenDownAndClickRef.current = true;
+    }
+  };
 
   // Drag and drop functionality
   const {
@@ -146,7 +191,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const isDraggingState = isDragging;
   const isCompleted = task.status === TaskStatus.COMPLETED;
   const isTouch = isTouchDevice();
-  const { hasMouseLikePointer } = usePointerCapability();
 
   // Touch gesture handlers
   const { attachGestures } = useTouchGestures({
@@ -214,84 +258,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             : "0 1px 3px rgba(0, 0, 0, 0.1)",
         }}
         transition={{ duration: 0.2 }}
+        onClick={handleCardClick}
+        onPointerDownCapture={handlePointerDownCapture}
+        onPointerMoveCapture={handlePointerMoveCapture}
       >
-        {/* Bottom-right note/checklist indicator */}
-        {(() => {
-          const hasNote = !!(task.note && task.note.trim().length > 0);
-          const progress = parseChecklistProgress(task.note);
-          const hasChecklist = hasNote && progress.total > 0;
-
-          // Show placeholder only for mouse users; on touch-only show indicator only if note exists
-          const shouldShow = hasMouseLikePointer || hasNote;
-          if (!shouldShow) return null;
-
-          if (hasChecklist) {
-            if (hasMouseLikePointer) {
-              return (
-                <button
-                  onClick={handleOpenNoteModal}
-                  className="absolute bottom-2.5 right-2.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-                  aria-label={t("taskCard.checklistProgress")}
-                  title={`Заметка: ${formatChecklistProgress(progress)}`}
-                >
-                  <ListTodo className="w-3.5 h-3.5" />
-                  <span className="text-[10px] leading-none rounded px-1 py-[1px]">
-                    {formatChecklistProgress(progress)}
-                  </span>
-                </button>
-              );
-            }
-            // Touch-only: non-interactive indicator
-            return (
-              <div
-                className="absolute bottom-2.5 right-2.5 flex items-center text-gray-400"
-                aria-hidden
-              >
-                <ListTodo className="w-3.5 h-3.5" />
-                <span className="text-[10px] leading-none rounded px-1 py-[1px]">
-                  {formatChecklistProgress(progress)}
-                </span>
-              </div>
-            );
-          } else if (hasNote) {
-            if (hasMouseLikePointer) {
-              return (
-                <button
-                  onClick={handleOpenNoteModal}
-                  className="absolute bottom-2.5 right-2.5 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-                  aria-label={t("taskCard.noteExists")}
-                  title={t("taskCard.editNote")}
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                </button>
-              );
-            }
-            // Touch-only: non-interactive indicator
-            return (
-              <div
-                className="absolute bottom-2.5 right-2.5 text-gray-400"
-                aria-hidden
-              >
-                <FileText className="w-3.5 h-3.5" />
-              </div>
-            );
-          } else if (hasMouseLikePointer) {
-            // Desktop/mouse placeholder for empty note with hover tooltip
-            return (
-              <button
-                onClick={handleOpenNoteModal}
-                className="absolute bottom-2.5 right-2.5 text-gray-300 hover:text-gray-500 transition-colors cursor-pointer opacity-0 hover:opacity-100 group-hover:opacity-100"
-                aria-label={t("taskCard.addNote")}
-                title={t("taskCard.note")}
-              >
-                <FileText className="w-3.5 h-3.5" />
-              </button>
-            );
-          }
-
-          return null;
-        })()}
-
         {/* Touch gesture help for mobile */}
         {isTouch && (
           <div id={`touch-help-${task.id.value}`} className="sr-only">
@@ -336,9 +306,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onRevertCompletion={onRevertCompletion}
                 onDelete={onDelete}
                 onDefer={handleOpenDeferModal}
-                onEdit={handleStartEdit}
-                note={task.note}
-                onNoteClick={handleOpenNoteModal}
+                onEdit={() => setShowEditModal(true)}
               />
             </div>
           )}
@@ -370,12 +338,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         onDeferConfirm={handleDeferConfirm}
       />
 
-      <NoteModal
-        isOpen={showNoteModal}
-        onClose={handleCloseNoteModal}
-        onSave={handleSaveNote}
-        initialContent={task.note || ""}
-        taskTitle={task.title.value}
+      <TaskEditModal
+        isOpen={showEditModal}
+        task={task}
+        onClose={() => setShowEditModal(false)}
+        onSave={handleSaveTaskChanges}
       />
     </>
   );
