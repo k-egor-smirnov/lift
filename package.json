@@ -12,6 +12,11 @@
     "test:watch": "vitest",
     "test:coverage": "vitest --run --coverage --reporter=verbose",
     "test:coverage-force": "vitest --run --coverage --reporter=verbose --passWithNoTests",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed --project=chromium",
+    "test:e2e:ui": "playwright test --ui",
+    "playwright:install": "playwright install chromium",
+    "playwright:install-deps": "playwright install-deps chromium",
     "bundle-analysis": "node scripts/bundle-analysis.cjs",
     "format": "prettier --write .",
     "prepare": "husky"
