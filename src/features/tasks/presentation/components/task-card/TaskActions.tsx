@@ -47,6 +47,7 @@ export const TaskActions: React.FC<TaskActionsProps> = ({
       className="flex items-center gap-1"
       role="toolbar"
       aria-label={t("taskCard.taskActions")}
+      data-no-card-edit
     >
       {/* Complete/Revert button - always visible */}
       {!isCompleted && (

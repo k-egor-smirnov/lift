@@ -28,7 +28,7 @@ export const TaskTitleDisplay: React.FC<TaskTitleDisplayProps> = ({
   const isMobile = getDeviceType() === "mobile";
 
   return (
-    <div className="flex items-center gap-2 flex-1">
+    <div className="flex items-center gap-2 flex-1" data-no-card-edit>
       {/* Sun icon for today tasks */}
       {showTodayButton && onAddToToday && (
         <button

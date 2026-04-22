@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 
 // Подкомпоненты
 import { TaskCardHeader } from "./task-card/TaskCardHeader";
+import { TaskTitleEditor } from "./task-card/TaskTitleEditor";
 import { TaskTitleDisplay } from "./task-card/TaskTitleDisplay";
 import { TaskActions } from "./task-card/TaskActions";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
@@ -21,6 +22,7 @@ import { TaskDeferModal } from "./task-card/TaskDeferModal";
 import { TaskEditFormData, TaskEditModal } from "./task-card/TaskEditModal";
 
 // Хуки
+import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
 import { useTaskLogs } from "./task-card/hooks/useTaskLogs";
 import { useTaskDefer } from "./task-card/hooks/useTaskDefer";
 import { useTaskNote } from "../hooks/useTaskNote";
@@ -68,6 +70,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const pointerDownCoordsRef = useRef<{ x: number; y: number } | null>(null);
+  const draggedBetweenDownAndClickRef = useRef(false);
+
+  const {
+    isEditing,
+    editTitle,
+    setEditTitle,
+    handleStartEdit,
+    handleSaveEdit,
+    handleCancelEdit,
+  } = useTaskEditing({
+    initialTitle: task.title.value,
+    onEdit,
+    taskId: task.id.value,
+  });
 
   const {
     taskLogs,
@@ -116,9 +133,39 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     if ((task.note || "") !== data.note) {
       await handleSaveNote(data.note);
     }
+  };
 
-    if (data.deferDate && onDefer) {
-      onDefer(task.id.value, data.deferDate);
+  const handleCardClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (isEditing || isDraggingState || draggedBetweenDownAndClickRef.current) {
+      draggedBetweenDownAndClickRef.current = false;
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(
+        "[data-no-card-edit],button,a,input,textarea,select,[role='button'],[contenteditable='true']"
+      )
+    ) {
+      return;
+    }
+
+    setShowEditModal(true);
+  };
+
+  const handlePointerDownCapture = (event: React.PointerEvent<HTMLElement>) => {
+    pointerDownCoordsRef.current = { x: event.clientX, y: event.clientY };
+    draggedBetweenDownAndClickRef.current = false;
+  };
+
+  const handlePointerMoveCapture = (event: React.PointerEvent<HTMLElement>) => {
+    const start = pointerDownCoordsRef.current;
+    if (!start) return;
+
+    const distance =
+      Math.abs(event.clientX - start.x) + Math.abs(event.clientY - start.y);
+    if (distance > 6) {
+      draggedBetweenDownAndClickRef.current = true;
     }
   };
 
@@ -211,6 +258,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             : "0 1px 3px rgba(0, 0, 0, 0.1)",
         }}
         transition={{ duration: 0.2 }}
+        onClick={handleCardClick}
+        onPointerDownCapture={handlePointerDownCapture}
+        onPointerMoveCapture={handlePointerMoveCapture}
       >
         {/* Touch gesture help for mobile */}
         {isTouch && (
@@ -228,29 +278,38 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
         {/* Task title section */}
         <div className="mb-1">
-          <div className="flex items-center justify-between gap-2">
-            <TaskTitleDisplay
-              taskId={task.id.value}
-              title={task.title.value}
-              status={task.status}
-              showTodayButton={showTodayButton}
-              isInTodaySelection={isInTodaySelection}
-              onEdit={() => setShowEditModal(true)}
-              onAddToToday={onAddToToday}
+          {isEditing ? (
+            <TaskTitleEditor
+              title={editTitle}
+              onTitleChange={setEditTitle}
+              onSave={handleSaveEdit}
+              onCancel={handleCancelEdit}
             />
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <TaskTitleDisplay
+                taskId={task.id.value}
+                title={task.title.value}
+                status={task.status}
+                showTodayButton={showTodayButton}
+                isInTodaySelection={isInTodaySelection}
+                onEdit={handleStartEdit}
+                onAddToToday={onAddToToday}
+              />
 
-            <TaskActions
-              taskId={task.id.value}
-              taskTitle={task.title.value}
-              status={task.status}
-              showDeferButton={showDeferButton}
-              onComplete={onComplete}
-              onRevertCompletion={onRevertCompletion}
-              onDelete={onDelete}
-              onDefer={handleOpenDeferModal}
-              onEdit={() => setShowEditModal(true)}
-            />
-          </div>
+              <TaskActions
+                taskId={task.id.value}
+                taskTitle={task.title.value}
+                status={task.status}
+                showDeferButton={showDeferButton}
+                onComplete={onComplete}
+                onRevertCompletion={onRevertCompletion}
+                onDelete={onDelete}
+                onDefer={handleOpenDeferModal}
+                onEdit={() => setShowEditModal(true)}
+              />
+            </div>
+          )}
         </div>
 
         {/* Logs section */}

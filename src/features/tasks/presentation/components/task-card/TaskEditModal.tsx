@@ -1,17 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Task } from "../../../../../shared/domain/entities/Task";
 import { TaskCategory } from "../../../../../shared/domain/types";
 import { TiptapEditor } from "../../../../../shared/ui/components/TiptapEditor";
 
-type DeferOption = "none" | "tomorrow" | "week" | "custom";
-
 export interface TaskEditFormData {
   title: string;
   category: TaskCategory;
   note: string;
-  deferDate?: Date;
 }
 
 interface TaskEditModalProps {
@@ -20,33 +17,6 @@ interface TaskEditModalProps {
   onClose: () => void;
   onSave: (data: TaskEditFormData) => Promise<void>;
 }
-
-const getDeferDateByOption = (
-  option: DeferOption,
-  customDate: string
-): Date | undefined => {
-  const baseDate = new Date();
-  baseDate.setHours(0, 0, 0, 0);
-
-  if (option === "tomorrow") {
-    baseDate.setDate(baseDate.getDate() + 1);
-    return baseDate;
-  }
-
-  if (option === "week") {
-    baseDate.setDate(baseDate.getDate() + 7);
-    return baseDate;
-  }
-
-  if (option === "custom" && customDate) {
-    const [year, month, day] = customDate.split("-").map(Number);
-    if (year && month && day) {
-      return new Date(year, month - 1, day);
-    }
-  }
-
-  return undefined;
-};
 
 export const TaskEditModal: React.FC<TaskEditModalProps> = ({
   isOpen,
@@ -58,24 +28,23 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
   const [title, setTitle] = useState(task.title.value);
   const [category, setCategory] = useState<TaskCategory>(task.category);
   const [note, setNote] = useState(task.note || "");
-  const [deferOption, setDeferOption] = useState<DeferOption>("none");
-  const [customDeferDate, setCustomDeferDate] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-
-  const minDate = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today.toISOString().split("T")[0];
-  }, []);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setTitle(task.title.value);
     setCategory(task.category);
     setNote(task.note || "");
-    setDeferOption("none");
-    setCustomDeferDate("");
   }, [isOpen, task]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    requestAnimationFrame(() => {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    });
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -86,7 +55,6 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
         title: title.trim(),
         category,
         note,
-        deferDate: getDeferDateByOption(deferOption, customDeferDate),
       });
       onClose();
     } finally {
@@ -116,6 +84,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
           <label className="block">
             <span className="text-sm font-medium text-gray-700">Название</span>
             <input
+              ref={titleInputRef}
               type="text"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
@@ -143,60 +112,6 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
               </option>
             </select>
           </label>
-
-          <fieldset>
-            <legend className="text-sm font-medium text-gray-700 mb-2">
-              {t("taskCard.deferTask")}
-            </legend>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name={`defer-${task.id.value}`}
-                  checked={deferOption === "none"}
-                  onChange={() => setDeferOption("none")}
-                />
-                Не менять
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name={`defer-${task.id.value}`}
-                  checked={deferOption === "tomorrow"}
-                  onChange={() => setDeferOption("tomorrow")}
-                />
-                Завтра
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name={`defer-${task.id.value}`}
-                  checked={deferOption === "week"}
-                  onChange={() => setDeferOption("week")}
-                />
-                Через неделю
-              </label>
-              <div className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name={`defer-${task.id.value}`}
-                  checked={deferOption === "custom"}
-                  onChange={() => setDeferOption("custom")}
-                />
-                <span>Своя дата:</span>
-                <input
-                  type="date"
-                  value={customDeferDate}
-                  min={minDate}
-                  onChange={(event) => {
-                    setCustomDeferDate(event.target.value);
-                    setDeferOption("custom");
-                  }}
-                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-                />
-              </div>
-            </div>
-          </fieldset>
 
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">
