@@ -5,27 +5,34 @@ import {
   Target,
   Inbox,
   FileText,
-  Plus,
   Menu,
   Clock,
   Settings,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
+import { Tag } from "../../shared/domain/entities/Tag";
 import { Button } from "../../shared/ui/button";
 
 interface HeaderProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
+  activeView: "today" | "logs" | "settings" | TaskCategory | `tag:${string}`;
+  availableTags: Tag[];
   onMobileMenuToggle: () => void;
 }
 
 const getViewTitle = (
-  view: "today" | "logs" | "settings" | TaskCategory,
-  t: any
+  view: "today" | "logs" | "settings" | TaskCategory | `tag:${string}`,
+  t: any,
+  availableTags: Tag[]
 ) => {
   if (view === "today") return t("navigation.today");
   if (view === "logs") return t("logs.title", "Activity Logs");
   if (view === "settings") return t("settings.title");
+
+  if (String(view).startsWith("tag:")) {
+    const tag = availableTags.find((item) => `tag:${item.id}` === view);
+    return tag ? `#${tag.name}` : t("common.tasks");
+  }
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -42,13 +49,19 @@ const getViewTitle = (
 };
 
 const getViewDescription = (
-  view: "today" | "logs" | "settings" | TaskCategory,
-  t: any
+  view: "today" | "logs" | "settings" | TaskCategory | `tag:${string}`,
+  t: any,
+  availableTags: Tag[]
 ) => {
   if (view === "today") return t("navigation.descriptions.today");
   if (view === "logs")
     return t("logs.subtitle", "View all system and user activity");
   if (view === "settings") return t("settings.app.description");
+
+  if (String(view).startsWith("tag:")) {
+    const tag = availableTags.find((item) => `tag:${item.id}` === view);
+    return tag ? `#${tag.name}` : t("common.tasks");
+  }
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -64,10 +77,13 @@ const getViewDescription = (
   }
 };
 
-const getViewIcon = (view: "today" | "logs" | "settings" | TaskCategory) => {
+const getViewIcon = (
+  view: "today" | "logs" | "settings" | TaskCategory | `tag:${string}`
+) => {
   if (view === "today") return Sun;
   if (view === "logs") return FileText;
   if (view === "settings") return Settings;
+  if (String(view).startsWith("tag:")) return FileText;
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -85,6 +101,7 @@ const getViewIcon = (view: "today" | "logs" | "settings" | TaskCategory) => {
 
 export const Header: React.FC<HeaderProps> = ({
   activeView,
+  availableTags,
   onMobileMenuToggle,
 }) => {
   const { t } = useTranslation();
@@ -152,7 +169,7 @@ export const Header: React.FC<HeaderProps> = ({
                       isCollapsed ? "text-lg" : "text-3xl md:text-2xl"
                     }`}
                   >
-                    {getViewTitle(activeView, t)}
+                    {getViewTitle(activeView, t, availableTags)}
                   </h1>
                 </div>
               </div>
@@ -164,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <p className="text-gray-500 text-sm md:text-base leading-relaxed">
-                  {getViewDescription(activeView, t)}
+                  {getViewDescription(activeView, t, availableTags)}
                 </p>
               </div>
             </div>

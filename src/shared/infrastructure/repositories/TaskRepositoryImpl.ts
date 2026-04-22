@@ -157,7 +157,8 @@ export class TaskRepositoryImpl implements TaskRepository {
       record.inboxEnteredAt,
       record.deferredUntil,
       record.originalCategory,
-      record.note
+      record.note,
+      record.tagIds || []
     );
   }
 
@@ -178,6 +179,7 @@ export class TaskRepositoryImpl implements TaskRepository {
       deferredUntil: task.deferredUntil,
       originalCategory: task.originalCategory,
       note: task.note,
+      tagIds: task.tagIds,
     };
   }
 }

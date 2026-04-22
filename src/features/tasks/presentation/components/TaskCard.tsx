@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Task } from "../../../../shared/domain/entities/Task";
+import { Tag } from "../../../../shared/domain/entities/Tag";
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import {
@@ -46,6 +47,8 @@ interface TaskCardProps {
   isDraggable?: boolean;
   currentCategory?: TaskCategory;
   taskViewModel?: TaskViewModel;
+  availableTags?: Tag[];
+  onCreateTag?: (name: string, color: string) => Promise<string | null>;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -66,6 +69,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isDraggable = false,
   currentCategory,
   taskViewModel,
+  availableTags = [],
+  onCreateTag = async () => null,
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
@@ -127,6 +132,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       await taskViewModel.getState().updateTask({
         taskId: task.id.value,
         category: data.category,
+      });
+    }
+
+    if (taskViewModel) {
+      await taskViewModel.getState().updateTask({
+        taskId: task.id.value,
+        tagIds: data.tagIds,
       });
     }
 
@@ -274,6 +286,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           category={task.category}
           currentCategory={currentCategory}
           isOverdue={isOverdue}
+          tags={availableTags.filter((tag) => task.tagIds.includes(tag.id))}
         />
 
         {/* Task title section */}

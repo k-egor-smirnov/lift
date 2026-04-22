@@ -1,6 +1,7 @@
 import React from "react";
 import { TaskCategory } from "../../shared/domain/types";
 import { Task } from "../../shared/domain/entities/Task";
+import { Tag } from "../../shared/domain/entities/Tag";
 import { TaskList } from "../../features/tasks/presentation/components/TaskList";
 import { TodayView } from "../../features/today/presentation/components/TodayView";
 import { AllLogsView } from "../../features/logs/presentation/components";
@@ -12,7 +13,7 @@ import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase"
 import { ViewContainer } from "./ViewContainer";
 
 interface ContentAreaProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
+  activeView: "today" | "logs" | "settings" | TaskCategory | `tag:${string}`;
   loading: boolean;
 
   // Today view props
@@ -29,6 +30,7 @@ interface ContentAreaProps {
   currentCategory: TaskCategory;
   todayTaskIds: string[];
   lastLogs: Record<string, LogEntry>;
+  availableTags: Tag[];
 
   // Event handlers
   onCreateTask: (title: string, category: TaskCategory) => Promise<void>;
@@ -41,6 +43,7 @@ interface ContentAreaProps {
   onCreateTaskLog: (taskId: string, content: string) => Promise<void>;
   onDeferTask: (taskId: string, deferredUntil: Date) => Promise<void>;
   onUndeferTask: (taskId: string) => Promise<void>;
+  onCreateTag: (name: string, color: string) => Promise<string | null>;
 }
 
 export const ContentArea: React.FC<ContentAreaProps> = ({
@@ -53,6 +56,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   currentCategory,
   todayTaskIds,
   lastLogs,
+  availableTags,
   onCreateTask,
   onCompleteTask,
   onEditTask,
@@ -63,6 +67,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   onCreateTaskLog,
   onDeferTask,
   onUndeferTask,
+  onCreateTag,
 }) => {
   if (loading) {
     return (
@@ -131,6 +136,8 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             onDefer={onDeferTask}
             onUndefer={onUndeferTask}
             taskViewModel={taskViewModel}
+            availableTags={availableTags}
+            onCreateTag={onCreateTag}
           />
         </ViewContainer>
       );

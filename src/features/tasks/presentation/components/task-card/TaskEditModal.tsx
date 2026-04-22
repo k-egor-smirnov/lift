@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Task } from "../../../../../shared/domain/entities/Task";
+import {
+  DEFAULT_TAG_COLORS,
+  Tag,
+} from "../../../../../shared/domain/entities/Tag";
 import { TaskCategory } from "../../../../../shared/domain/types";
 import { TiptapEditor } from "../../../../../shared/ui/components/TiptapEditor";
 
@@ -9,25 +13,33 @@ export interface TaskEditFormData {
   title: string;
   category: TaskCategory;
   note: string;
+  tagIds: string[];
 }
 
 interface TaskEditModalProps {
   isOpen: boolean;
   task: Task;
+  availableTags: Tag[];
   onClose: () => void;
   onSave: (data: TaskEditFormData) => Promise<void>;
+  onCreateTag: (name: string, color: string) => Promise<string | null>;
 }
 
 export const TaskEditModal: React.FC<TaskEditModalProps> = ({
   isOpen,
   task,
+  availableTags,
   onClose,
   onSave,
+  onCreateTag,
 }) => {
   const { t } = useTranslation();
   const [title, setTitle] = useState(task.title.value);
   const [category, setCategory] = useState<TaskCategory>(task.category);
   const [note, setNote] = useState(task.note || "");
+  const [tagIds, setTagIds] = useState<string[]>(task.tagIds);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState(DEFAULT_TAG_COLORS[0]);
   const [isSaving, setIsSaving] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -36,6 +48,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
     setTitle(task.title.value);
     setCategory(task.category);
     setNote(task.note || "");
+    setTagIds(task.tagIds);
   }, [isOpen, task]);
 
   useEffect(() => {
@@ -55,10 +68,26 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
         title: title.trim(),
         category,
         note,
+        tagIds,
       });
       onClose();
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const toggleTag = (id: string) => {
+    setTagIds((prev) =>
+      prev.includes(id) ? prev.filter((tagId) => tagId !== id) : [...prev, id]
+    );
+  };
+
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return;
+    const createdTagId = await onCreateTag(newTagName.trim(), newTagColor);
+    if (createdTagId) {
+      setTagIds((prev) => [...new Set([...prev, createdTagId])]);
+      setNewTagName("");
     }
   };
 
@@ -112,6 +141,61 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
               </option>
             </select>
           </label>
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-gray-700">Тэги</p>
+            <div className="flex flex-wrap gap-2">
+              {availableTags.map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => toggleTag(tag.id)}
+                  className={`px-2 py-1 rounded-full text-xs border transition ${
+                    tagIds.includes(tag.id)
+                      ? "text-white border-transparent"
+                      : "bg-white text-gray-700 border-gray-300"
+                  }`}
+                  style={{
+                    backgroundColor: tagIds.includes(tag.id)
+                      ? tag.color
+                      : undefined,
+                  }}
+                >
+                  {tag.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="rounded-md border border-gray-200 p-2 space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={(event) => setNewTagName(event.target.value)}
+                  placeholder="Новый тэг"
+                  className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateTag}
+                  className="inline-flex items-center justify-center px-3 rounded-md bg-gray-900 text-white hover:bg-gray-700"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {DEFAULT_TAG_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNewTagColor(color)}
+                    className={`h-5 w-5 rounded-full border-2 ${newTagColor === color ? "border-gray-900" : "border-transparent"}`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
 
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Sun,
   Zap,
@@ -7,17 +7,26 @@ import {
   Clock,
   FileText,
   Settings,
+  Plus,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
 import { cn } from "../../shared/lib/utils";
 import LiftLogo from "../../../assets/icon.png";
+import { DEFAULT_TAG_COLORS, Tag } from "../../shared/domain/entities/Tag";
 
 interface SidebarProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
-  onViewChange: (view: "today" | "logs" | "settings" | TaskCategory) => void;
+  activeView: "today" | "logs" | "settings" | TaskCategory | `tag:${string}`;
+  onViewChange: (
+    view: "today" | "logs" | "settings" | TaskCategory | `tag:${string}`
+  ) => void;
   taskCounts: Record<TaskCategory, number>;
+  tagTaskCounts: Record<string, number>;
+  availableTags: Tag[];
+  onCreateTag: (name: string, color: string) => Promise<string | null>;
   hasOverdueTasks: boolean;
   isMobileMenuOpen: boolean;
   onMobileMenuClose: () => void;
@@ -43,12 +52,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeView,
   onViewChange,
   taskCounts,
+  tagTaskCounts,
+  availableTags,
+  onCreateTag,
   hasOverdueTasks,
   isMobileMenuOpen,
   onMobileMenuClose,
   showTodayHighlight,
 }) => {
   const { t } = useTranslation();
+  const [isTagsCollapsed, setIsTagsCollapsed] = useState(false);
 
   const menuItems = [
     {
@@ -79,10 +92,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleItemClick = (
-    viewId: "today" | "logs" | "settings" | TaskCategory
+    viewId: "today" | "logs" | "settings" | TaskCategory | `tag:${string}`
   ) => {
     onViewChange(viewId);
     onMobileMenuClose();
+  };
+
+  const handleCreateTag = async () => {
+    const name = window.prompt("Название тэга");
+    if (!name?.trim()) return;
+    const color =
+      DEFAULT_TAG_COLORS[Math.floor(Math.random() * DEFAULT_TAG_COLORS.length)];
+    await onCreateTag(name.trim(), color);
   };
 
   const sidebarContent = (
@@ -140,12 +161,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   activeView === item.id &&
                     "bg-primary/10 text-primary hover:bg-primary/15"
                 )}
-                data-testid={`sidebar-${item.id.toLowerCase()}`}
-                aria-current={activeView === item.id ? "page" : undefined}
-                aria-label={`${item.name}${
-                  item.count !== null ? ` (${item.count} tasks)` : ""
-                }`}
-                role="listitem"
               >
                 <div className="flex items-center space-x-3">
                   <item.icon className="w-5 h-5" aria-hidden="true" />
@@ -167,7 +182,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           ? "text-muted-foreground bg-red-300/20"
                           : "bg-muted text-muted-foreground"
                     )}
-                    aria-label={`${item.count} tasks`}
                   >
                     {item.count}
                   </span>
@@ -177,7 +191,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Settings at the bottom */}
+        <div className="pt-3 mt-2 border-t">
+          <div className="flex justify-end mb-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleCreateTag}
+              className="h-7 w-7"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsTagsCollapsed((prev) => !prev)}
+            className="w-full flex items-center justify-between text-xs uppercase tracking-wide text-muted-foreground hover:text-foreground py-1"
+          >
+            <span>Тэги</span>
+            {isTagsCollapsed ? (
+              <ChevronRight className="w-3 h-3" />
+            ) : (
+              <ChevronDown className="w-3 h-3" />
+            )}
+          </button>
+          {!isTagsCollapsed && (
+            <div className="mt-1 space-y-1">
+              {availableTags.map((tag) => {
+                const tagView = `tag:${tag.id}` as const;
+                return (
+                  <Button
+                    key={tag.id}
+                    variant={activeView === tagView ? "secondary" : "ghost"}
+                    onClick={() => handleItemClick(tagView)}
+                    className="w-full justify-between h-8 px-2"
+                  >
+                    <span className="inline-flex items-center gap-2 text-sm">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: tag.color }}
+                      />
+                      {tag.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {tagTaskCounts[tag.id] || 0}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <div className="mt-auto pt-4 border-t">
           <Button
             variant={activeView === settingsItem.id ? "secondary" : "ghost"}
@@ -187,10 +251,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               activeView === settingsItem.id &&
                 "bg-primary/10 text-primary hover:bg-primary/15"
             )}
-            data-testid={`sidebar-${settingsItem.id.toLowerCase()}`}
-            aria-current={activeView === settingsItem.id ? "page" : undefined}
-            aria-label={settingsItem.name}
-            role="listitem"
           >
             <div className="flex items-center space-x-3">
               <settingsItem.icon className="w-5 h-5" aria-hidden="true" />
@@ -204,14 +264,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Desktop Sidebar */}
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:z-30">
         <div className="flex flex-col flex-grow bg-background">
           {sidebarContent}
         </div>
       </div>
 
-      {/* Mobile Sidebar */}
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 z-50 md:hidden"

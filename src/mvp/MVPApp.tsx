@@ -8,6 +8,7 @@ import React, {
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
+import { Tag } from "../shared/domain/entities/Tag";
 import { TaskId } from "../shared/domain/value-objects/TaskId";
 import { TaskList } from "../features/tasks/presentation/components/TaskList";
 
@@ -38,6 +39,7 @@ import { getService, tokens } from "../shared/infrastructure/di";
 import { TodoDatabase } from "../shared/infrastructure/database/TodoDatabase";
 import { TaskEventAdapter } from "../shared/infrastructure/events/TaskEventAdapter";
 import { TaskRepository } from "../shared/domain/repositories/TaskRepository";
+import { TagRepository } from "../shared/domain/repositories/TagRepository";
 import { CreateTaskUseCase } from "../shared/application/use-cases/CreateTaskUseCase";
 import { UpdateTaskUseCase } from "../shared/application/use-cases/UpdateTaskUseCase";
 import { ReorderTasksUseCase } from "../shared/application/use-cases/ReorderTasksUseCase";
@@ -58,19 +60,21 @@ import { Settings } from "../features/settings/presentation/components/Settings"
 import { ContentArea } from "./components/ContentArea";
 import { ResultUtils } from "@/shared/domain/Result";
 import { DateOnly } from "@/shared/domain/value-objects/DateOnly";
+import { ulid } from "ulid";
 
 export const MVPApp: React.FC = () => {
   const { t } = useTranslation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [activeView, setActiveView] = useState<
-    "today" | "logs" | "settings" | TaskCategory
+    "today" | "logs" | "settings" | TaskCategory | `tag:${string}`
   >("today");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
   const [lastLogs, setLastLogs] = useState<Record<string, LogEntry>>({});
   const [todayTaskIds, setTodayTaskIds] = useState<string[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const lastLoadDateRef = useRef<string>(DateOnly.today().value);
 
   const {
@@ -84,8 +88,7 @@ export const MVPApp: React.FC = () => {
     return window.innerWidth <= 640;
   };
 
-  const shouldUseMobileView =
-    isMobile() && activeView === "today";
+  const shouldUseMobileView = isMobile() && activeView === "today";
 
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
@@ -95,6 +98,7 @@ export const MVPApp: React.FC = () => {
   const taskRepository = getService<TaskRepository>(
     tokens.TASK_REPOSITORY_TOKEN
   );
+  const tagRepository = getService<TagRepository>(tokens.TAG_REPOSITORY_TOKEN);
   const createTaskUseCase = getService<CreateTaskUseCase>(
     tokens.CREATE_TASK_USE_CASE_TOKEN
   );
@@ -205,6 +209,42 @@ export const MVPApp: React.FC = () => {
   // Subscribe to today view model for getting today task IDs
   const { getTodayTaskIds } = todayViewModel();
 
+  // Load today task IDs
+  const loadTodayTaskIds = useCallback(async () => {
+    lastLoadDateRef.current = DateOnly.today().value;
+    try {
+      const ids = await getTaskViewModelTodayTaskIds();
+      setTodayTaskIds(ids);
+    } catch (error) {
+      console.error("Error loading today task IDs:", error);
+      setTodayTaskIds([]);
+    }
+  }, [getTaskViewModelTodayTaskIds]);
+
+  const loadTags = useCallback(async () => {
+    try {
+      const allTags = await tagRepository.findAll();
+      setTags(allTags);
+    } catch (error) {
+      console.error("Error loading tags:", error);
+    }
+  }, [tagRepository]);
+
+  const handleCreateTag = useCallback(
+    async (name: string, color: string): Promise<string | null> => {
+      try {
+        const newTag = new Tag(ulid(), name, color, new Date(), new Date());
+        await tagRepository.save(newTag);
+        await loadTags();
+        return newTag.id;
+      } catch (error) {
+        console.error("Error creating tag:", error);
+        return null;
+      }
+    },
+    [tagRepository, loadTags]
+  );
+
   // Initialize database and load tasks on component mount
   useEffect(() => {
     const initializeApp = async () => {
@@ -218,6 +258,7 @@ export const MVPApp: React.FC = () => {
         setIsDbReady(true);
         // Load tasks after database is ready
         await loadTasks();
+        await loadTags();
       } catch (error) {
         console.error("Failed to initialize app:", error);
         // Show user-friendly error message
@@ -228,19 +269,7 @@ export const MVPApp: React.FC = () => {
     };
 
     initializeApp();
-  }, [database, loadTasks]);
-
-  // Load today task IDs
-  const loadTodayTaskIds = useCallback(async () => {
-    lastLoadDateRef.current = DateOnly.today().value;
-    try {
-      const ids = await getTaskViewModelTodayTaskIds();
-      setTodayTaskIds(ids);
-    } catch (error) {
-      console.error("Error loading today task IDs:", error);
-      setTodayTaskIds([]);
-    }
-  }, [getTaskViewModelTodayTaskIds]);
+  }, [database, loadTasks, loadTags, taskEventAdapter]);
 
   // Refresh today's task IDs when the calendar date changes
   useEffect(() => {
@@ -380,10 +409,15 @@ export const MVPApp: React.FC = () => {
 
   // Update view model filter when active view changes
   useEffect(() => {
-    if (activeView === "today" || activeView === "logs") {
+    if (
+      activeView === "today" ||
+      activeView === "logs" ||
+      activeView === "settings" ||
+      String(activeView).startsWith("tag:")
+    ) {
       setViewModelFilter({});
     } else {
-      setViewModelFilter({ category: activeView });
+      setViewModelFilter({ category: activeView as TaskCategory });
     }
   }, [activeView]); // Remove setViewModelFilter from dependencies
 
@@ -617,7 +651,7 @@ export const MVPApp: React.FC = () => {
   );
 
   const handleViewChange = useCallback(
-    (view: "today" | "logs" | TaskCategory) => {
+    (view: "today" | "logs" | "settings" | TaskCategory | `tag:${string}`) => {
       setActiveView(view);
     },
     []
@@ -715,7 +749,10 @@ export const MVPApp: React.FC = () => {
   // Note: Removed handleTodayRefresh as it's replaced by event bus auto-refresh
 
   const handleMobileCreateTask = useCallback(
-    async (title: string, category: TaskCategory = TaskCategory.INBOX): Promise<void> => {
+    async (
+      title: string,
+      category: TaskCategory = TaskCategory.INBOX
+    ): Promise<void> => {
       try {
         const success = await createTask({
           title,
@@ -745,6 +782,14 @@ export const MVPApp: React.FC = () => {
   );
 
   const tasksByCategory = getTasksByCategory();
+
+  const filteredTasks = useMemo(() => {
+    if (String(activeView).startsWith("tag:")) {
+      const tagId = String(activeView).replace("tag:", "");
+      return getFilteredTasks().filter((task) => task.tagIds.includes(tagId));
+    }
+    return getFilteredTasks();
+  }, [activeView, getFilteredTasks]);
   const { getOverdueCount } = taskViewModel();
   const overdueCount = getOverdueCount();
 
@@ -761,6 +806,19 @@ export const MVPApp: React.FC = () => {
 
   const hasOverdueTasks = overdueCount > 0;
 
+  const tagTaskCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const activeTasks = taskViewModel
+      .getState()
+      .tasks.filter((task) => task.isActive);
+    tags.forEach((tag) => {
+      counts[tag.id] = activeTasks.filter((task) =>
+        task.tagIds.includes(tag.id)
+      ).length;
+    });
+    return counts;
+  }, [tags, taskViewModel]);
+
   // Show loading state while database is initializing
   if (!isDbReady) {
     return (
@@ -775,9 +833,12 @@ export const MVPApp: React.FC = () => {
 
   // Get the current category for modal
   const currentCategory =
-    activeView === "today" || activeView === "logs"
+    activeView === "today" ||
+    activeView === "logs" ||
+    activeView === "settings" ||
+    String(activeView).startsWith("tag:")
       ? TaskCategory.INBOX
-      : activeView;
+      : (activeView as TaskCategory);
   const hideCategorySelection = activeView !== "today";
 
   // If mobile view should be used, render it directly without sidebar/header
@@ -806,6 +867,9 @@ export const MVPApp: React.FC = () => {
         activeView={activeView}
         onViewChange={handleViewChange}
         taskCounts={taskCounts}
+        tagTaskCounts={tagTaskCounts}
+        availableTags={tags}
+        onCreateTag={handleCreateTag}
         hasOverdueTasks={hasOverdueTasks}
         isMobileMenuOpen={isMobileMenuOpen}
         onMobileMenuClose={handleMobileMenuClose}
@@ -817,6 +881,7 @@ export const MVPApp: React.FC = () => {
         {/* Header */}
         <Header
           activeView={activeView}
+          availableTags={tags}
           onMobileMenuToggle={handleMobileMenuToggle}
         />
 
@@ -883,10 +948,11 @@ export const MVPApp: React.FC = () => {
             todayDependencies={todayDependencies}
             logDependencies={logDependencies}
             taskViewModel={taskViewModel}
-            tasks={getFilteredTasks()}
+            tasks={filteredTasks}
             currentCategory={currentCategory}
             todayTaskIds={todayTaskIds}
             lastLogs={lastLogs}
+            availableTags={tags}
             onCreateTask={handleCreateTask}
             onCompleteTask={handleCompleteTask}
             onEditTask={handleEditTask}
@@ -897,6 +963,7 @@ export const MVPApp: React.FC = () => {
             onCreateTaskLog={handleCreateTaskLog}
             onDeferTask={handleDeferTask}
             onUndeferTask={handleUndeferTask}
+            onCreateTag={handleCreateTag}
           />
         </main>
       </div>

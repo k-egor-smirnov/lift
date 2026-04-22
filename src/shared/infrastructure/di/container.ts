@@ -6,6 +6,7 @@ import { TodoDatabase } from "../database/TodoDatabase";
 import { PersistentEventBusImpl } from "../../domain/events/EventBus";
 import { TaskRepositoryImpl } from "../repositories/TaskRepositoryImpl";
 import { DailySelectionRepositoryImpl } from "../repositories/DailySelectionRepositoryImpl";
+import { TagRepositoryImpl } from "../repositories/TagRepositoryImpl";
 import { TaskEventAdapter } from "../events/TaskEventAdapter";
 
 // Import use cases
@@ -53,6 +54,7 @@ export function configureContainer(): void {
     tokens.DAILY_SELECTION_REPOSITORY_TOKEN,
     DailySelectionRepositoryImpl
   );
+  container.registerSingleton(tokens.TAG_REPOSITORY_TOKEN, TagRepositoryImpl);
 
   // Register use cases as singletons
   container.registerSingleton(

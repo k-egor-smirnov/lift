@@ -12,6 +12,7 @@ export const TASK_REPOSITORY_TOKEN = Symbol("TaskRepository");
 export const DAILY_SELECTION_REPOSITORY_TOKEN = Symbol(
   "DailySelectionRepository"
 );
+export const TAG_REPOSITORY_TOKEN = Symbol("TagRepository");
 
 // Use Cases
 export const CREATE_TASK_USE_CASE_TOKEN = Symbol("CreateTaskUseCase");
