@@ -40,30 +40,35 @@
 ## ✨ Основные возможности
 
 ### 📋 Управление задачами
+
 - ✅ Создание, редактирование, выполнение и удаление задач
 - 🏷️ Категоризация: **Inbox** (новые), **Simple** (быстрые), **Focus** (важные)
 - 📅 Отложенные задачи с автоматическим возвратом
 - 🔄 Drag-and-drop для приоритизации
 
 ### 🎯 Ежедневный фокус
+
 - ☀️ Представление **"Сегодня"** для фокуса на важных задачах
 - 🌅 **Daily Modal** для планирования дня
 - 📊 Прогресс-бар выполнения
 - 💡 Мотивационные сообщения
 
 ### 📊 Аналитика
+
 - 📈 Статистика выполнения задач
 - 📉 Графики продуктивности
 - 📝 Логирование всех действий
 - 🔍 Фильтрация по категориям
 
 ### 🔌 Интеграции
+
 - ☁️ **Supabase** для синхронизации между устройствами
 - 🔄 Real-time обновления
 - 🔐 Аутентификация через email/password
 - 📱 **PWA** — работает офлайн
 
 ### 🌐 Интернационализация
+
 - 🇷🇺 Полная поддержка русского языка
 - 🇺🇸 English support
 - 🔄 Переключение языка на лету
@@ -77,6 +82,7 @@
 <td>
 
 ### Frontend
+
 - ⚛️ **React 18** + TypeScript
 - ⚡ **Vite** для сборки
 - 🎨 **Tailwind CSS**
@@ -88,6 +94,7 @@
 <td>
 
 ### Backend & Data
+
 - 🗄️ **IndexedDB** (Dexie)
 - ☁️ **Supabase** (PostgreSQL)
 - 🔄 Real-time subscriptions
@@ -97,6 +104,7 @@
 <td>
 
 ### Quality
+
 - ✅ **Vitest** unit-тесты
 - 🎭 **Testing Library**
 - 🤖 **Playwright** E2E
@@ -144,6 +152,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 4. Выполните SQL миграции из `supabase/migrations/`
 
 📚 **Подробная документация по Supabase:**
+
 - [Официальная документация](https://supabase.com/docs)
 - [Настройка аутентификации](https://supabase.com/docs/guides/auth)
 - [Row Level Security](https://supabase.com/docs/guides/auth/row-level-security)
@@ -162,6 +171,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 4. Выполните SQL миграции из `supabase/migrations/`
 
 📚 **Подробная документация по Supabase:**
+
 - [Официальная документация](https://supabase.com/docs)
 - [Настройка аутентификации](https://supabase.com/docs/guides/auth)
 - [Row Level Security](https://supabase.com/docs/guides/auth/row-level-security)
@@ -211,7 +221,12 @@ src/
 npm run test
 
 # E2E тесты
-npx playwright test
+npm run playwright:install-deps
+npm run playwright:install
+npm run test:e2e
+
+# Полная матрица браузеров (chromium + firefox + webkit + mobile)
+PLAYWRIGHT_FULL_MATRIX=true npm run test:e2e
 
 # Покрытие кода
 npm run test:coverage
