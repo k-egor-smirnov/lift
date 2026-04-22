@@ -17,6 +17,7 @@ import * as tokens from "../../infrastructure/di/tokens";
 export interface CreateTaskRequest {
   title: string;
   category: TaskCategory;
+  tagIds?: string[];
 }
 
 /**
@@ -73,7 +74,12 @@ export class CreateTaskUseCase extends BaseTaskUseCase {
         }
 
         // Create task entity
-        const { task, events } = Task.create(taskId, title, request.category);
+        const { task, events } = Task.create(
+          taskId,
+          title,
+          request.category,
+          request.tagIds || []
+        );
 
         // Execute in transaction (this will trigger sync)
         const transactionResult = await this.executeInTransaction<void>(

@@ -40,6 +40,7 @@ export class Task {
   private _deferredUntil?: Date;
   private _originalCategory?: TaskCategory;
   private _note?: string;
+  private _tagIds: string[];
   public readonly inboxEnteredAt?: Date;
 
   constructor(
@@ -54,7 +55,8 @@ export class Task {
     inboxEnteredAt?: Date,
     deferredUntil?: Date,
     originalCategory?: TaskCategory,
-    note?: string
+    note?: string,
+    tagIds: string[] = []
   ) {
     this._title = title;
     this._category = category;
@@ -65,6 +67,7 @@ export class Task {
     this._deferredUntil = deferredUntil;
     this._originalCategory = originalCategory;
     this._note = note;
+    this._tagIds = [...tagIds];
 
     // Set inboxEnteredAt if not provided and category is INBOX
     this.inboxEnteredAt =
@@ -128,6 +131,10 @@ export class Task {
     return this._note;
   }
 
+  get tagIds(): string[] {
+    return [...this._tagIds];
+  }
+
   get isDeferred(): boolean {
     return (
       this._category === TaskCategory.DEFERRED &&
@@ -152,7 +159,8 @@ export class Task {
   static create(
     id: TaskId,
     title: NonEmptyTitle,
-    category: TaskCategory
+    category: TaskCategory,
+    tagIds: string[] = []
   ): { task: Task; events: DomainEvent[] } {
     const now = new Date();
     const task = new Task(
@@ -164,7 +172,11 @@ export class Task {
       now,
       now,
       undefined,
-      category === TaskCategory.INBOX ? now : undefined
+      category === TaskCategory.INBOX ? now : undefined,
+      undefined,
+      undefined,
+      undefined,
+      tagIds
     );
 
     const events = [new TaskCreatedEvent(id, title, category)];
@@ -203,6 +215,25 @@ export class Task {
     );
 
     return events;
+  }
+
+  changeTags(tagIds: string[]): DomainEvent[] {
+    if (this.isDeleted) {
+      throw new InvalidTaskOperationError("Cannot change tags of deleted task");
+    }
+
+    const normalized = [...new Set(tagIds)].sort();
+    const current = [...this._tagIds].sort();
+    if (
+      normalized.length === current.length &&
+      normalized.every((id, i) => id === current[i])
+    ) {
+      return [];
+    }
+
+    this._tagIds = [...new Set(tagIds)];
+    this._updatedAt = new Date();
+    return [];
   }
 
   /**

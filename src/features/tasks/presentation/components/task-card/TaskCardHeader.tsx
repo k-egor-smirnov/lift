@@ -2,11 +2,13 @@ import React from "react";
 import { TaskCategory } from "../../../../../shared/domain/types";
 import { useTranslation } from "react-i18next";
 import { Zap, Target, Inbox, FileText, AlertTriangle } from "lucide-react";
+import { Tag } from "../../../../../shared/domain/entities/Tag";
 
 interface TaskCardHeaderProps {
   category: TaskCategory;
   currentCategory?: TaskCategory;
   isOverdue: boolean;
+  tags?: Tag[];
 }
 
 const getCategoryColor = (category: TaskCategory): string => {
@@ -39,6 +41,7 @@ export const TaskCardHeader: React.FC<TaskCardHeaderProps> = ({
   category,
   currentCategory,
   isOverdue,
+  tags = [],
 }) => {
   const { t } = useTranslation();
   const categoryColor = getCategoryColor(category);
@@ -64,6 +67,15 @@ export const TaskCardHeader: React.FC<TaskCardHeaderProps> = ({
           {t("taskCard.overdue")}
         </span>
       )}
+      {tags.map((tag) => (
+        <span
+          key={tag.id}
+          className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium text-white"
+          style={{ backgroundColor: tag.color }}
+        >
+          {tag.name}
+        </span>
+      ))}
     </div>
   );
 };

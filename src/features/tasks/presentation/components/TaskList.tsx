@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Zap, Target, Inbox } from "lucide-react";
 import { Task } from "../../../../shared/domain/entities/Task";
+import { Tag } from "../../../../shared/domain/entities/Tag";
 import { TaskCategory } from "../../../../shared/domain/types";
 import { TaskCard } from "./TaskCard";
 import { DeferredTaskCard } from "./DeferredTaskCard";
@@ -50,6 +51,8 @@ interface TaskListProps {
   emptyMessage?: string;
   currentCategory?: TaskCategory;
   taskViewModel?: TaskViewModel;
+  availableTags?: Tag[];
+  onCreateTag?: (name: string, color: string) => Promise<string | null>;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -74,6 +77,8 @@ export const TaskList: React.FC<TaskListProps> = ({
   emptyMessage = "No tasks found",
   currentCategory,
   taskViewModel,
+  availableTags = [],
+  onCreateTag,
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
@@ -220,6 +225,8 @@ export const TaskList: React.FC<TaskListProps> = ({
         isDraggable={!!onReorder}
         currentCategory={currentCategory}
         taskViewModel={taskViewModel}
+        availableTags={availableTags}
+        onCreateTag={onCreateTag}
       />
     );
   };

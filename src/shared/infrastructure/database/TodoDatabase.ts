@@ -6,6 +6,7 @@ import { TaskCategory, TaskStatus } from "../../domain/types";
 export interface TaskRecord {
   id: string;
   title: string;
+  tagIds?: string[];
   category: TaskCategory;
   status: TaskStatus;
   order: number;
@@ -55,6 +56,14 @@ export interface SyncQueueRecord {
   nextAttemptAt?: number;
 }
 
+export interface TagRecord {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface StatsDailyRecord {
   date: string; // YYYY-MM-DD format
   simpleCompleted: number;
@@ -96,6 +105,7 @@ export class TodoDatabase extends Dexie {
   userSettings!: Table<UserSettingsRecord>;
   syncQueue!: Table<SyncQueueRecord>;
   statsDaily!: Table<StatsDailyRecord>;
+  tags!: Table<TagRecord>;
   eventStore!: Table<EventStoreRecord>;
   handledEvents!: Table<HandledEventRecord>;
   locks!: Table<LockRecord>;
@@ -332,6 +342,35 @@ export class TodoDatabase extends Dexie {
         // No migration needed for new optional field
       });
 
+    // Version 9 - Add tags support
+    this.version(9)
+      .stores({
+        tasks:
+          "id, category, status, order, createdAt, updatedAt, deletedAt, inboxEnteredAt, deferredUntil, originalCategory, note, *tagIds",
+        dailySelectionEntries:
+          "id, [date+taskId], date, taskId, completedFlag, createdAt, updatedAt, deletedAt",
+        taskLogs: "id, taskId, type, createdAt",
+        userSettings: "key, updatedAt",
+        syncQueue:
+          "++id, entityType, entityId, operation, attemptCount, createdAt, lastAttemptAt, nextAttemptAt",
+        statsDaily:
+          "date, simpleCompleted, focusCompleted, inboxReviewed, createdAt",
+        eventStore:
+          "id, status, aggregateId, [aggregateId+createdAt], nextAttemptAt, attemptCount, createdAt",
+        handledEvents: "[eventId+handlerId], eventId, handlerId",
+        locks: "id, expiresAt",
+        tags: "id, name, color, createdAt, updatedAt",
+      })
+      .upgrade(async (trans) => {
+        console.log("Upgrading database to version 9 - adding tags support");
+        const tasks = await trans.table("tasks").toArray();
+        for (const task of tasks) {
+          if (!Array.isArray((task as any).tagIds)) {
+            await trans.table("tasks").update(task.id, { tagIds: [] });
+          }
+        }
+      });
+
     // Add hooks for automatic timestamp updates
     this.tasks.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
@@ -376,6 +415,15 @@ export class TodoDatabase extends Dexie {
     this.statsDaily.hook("creating", (_primKey, obj, _trans) => {
       obj.createdAt = new Date();
     });
+
+    this.tags.hook("creating", (_primKey, obj, _trans) => {
+      obj.createdAt = new Date();
+      obj.updatedAt = new Date();
+    });
+
+    this.tags.hook("updating", (modifications, _primKey, _obj, _trans) => {
+      (modifications as any).updatedAt = new Date();
+    });
   }
 
   // Connection management
@@ -414,6 +462,7 @@ export class TodoDatabase extends Dexie {
         this.userSettings,
         this.syncQueue,
         this.statsDaily,
+        this.tags,
         this.eventStore,
         this.handledEvents,
         this.locks,
@@ -425,6 +474,7 @@ export class TodoDatabase extends Dexie {
         await this.userSettings.clear();
         await this.syncQueue.clear();
         await this.statsDaily.clear();
+        await this.tags.clear();
         await this.eventStore.clear();
         await this.handledEvents.clear();
         await this.locks.clear();
