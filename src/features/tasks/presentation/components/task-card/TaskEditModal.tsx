@@ -7,6 +7,11 @@ import { TiptapEditor } from "../../../../../shared/ui/components/TiptapEditor";
 import { Tag } from "../../../../tags/presentation/view-models/TagViewModel";
 import { Button } from "../../../../../shared/ui/button";
 import { Input } from "../../../../../shared/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../../../../shared/ui/popover";
 
 const TAG_COLORS = [
   "#f43f5e",
@@ -50,7 +55,9 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
   const [tagIds, setTagIds] = useState<string[]>(selectedTagIds);
   const [isSaving, setIsSaving] = useState(false);
   const [newTagName, setNewTagName] = useState("");
+  const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const newTagInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -67,6 +74,13 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
       titleInputRef.current?.select();
     });
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isCreateTagOpen) return;
+    requestAnimationFrame(() => {
+      newTagInputRef.current?.focus();
+    });
+  }, [isCreateTagOpen]);
 
   if (!isOpen) return null;
 
@@ -98,6 +112,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
     const color = TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)];
     onCreateTag(newTagName.trim(), color);
     setNewTagName("");
+    setIsCreateTagOpen(false);
   };
 
   return (
@@ -154,23 +169,46 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-gray-700">Тэги</p>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={newTagName}
-                onChange={(event) => setNewTagName(event.target.value)}
-                placeholder="Создать тэг"
-                className="h-9"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    handleCreateTag();
-                  }
-                }}
-              />
-              <Button variant="outline" size="icon" onClick={handleCreateTag}>
-                <Plus className="w-4 h-4" />
-              </Button>
+              <Popover open={isCreateTagOpen} onOpenChange={setIsCreateTagOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    data-testid="create-tag-button-modal"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 p-3">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Создать тэг
+                    </p>
+                    <Input
+                      ref={newTagInputRef}
+                      value={newTagName}
+                      onChange={(event) => setNewTagName(event.target.value)}
+                      placeholder="Создать тэг"
+                      className="h-8"
+                      data-testid="create-tag-input-modal"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          handleCreateTag();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      className="w-full h-8"
+                      onClick={handleCreateTag}
+                    >
+                      Создать
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="flex flex-wrap gap-2">
               {tags.map((tag) => {

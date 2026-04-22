@@ -74,6 +74,8 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   onDeferTask,
   onUndeferTask,
 }) => {
+  const isTagView = activeView.startsWith("tag:");
+
   if (loading) {
     return (
       <ViewContainer className="text-center py-12">
@@ -149,6 +151,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             taskTags={taskTags}
             onCreateTag={onCreateTag}
             onUpdateTaskTags={onUpdateTaskTags}
+            forceShowCategory={isTagView}
           />
         </ViewContainer>
       );

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Sun,
   Zap,
@@ -17,6 +17,11 @@ import { cn } from "../../shared/lib/utils";
 import LiftLogo from "../../../assets/icon.png";
 import { Input } from "../../shared/ui/input";
 import { Tag } from "../../features/tags/presentation/view-models/TagViewModel";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../shared/ui/popover";
 
 export type ActiveView =
   | "today"
@@ -81,6 +86,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { t } = useTranslation();
   const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
   const [newTagName, setNewTagName] = useState("");
+  const [selectedTagColor, setSelectedTagColor] = useState(TAG_COLORS[0]);
+  const newTagInputRef = useRef<HTMLInputElement>(null);
 
   const menuItems = [
     {
@@ -110,10 +117,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     count: null,
   };
 
-  const randomTagColor = useMemo(
-    () => TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)],
-    [isCreateTagOpen]
-  );
+  useEffect(() => {
+    if (!isCreateTagOpen) return;
+    const randomColor =
+      TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)];
+    setSelectedTagColor(randomColor);
+    requestAnimationFrame(() => {
+      newTagInputRef.current?.focus();
+    });
+  }, [isCreateTagOpen]);
 
   const handleItemClick = (viewId: ActiveView) => {
     onViewChange(viewId);
@@ -122,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleCreateTag = () => {
     if (!newTagName.trim()) return;
-    onCreateTag(newTagName.trim(), randomTagColor);
+    onCreateTag(newTagName.trim(), selectedTagColor);
     setNewTagName("");
     setIsCreateTagOpen(false);
   };
@@ -227,34 +239,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
                 <span className="text-xs uppercase tracking-wide">Тэги</span>
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setIsCreateTagOpen((prev) => !prev)}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {!tagsCollapsed && (
-              <div className="space-y-1">
-                {isCreateTagOpen && (
-                  <div className="px-2 pb-2">
+              <Popover open={isCreateTagOpen} onOpenChange={setIsCreateTagOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    data-testid="create-tag-button-sidebar"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 p-3">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Новый тэг
+                    </p>
                     <Input
+                      ref={newTagInputRef}
                       value={newTagName}
                       onChange={(event) => setNewTagName(event.target.value)}
                       placeholder="Новый тэг"
                       className="h-8 text-xs"
+                      data-testid="create-tag-input-sidebar"
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           handleCreateTag();
                         }
                       }}
                     />
+                    <Button
+                      size="sm"
+                      className="w-full h-8"
+                      onClick={handleCreateTag}
+                    >
+                      Создать
+                    </Button>
                   </div>
-                )}
+                </PopoverContent>
+              </Popover>
+            </div>
 
+            {!tagsCollapsed && (
+              <div className="space-y-1">
                 {tags.map((tag) => {
                   const viewId = `tag:${tag.id}` as const;
                   return (

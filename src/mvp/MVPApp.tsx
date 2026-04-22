@@ -405,20 +405,30 @@ export const MVPApp: React.FC = () => {
       const success = await createTask({ title, category });
       if (success) {
         setIsCreateModalOpen(false);
+        const activeTagId = activeView.startsWith("tag:")
+          ? activeView.slice(4)
+          : null;
+
+        let newestTaskId: string | null = null;
+        if (activeTagId || activeView === "today") {
+          const tasks = await taskRepository.findAll();
+          const newestTask = tasks.sort(
+            (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+          )[0];
+          newestTaskId = newestTask?.id.value ?? null;
+        }
+
+        if (activeTagId && newestTaskId) {
+          const currentTagIds = taskTags[newestTaskId] ?? [];
+          assignTagsToTask(newestTaskId, [...currentTagIds, activeTagId]);
+        }
 
         // If we're on the Today view, automatically add the newly created task to today
         if (activeView === "today") {
           try {
-            // Get the newly created task ID from the task repository
-            // Since we just created the task, it should be the most recent one
-            const tasks = await taskRepository.findAll();
-            const newestTask = tasks.sort(
-              (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-            )[0];
-
-            if (newestTask) {
+            if (newestTaskId) {
               const result = await addTaskToTodayUseCase.execute({
-                taskId: newestTask.id.value,
+                taskId: newestTaskId,
               });
               if (result.success) {
                 console.log("Task automatically added to today");
@@ -438,7 +448,14 @@ export const MVPApp: React.FC = () => {
       }
       return success;
     },
-    [createTask, activeView, taskRepository, addTaskToTodayUseCase]
+    [
+      createTask,
+      activeView,
+      taskRepository,
+      addTaskToTodayUseCase,
+      assignTagsToTask,
+      taskTags,
+    ]
   );
 
   const handleCompleteTask = useCallback(
@@ -816,6 +833,14 @@ export const MVPApp: React.FC = () => {
     activeView.startsWith("tag:")
       ? TaskCategory.INBOX
       : activeView;
+
+  const activeTagName = useMemo(() => {
+    if (!activeView.startsWith("tag:")) {
+      return undefined;
+    }
+    const activeTagId = activeView.slice(4);
+    return tags.find((tag) => tag.id === activeTagId)?.name;
+  }, [activeView, tags]);
   const hideCategorySelection = activeView !== "today";
 
   // If mobile view should be used, render it directly without sidebar/header
@@ -860,6 +885,7 @@ export const MVPApp: React.FC = () => {
         {/* Header */}
         <Header
           activeView={activeView}
+          activeTagName={activeTagName}
           onMobileMenuToggle={handleMobileMenuToggle}
         />
 

@@ -55,6 +55,7 @@ interface TaskListProps {
   taskTags?: Record<string, string[]>;
   onCreateTag?: (name: string, color: string) => void;
   onUpdateTaskTags?: (taskId: string, tagIds: string[]) => void;
+  forceShowCategory?: boolean;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -83,6 +84,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   taskTags = {},
   onCreateTag,
   onUpdateTaskTags,
+  forceShowCategory = false,
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
@@ -227,7 +229,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         onLoadTaskLogs={onLoadTaskLogs}
         onCreateLog={onCreateLog}
         isDraggable={!!onReorder}
-        currentCategory={currentCategory}
+        currentCategory={forceShowCategory ? undefined : currentCategory}
         taskViewModel={taskViewModel}
         tags={tags}
         selectedTagIds={taskTags[task.id.value] ?? []}

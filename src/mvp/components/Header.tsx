@@ -17,14 +17,15 @@ import { Button } from "../../shared/ui/button";
 
 interface HeaderProps {
   activeView: ActiveView;
+  activeTagName?: string;
   onMobileMenuToggle: () => void;
 }
 
-const getViewTitle = (view: ActiveView, t: any) => {
+const getViewTitle = (view: ActiveView, t: any, activeTagName?: string) => {
   if (view === "today") return t("navigation.today");
   if (view === "logs") return t("logs.title", "Activity Logs");
   if (view === "settings") return t("settings.title");
-  if (view.startsWith("tag:")) return "Тэг";
+  if (view.startsWith("tag:")) return activeTagName ?? "Тэг";
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -40,12 +41,20 @@ const getViewTitle = (view: ActiveView, t: any) => {
   }
 };
 
-const getViewDescription = (view: ActiveView, t: any) => {
+const getViewDescription = (
+  view: ActiveView,
+  t: any,
+  activeTagName?: string
+) => {
   if (view === "today") return t("navigation.descriptions.today");
   if (view === "logs")
     return t("logs.subtitle", "View all system and user activity");
   if (view === "settings") return t("settings.app.description");
-  if (view.startsWith("tag:")) return "Задачи с выбранным тэгом";
+  if (view.startsWith("tag:")) {
+    return activeTagName
+      ? `Задачи с тэгом «${activeTagName}»`
+      : "Задачи с выбранным тэгом";
+  }
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -83,6 +92,7 @@ const getViewIcon = (view: ActiveView) => {
 
 export const Header: React.FC<HeaderProps> = ({
   activeView,
+  activeTagName,
   onMobileMenuToggle,
 }) => {
   const { t } = useTranslation();
@@ -150,7 +160,7 @@ export const Header: React.FC<HeaderProps> = ({
                       isCollapsed ? "text-lg" : "text-3xl md:text-2xl"
                     }`}
                   >
-                    {getViewTitle(activeView, t)}
+                    {getViewTitle(activeView, t, activeTagName)}
                   </h1>
                 </div>
               </div>
@@ -162,7 +172,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <p className="text-gray-500 text-sm md:text-base leading-relaxed">
-                  {getViewDescription(activeView, t)}
+                  {getViewDescription(activeView, t, activeTagName)}
                 </p>
               </div>
             </div>
