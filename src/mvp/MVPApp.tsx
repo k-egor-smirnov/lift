@@ -15,6 +15,7 @@ import { TodayView } from "../features/today/presentation/components/TodayView";
 import { TodayMobileView } from "../features/today/presentation/components/TodayMobileView";
 import { AllLogsView } from "../features/logs/presentation/components";
 import { ActiveView, Sidebar } from "./components/Sidebar";
+import { getVisibleTasks } from "./utils/viewFilters";
 import { Header } from "./components/Header";
 import { MobileLayout } from "./components/MobileLayout";
 import {
@@ -199,15 +200,14 @@ export const MVPApp: React.FC = () => {
 
   // Subscribe to the view model state
   const {
+    tasks: allTasks,
     loading,
     error,
-    getFilteredTasks,
     getTasksByCategory,
     loadTasks,
     createTask,
     completeTask,
     deleteTask,
-    setFilter: setViewModelFilter,
     clearError,
     getTodayTaskIds: getTaskViewModelTodayTaskIds,
   } = taskViewModel();
@@ -387,20 +387,6 @@ export const MVPApp: React.FC = () => {
       unregisterShortcut("nav-today");
     };
   }, [isEnabled, registerShortcut, unregisterShortcut]);
-
-  // Update view model filter when active view changes
-  useEffect(() => {
-    if (
-      activeView === "today" ||
-      activeView === "logs" ||
-      activeView === "settings" ||
-      activeView.startsWith("tag:")
-    ) {
-      setViewModelFilter({});
-    } else {
-      setViewModelFilter({ category: activeView });
-    }
-  }, [activeView]); // Remove setViewModelFilter from dependencies
 
   const handleCreateTask = useCallback(
     async (title: string, category: TaskCategory): Promise<boolean> => {
@@ -694,7 +680,7 @@ export const MVPApp: React.FC = () => {
 
   const loadAllTaskLogs = useCallback(async () => {
     try {
-      const tasks = getFilteredTasks();
+      const tasks = allTasks.filter((task) => task.isActive);
       if (tasks.length > 0) {
         const taskIds = tasks.map((task) => task.id.value);
         const lastLogsMap = await logService.loadLastLogsForTasks(taskIds);
@@ -703,7 +689,7 @@ export const MVPApp: React.FC = () => {
     } catch (error) {
       console.error("Error loading all task logs:", error);
     }
-  }, [getFilteredTasks, logService]);
+  }, [allTasks, logService]);
 
   // Load logs after tasks are loaded
   useEffect(() => {
@@ -794,17 +780,15 @@ export const MVPApp: React.FC = () => {
 
   const hasOverdueTasks = overdueCount > 0;
 
-  const filteredTasks = useMemo(() => {
-    const baseTasks = getFilteredTasks();
-    if (!activeView.startsWith("tag:")) {
-      return baseTasks;
-    }
-
-    const activeTagId = activeView.slice(4);
-    return baseTasks.filter((task) =>
-      (taskTags[task.id.value] ?? []).includes(activeTagId)
-    );
-  }, [activeView, getFilteredTasks, taskTags]);
+  const filteredTasks = useMemo(
+    () =>
+      getVisibleTasks({
+        activeView,
+        tasks: allTasks,
+        taskTags,
+      }),
+    [activeView, allTasks, taskTags]
+  );
 
   const tagTaskCounts = useMemo(
     () =>
@@ -862,7 +846,7 @@ export const MVPApp: React.FC = () => {
     return (
       <MobileLayout
         todayDependencies={todayDependencies}
-        tasks={getFilteredTasks()}
+        tasks={filteredTasks}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
         onDefer={handleDeferTask}
