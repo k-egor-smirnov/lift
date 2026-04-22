@@ -12,6 +12,8 @@ interface TagState {
   tagsCollapsed: boolean;
   taskTags: Record<string, string[]>;
   createTag: (name: string, color: string) => Tag;
+  renameTag: (tagId: string, name: string) => void;
+  deleteTag: (tagId: string) => void;
   assignTagsToTask: (taskId: string, tagIds: string[]) => void;
   removeTaskTagRelations: (taskId: string) => void;
   toggleTagsCollapsed: () => void;
@@ -54,6 +56,35 @@ export const useTagViewModel = create<TagState>()(
 
         set((state) => ({ tags: [...state.tags, tag] }));
         return tag;
+      },
+
+      renameTag: (tagId: string, name: string) => {
+        const normalizedName = normalizeTagName(name);
+        if (!normalizedName) {
+          return;
+        }
+
+        set((state) => ({
+          tags: state.tags.map((tag) =>
+            tag.id === tagId ? { ...tag, name: normalizedName } : tag
+          ),
+        }));
+      },
+
+      deleteTag: (tagId: string) => {
+        set((state) => {
+          const nextTaskTags = Object.fromEntries(
+            Object.entries(state.taskTags).map(([taskId, tagIds]) => [
+              taskId,
+              tagIds.filter((id) => id !== tagId),
+            ])
+          );
+
+          return {
+            tags: state.tags.filter((tag) => tag.id !== tagId),
+            taskTags: nextTaskTags,
+          };
+        });
       },
 
       assignTagsToTask: (taskId: string, tagIds: string[]) => {

@@ -83,6 +83,8 @@ export const MVPApp: React.FC = () => {
     tagsCollapsed,
     taskTags,
     createTag,
+    renameTag,
+    deleteTag,
     assignTagsToTask,
     removeTaskTagRelations,
     toggleTagsCollapsed,
@@ -821,6 +823,18 @@ export const MVPApp: React.FC = () => {
     return tags.find((tag) => tag.id === activeTagId)?.name;
   }, [activeView, tags]);
 
+  useEffect(() => {
+    if (!activeView.startsWith("tag:")) {
+      return;
+    }
+
+    const activeTagId = activeView.slice(4);
+    const stillExists = tags.some((tag) => tag.id === activeTagId);
+    if (!stillExists) {
+      setActiveView("today");
+    }
+  }, [activeView, tags]);
+
   // Show loading state while database is initializing
   if (!isDbReady) {
     return (
@@ -877,6 +891,8 @@ export const MVPApp: React.FC = () => {
         tagsCollapsed={tagsCollapsed}
         tagTaskCounts={tagTaskCounts}
         onCreateTag={createTag}
+        onRenameTag={renameTag}
+        onDeleteTag={deleteTag}
         onToggleTagsCollapsed={toggleTagsCollapsed}
       />
 

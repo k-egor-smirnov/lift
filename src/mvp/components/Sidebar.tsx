@@ -9,6 +9,7 @@ import {
   Settings,
   ChevronDown,
   Plus,
+  Pencil,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
@@ -22,6 +23,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../../shared/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../shared/ui/dialog";
 
 export type ActiveView =
   | "today"
@@ -42,6 +51,8 @@ interface SidebarProps {
   tagsCollapsed: boolean;
   tagTaskCounts: Record<string, number>;
   onCreateTag: (name: string, color: string) => void;
+  onRenameTag: (tagId: string, name: string) => void;
+  onDeleteTag: (tagId: string) => void;
   onToggleTagsCollapsed: () => void;
 }
 
@@ -81,12 +92,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   tagsCollapsed,
   tagTaskCounts,
   onCreateTag,
+  onRenameTag,
+  onDeleteTag,
   onToggleTagsCollapsed,
 }) => {
   const { t } = useTranslation();
   const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [selectedTagColor, setSelectedTagColor] = useState(TAG_COLORS[0]);
+  const [editingTag, setEditingTag] = useState<Tag | null>(null);
+  const [editedTagName, setEditedTagName] = useState("");
   const newTagInputRef = useRef<HTMLInputElement>(null);
 
   const menuItems = [
@@ -137,6 +152,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onCreateTag(newTagName.trim(), selectedTagColor);
     setNewTagName("");
     setIsCreateTagOpen(false);
+  };
+
+  const openTagEditModal = (tag: Tag) => {
+    setEditingTag(tag);
+    setEditedTagName(tag.name);
+  };
+
+  const handleRenameTag = () => {
+    if (!editingTag || !editedTagName.trim()) {
+      return;
+    }
+    onRenameTag(editingTag.id, editedTagName.trim());
+    setEditingTag(null);
+    setEditedTagName("");
+  };
+
+  const handleDeleteTag = () => {
+    if (!editingTag) {
+      return;
+    }
+    onDeleteTag(editingTag.id);
+    setEditingTag(null);
+    setEditedTagName("");
   };
 
   const sidebarContent = (
@@ -285,27 +323,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {tags.map((tag) => {
                   const viewId = `tag:${tag.id}` as const;
                   return (
-                    <Button
-                      key={tag.id}
-                      variant={activeView === viewId ? "secondary" : "ghost"}
-                      onClick={() => handleItemClick(viewId)}
-                      className={cn(
-                        "w-full justify-between h-8 px-2 text-left font-normal",
-                        activeView === viewId &&
-                          "bg-primary/10 text-primary hover:bg-primary/15"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: tag.color }}
-                        />
-                        <span className="text-sm truncate">{tag.name}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {tagTaskCounts[tag.id] ?? 0}
-                      </span>
-                    </Button>
+                    <div key={tag.id} className="flex items-center gap-1">
+                      <Button
+                        variant={activeView === viewId ? "secondary" : "ghost"}
+                        onClick={() => handleItemClick(viewId)}
+                        className={cn(
+                          "flex-1 justify-between h-8 px-2 text-left font-normal",
+                          activeView === viewId &&
+                            "bg-primary/10 text-primary hover:bg-primary/15"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          <span className="text-sm truncate">{tag.name}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {tagTaskCounts[tag.id] ?? 0}
+                        </span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => openTagEditModal(tag)}
+                        data-testid={`edit-tag-${tag.id}`}
+                        aria-label={`Редактировать тэг ${tag.name}`}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   );
                 })}
               </div>
@@ -358,6 +407,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
       )}
+
+      <Dialog
+        open={editingTag !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingTag(null);
+            setEditedTagName("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Редактирование тэга</DialogTitle>
+            <DialogDescription>
+              Переименуйте тэг или удалите его.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              value={editedTagName}
+              onChange={(event) => setEditedTagName(event.target.value)}
+              placeholder="Название тэга"
+              data-testid="edit-tag-name-input"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingTag(null)}>
+              Отмена
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTag}
+              data-testid="delete-tag-button"
+            >
+              Удалить тэг
+            </Button>
+            <Button onClick={handleRenameTag} data-testid="rename-tag-button">
+              Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
