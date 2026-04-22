@@ -114,17 +114,24 @@ export class DailySelectionService {
    * This should be called when a new day starts
    */
   async clearTodaySelection(): Promise<void> {
+    await this.clearSelectionForDate(DateOnly.today());
+  }
+
+  /**
+   * Clear all selections for a specific effective day
+   * This should be used by start-of-day transition logic that respects user settings.
+   */
+  async clearSelectionForDate(date: DateOnly): Promise<void> {
     try {
-      const today = DateOnly.today();
-      await this.dailySelectionRepository.clearDay(today);
+      await this.dailySelectionRepository.clearDay(date);
 
       await this.createSystemLogUseCase.execute({
         taskId: "system",
         action: "daily_selection_cleared",
-        metadata: { date: today.value },
+        metadata: { date: date.value },
       });
 
-      console.log("Daily selection cleared for today");
+      console.log("Daily selection cleared for date:", date.value);
     } catch (error) {
       console.error("Error clearing daily selection:", error);
       throw error;

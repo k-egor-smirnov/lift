@@ -246,6 +246,8 @@ export const useOnboardingViewModel = create<OnboardingState>((set, get) => {
       const today = getEffectiveDateValue(state.startOfDayTime);
 
       if (state.currentDay !== today) {
+        const transitionedDate = DateOnly.fromString(today);
+        void onboardingService.handleNewDayTransition(transitionedDate);
         // Day has changed, reset for new day but preserve modal data if modal is visible
         get().resetForNewDay(state.isModalVisible);
         return true;

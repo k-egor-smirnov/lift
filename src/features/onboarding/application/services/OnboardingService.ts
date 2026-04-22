@@ -12,6 +12,7 @@ import { CreateSystemLogUseCase } from "../../../../shared/application/use-cases
 import { EventBus } from "../../../../shared/domain/events/EventBus";
 import { container, tokens } from "../../../../shared/infrastructure/di";
 import i18n from "../../../../shared/lib/i18n";
+import { UndeferTaskUseCase } from "../../../../shared/application/use-cases/UndeferTaskUseCase";
 
 /**
  * Data aggregated for the daily modal
@@ -179,6 +180,10 @@ export class OnboardingService {
    */
   async getDueDeferredTasks(): Promise<Task[]> {
     const today = await this.getEffectiveDate();
+    return this.getDueDeferredTasksForDate(today);
+  }
+
+  private async getDueDeferredTasksForDate(date: DateOnly): Promise<Task[]> {
     const deferredTasks = await this.taskRepository.findByCategoryAndStatus(
       TaskCategory.DEFERRED,
       TaskStatus.ACTIVE
@@ -187,7 +192,7 @@ export class OnboardingService {
     return deferredTasks.filter((task) => {
       if (!task.deferredUntil) return false;
       const deferredDate = DateOnly.fromDate(task.deferredUntil);
-      return deferredDate.value === today.value;
+      return deferredDate.value === date.value;
     });
   }
 
@@ -282,14 +287,39 @@ export class OnboardingService {
   /**
    * Handle new day transition - clear previous day's selection
    */
-  async handleNewDayTransition(): Promise<void> {
+  async handleNewDayTransition(effectiveDate?: DateOnly): Promise<void> {
     try {
-      await this.dailySelectionService.clearTodaySelection();
+      const targetDate = effectiveDate ?? (await this.getEffectiveDate());
+      await this.dailySelectionService.clearSelectionForDate(targetDate);
+
+      // Automatically return deferred tasks that are due on the effective day
+      const dueDeferredTasks = await this.getDueDeferredTasksForDate(targetDate);
+      if (dueDeferredTasks.length > 0) {
+        const undeferTaskUseCase = container.resolve<UndeferTaskUseCase>(
+          tokens.UNDEFER_TASK_USE_CASE_TOKEN
+        );
+
+        for (const task of dueDeferredTasks) {
+          const result = await undeferTaskUseCase.execute({
+            taskId: task.id.value,
+          });
+
+          if (!result.success) {
+            console.error(
+              `Failed to auto-undefer task ${task.id.value}:`,
+              result.error
+            );
+          }
+        }
+      }
 
       await this.createSystemLogUseCase.execute({
         taskId: "system",
         action: "new_day_transition",
-        metadata: { date: DateOnly.today().value },
+        metadata: {
+          date: targetDate.value,
+          dueDeferredReturned: dueDeferredTasks.length,
+        },
       });
     } catch (error) {
       console.error("Error handling new day transition:", error);
