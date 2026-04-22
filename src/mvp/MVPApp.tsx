@@ -209,32 +209,6 @@ export const MVPApp: React.FC = () => {
   // Subscribe to today view model for getting today task IDs
   const { getTodayTaskIds } = todayViewModel();
 
-  // Initialize database and load tasks on component mount
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        // Initialize database using the proper method
-        await database.initialize();
-
-        // Initialize task event adapter to bridge domain events with task events
-        await taskEventAdapter.initialize();
-
-        setIsDbReady(true);
-        // Load tasks after database is ready
-        await loadTasks();
-        await loadTags();
-      } catch (error) {
-        console.error("Failed to initialize app:", error);
-        // Show user-friendly error message
-        toast.error(
-          "Failed to initialize application. Please refresh the page."
-        );
-      }
-    };
-
-    initializeApp();
-  }, [database, loadTasks, loadTags]);
-
   // Load today task IDs
   const loadTodayTaskIds = useCallback(async () => {
     lastLoadDateRef.current = DateOnly.today().value;
@@ -270,6 +244,32 @@ export const MVPApp: React.FC = () => {
     },
     [tagRepository, loadTags]
   );
+
+  // Initialize database and load tasks on component mount
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // Initialize database using the proper method
+        await database.initialize();
+
+        // Initialize task event adapter to bridge domain events with task events
+        await taskEventAdapter.initialize();
+
+        setIsDbReady(true);
+        // Load tasks after database is ready
+        await loadTasks();
+        await loadTags();
+      } catch (error) {
+        console.error("Failed to initialize app:", error);
+        // Show user-friendly error message
+        toast.error(
+          "Failed to initialize application. Please refresh the page."
+        );
+      }
+    };
+
+    initializeApp();
+  }, [database, loadTasks, loadTags, taskEventAdapter]);
 
   // Refresh today's task IDs when the calendar date changes
   useEffect(() => {

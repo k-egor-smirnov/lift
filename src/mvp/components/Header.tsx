@@ -5,7 +5,6 @@ import {
   Target,
   Inbox,
   FileText,
-  Plus,
   Menu,
   Clock,
   Settings,
@@ -34,8 +33,6 @@ const getViewTitle = (
     const tag = availableTags.find((item) => `tag:${item.id}` === view);
     return tag ? `#${tag.name}` : t("common.tasks");
   }
-
-  if (String(view).startsWith("tag:")) return "Tasks filtered by tag";
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -87,11 +84,6 @@ const getViewIcon = (
   if (view === "logs") return FileText;
   if (view === "settings") return Settings;
   if (String(view).startsWith("tag:")) return FileText;
-
-  if (String(view).startsWith("tag:")) {
-    const tag = availableTags.find((item) => `tag:${item.id}` === view);
-    return tag ? `#${tag.name}` : t("common.tasks");
-  }
 
   switch (view) {
     case TaskCategory.SIMPLE:
@@ -189,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <p className="text-gray-500 text-sm md:text-base leading-relaxed">
-                  {getViewDescription(activeView, t)}
+                  {getViewDescription(activeView, t, availableTags)}
                 </p>
               </div>
             </div>
