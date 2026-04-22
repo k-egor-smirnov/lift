@@ -15,6 +15,7 @@ import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-
 import { ResultUtils } from "../../../../shared/domain/Result";
 import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
+import { Tag } from "../../../tags/presentation/view-models/TagViewModel";
 
 interface TodayViewProps {
   dependencies: TodayViewModelDependencies;
@@ -27,6 +28,10 @@ interface TodayViewProps {
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
   onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
+  tags?: Tag[];
+  taskTags?: Record<string, string[]>;
+  onCreateTag?: (name: string, color: string) => void;
+  onUpdateTaskTags?: (taskId: string, tagIds: string[]) => void;
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({
@@ -40,6 +45,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onCreateLog,
   lastLogs = {},
   onCreateTask,
+  tags = [],
+  taskTags = {},
+  onCreateTag,
+  onUpdateTaskTags,
 }) => {
   const { t } = useTranslation();
   // Use global store
@@ -405,6 +414,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onCreateLog={onCreateLog}
                 groupByCategory={false}
                 todayTaskIds={getTodayTaskIds()}
+                tags={tags}
+                taskTags={taskTags}
+                onCreateTag={onCreateTag}
+                onUpdateTaskTags={onUpdateTaskTags}
               />
             </section>
           )}
@@ -444,6 +457,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onCreateLog={onCreateLog}
                 groupByCategory={false}
                 todayTaskIds={getTodayTaskIds()}
+                tags={tags}
+                taskTags={taskTags}
+                onCreateTag={onCreateTag}
+                onUpdateTaskTags={onUpdateTaskTags}
               />
             </section>
           )}

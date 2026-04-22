@@ -1,5 +1,7 @@
 import React from "react";
 import { TaskCategory } from "../../shared/domain/types";
+import { ActiveView } from "./Sidebar";
+import { Tag } from "../../features/tags/presentation/view-models/TagViewModel";
 import { Task } from "../../shared/domain/entities/Task";
 import { TaskList } from "../../features/tasks/presentation/components/TaskList";
 import { TodayView } from "../../features/today/presentation/components/TodayView";
@@ -12,7 +14,7 @@ import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase"
 import { ViewContainer } from "./ViewContainer";
 
 interface ContentAreaProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
+  activeView: ActiveView;
   loading: boolean;
 
   // Today view props
@@ -27,6 +29,10 @@ interface ContentAreaProps {
   // Task list props
   tasks: Task[];
   currentCategory: TaskCategory;
+  tags: Tag[];
+  taskTags: Record<string, string[]>;
+  onCreateTag: (name: string, color: string) => void;
+  onUpdateTaskTags: (taskId: string, tagIds: string[]) => void;
   todayTaskIds: string[];
   lastLogs: Record<string, LogEntry>;
 
@@ -51,8 +57,12 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   taskViewModel,
   tasks,
   currentCategory,
+  tags,
+  taskTags,
   todayTaskIds,
   lastLogs,
+  onCreateTag,
+  onUpdateTaskTags,
   onCreateTask,
   onCompleteTask,
   onEditTask,
@@ -64,6 +74,8 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   onDeferTask,
   onUndeferTask,
 }) => {
+  const isTagView = activeView.startsWith("tag:");
+
   if (loading) {
     return (
       <ViewContainer className="text-center py-12">
@@ -89,6 +101,10 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             onCreateTask={onCreateTask}
             onCreateLog={onCreateTaskLog}
             lastLogs={lastLogs}
+            tags={tags}
+            taskTags={taskTags}
+            onCreateTag={onCreateTag}
+            onUpdateTaskTags={onUpdateTaskTags}
           />
         </ViewContainer>
       );
@@ -131,6 +147,11 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             onDefer={onDeferTask}
             onUndefer={onUndeferTask}
             taskViewModel={taskViewModel}
+            tags={tags}
+            taskTags={taskTags}
+            onCreateTag={onCreateTag}
+            onUpdateTaskTags={onUpdateTaskTags}
+            forceShowCategory={isTagView}
           />
         </ViewContainer>
       );

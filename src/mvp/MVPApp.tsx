@@ -14,7 +14,8 @@ import { TaskList } from "../features/tasks/presentation/components/TaskList";
 import { TodayView } from "../features/today/presentation/components/TodayView";
 import { TodayMobileView } from "../features/today/presentation/components/TodayMobileView";
 import { AllLogsView } from "../features/logs/presentation/components";
-import { Sidebar } from "./components/Sidebar";
+import { ActiveView, Sidebar } from "./components/Sidebar";
+import { getVisibleTasks } from "./utils/viewFilters";
 import { Header } from "./components/Header";
 import { MobileLayout } from "./components/MobileLayout";
 import {
@@ -58,14 +59,13 @@ import { Settings } from "../features/settings/presentation/components/Settings"
 import { ContentArea } from "./components/ContentArea";
 import { ResultUtils } from "@/shared/domain/Result";
 import { DateOnly } from "@/shared/domain/value-objects/DateOnly";
+import { useTagViewModel } from "../features/tags/presentation/view-models/TagViewModel";
 
 export const MVPApp: React.FC = () => {
   const { t } = useTranslation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const [activeView, setActiveView] = useState<
-    "today" | "logs" | "settings" | TaskCategory
-  >("today");
+  const [activeView, setActiveView] = useState<ActiveView>("today");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
@@ -79,13 +79,24 @@ export const MVPApp: React.FC = () => {
     stopStartOfDayAvailabilityMonitoring,
   } = useOnboardingViewModel();
 
+  const {
+    tags,
+    tagsCollapsed,
+    taskTags,
+    createTag,
+    renameTag,
+    deleteTag,
+    assignTagsToTask,
+    removeTaskTagRelations,
+    toggleTagsCollapsed,
+    getTaskCountByTag,
+  } = useTagViewModel();
   // Check if device is mobile based on viewport
   const isMobile = () => {
     return window.innerWidth <= 640;
   };
 
-  const shouldUseMobileView =
-    isMobile() && activeView === "today";
+  const shouldUseMobileView = isMobile() && activeView === "today";
 
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
@@ -189,15 +200,14 @@ export const MVPApp: React.FC = () => {
 
   // Subscribe to the view model state
   const {
+    tasks: allTasks,
     loading,
     error,
-    getFilteredTasks,
     getTasksByCategory,
     loadTasks,
     createTask,
     completeTask,
     deleteTask,
-    setFilter: setViewModelFilter,
     clearError,
     getTodayTaskIds: getTaskViewModelTodayTaskIds,
   } = taskViewModel();
@@ -378,34 +388,35 @@ export const MVPApp: React.FC = () => {
     };
   }, [isEnabled, registerShortcut, unregisterShortcut]);
 
-  // Update view model filter when active view changes
-  useEffect(() => {
-    if (activeView === "today" || activeView === "logs") {
-      setViewModelFilter({});
-    } else {
-      setViewModelFilter({ category: activeView });
-    }
-  }, [activeView]); // Remove setViewModelFilter from dependencies
-
   const handleCreateTask = useCallback(
     async (title: string, category: TaskCategory): Promise<boolean> => {
       const success = await createTask({ title, category });
       if (success) {
         setIsCreateModalOpen(false);
+        const activeTagId = activeView.startsWith("tag:")
+          ? activeView.slice(4)
+          : null;
+
+        let newestTaskId: string | null = null;
+        if (activeTagId || activeView === "today") {
+          const tasks = await taskRepository.findAll();
+          const newestTask = tasks.sort(
+            (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+          )[0];
+          newestTaskId = newestTask?.id.value ?? null;
+        }
+
+        if (activeTagId && newestTaskId) {
+          const currentTagIds = taskTags[newestTaskId] ?? [];
+          assignTagsToTask(newestTaskId, [...currentTagIds, activeTagId]);
+        }
 
         // If we're on the Today view, automatically add the newly created task to today
         if (activeView === "today") {
           try {
-            // Get the newly created task ID from the task repository
-            // Since we just created the task, it should be the most recent one
-            const tasks = await taskRepository.findAll();
-            const newestTask = tasks.sort(
-              (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-            )[0];
-
-            if (newestTask) {
+            if (newestTaskId) {
               const result = await addTaskToTodayUseCase.execute({
-                taskId: newestTask.id.value,
+                taskId: newestTaskId,
               });
               if (result.success) {
                 console.log("Task automatically added to today");
@@ -425,7 +436,14 @@ export const MVPApp: React.FC = () => {
       }
       return success;
     },
-    [createTask, activeView, taskRepository, addTaskToTodayUseCase]
+    [
+      createTask,
+      activeView,
+      taskRepository,
+      addTaskToTodayUseCase,
+      assignTagsToTask,
+      taskTags,
+    ]
   );
 
   const handleCompleteTask = useCallback(
@@ -496,9 +514,10 @@ export const MVPApp: React.FC = () => {
     async (taskId: string) => {
       if (confirm("Are you sure you want to delete this task?")) {
         await deleteTask(taskId);
+        removeTaskTagRelations(taskId);
       }
     },
-    [deleteTask]
+    [deleteTask, removeTaskTagRelations]
   );
 
   const handleAddToToday = useCallback(
@@ -616,12 +635,9 @@ export const MVPApp: React.FC = () => {
     [addTaskToTodayUseCase]
   );
 
-  const handleViewChange = useCallback(
-    (view: "today" | "logs" | TaskCategory) => {
-      setActiveView(view);
-    },
-    []
-  );
+  const handleViewChange = useCallback((view: ActiveView) => {
+    setActiveView(view);
+  }, []);
 
   const loadTaskLogs = useCallback(
     async (taskId: string): Promise<LogEntry[]> => {
@@ -664,7 +680,7 @@ export const MVPApp: React.FC = () => {
 
   const loadAllTaskLogs = useCallback(async () => {
     try {
-      const tasks = getFilteredTasks();
+      const tasks = allTasks.filter((task) => task.isActive);
       if (tasks.length > 0) {
         const taskIds = tasks.map((task) => task.id.value);
         const lastLogsMap = await logService.loadLastLogsForTasks(taskIds);
@@ -673,7 +689,7 @@ export const MVPApp: React.FC = () => {
     } catch (error) {
       console.error("Error loading all task logs:", error);
     }
-  }, [getFilteredTasks, logService]);
+  }, [allTasks, logService]);
 
   // Load logs after tasks are loaded
   useEffect(() => {
@@ -715,7 +731,10 @@ export const MVPApp: React.FC = () => {
   // Note: Removed handleTodayRefresh as it's replaced by event bus auto-refresh
 
   const handleMobileCreateTask = useCallback(
-    async (title: string, category: TaskCategory = TaskCategory.INBOX): Promise<void> => {
+    async (
+      title: string,
+      category: TaskCategory = TaskCategory.INBOX
+    ): Promise<void> => {
       try {
         const success = await createTask({
           title,
@@ -761,6 +780,45 @@ export const MVPApp: React.FC = () => {
 
   const hasOverdueTasks = overdueCount > 0;
 
+  const filteredTasks = useMemo(
+    () =>
+      getVisibleTasks({
+        activeView,
+        tasks: allTasks,
+        taskTags,
+      }),
+    [activeView, allTasks, taskTags]
+  );
+
+  const tagTaskCounts = useMemo(
+    () =>
+      tags.reduce(
+        (acc, tag) => ({ ...acc, [tag.id]: getTaskCountByTag(tag.id) }),
+        {} as Record<string, number>
+      ),
+    [tags, taskTags, getTaskCountByTag]
+  );
+
+  const activeTagName = useMemo(() => {
+    if (!activeView.startsWith("tag:")) {
+      return undefined;
+    }
+    const activeTagId = activeView.slice(4);
+    return tags.find((tag) => tag.id === activeTagId)?.name;
+  }, [activeView, tags]);
+
+  useEffect(() => {
+    if (!activeView.startsWith("tag:")) {
+      return;
+    }
+
+    const activeTagId = activeView.slice(4);
+    const stillExists = tags.some((tag) => tag.id === activeTagId);
+    if (!stillExists) {
+      setActiveView("today");
+    }
+  }, [activeView, tags]);
+
   // Show loading state while database is initializing
   if (!isDbReady) {
     return (
@@ -775,7 +833,10 @@ export const MVPApp: React.FC = () => {
 
   // Get the current category for modal
   const currentCategory =
-    activeView === "today" || activeView === "logs"
+    activeView === "today" ||
+    activeView === "logs" ||
+    activeView === "settings" ||
+    activeView.startsWith("tag:")
       ? TaskCategory.INBOX
       : activeView;
   const hideCategorySelection = activeView !== "today";
@@ -785,7 +846,7 @@ export const MVPApp: React.FC = () => {
     return (
       <MobileLayout
         todayDependencies={todayDependencies}
-        tasks={getFilteredTasks()}
+        tasks={filteredTasks}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
         onDefer={handleDeferTask}
@@ -810,6 +871,13 @@ export const MVPApp: React.FC = () => {
         isMobileMenuOpen={isMobileMenuOpen}
         onMobileMenuClose={handleMobileMenuClose}
         showTodayHighlight={isStartOfDayAvailable}
+        tags={tags}
+        tagsCollapsed={tagsCollapsed}
+        tagTaskCounts={tagTaskCounts}
+        onCreateTag={createTag}
+        onRenameTag={renameTag}
+        onDeleteTag={deleteTag}
+        onToggleTagsCollapsed={toggleTagsCollapsed}
       />
 
       {/* Main Content */}
@@ -817,6 +885,7 @@ export const MVPApp: React.FC = () => {
         {/* Header */}
         <Header
           activeView={activeView}
+          activeTagName={activeTagName}
           onMobileMenuToggle={handleMobileMenuToggle}
         />
 
@@ -883,8 +952,12 @@ export const MVPApp: React.FC = () => {
             todayDependencies={todayDependencies}
             logDependencies={logDependencies}
             taskViewModel={taskViewModel}
-            tasks={getFilteredTasks()}
+            tasks={filteredTasks}
             currentCategory={currentCategory}
+            tags={tags}
+            taskTags={taskTags}
+            onCreateTag={createTag}
+            onUpdateTaskTags={assignTagsToTask}
             todayTaskIds={todayTaskIds}
             lastLogs={lastLogs}
             onCreateTask={handleCreateTask}
