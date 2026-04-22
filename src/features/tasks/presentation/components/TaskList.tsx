@@ -8,6 +8,7 @@ import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUs
 import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 import { TaskViewModel } from "../view-models/TaskViewModel";
+import { Tag } from "../../../tags/presentation/view-models/TagViewModel";
 import {
   DndContext,
   closestCenter,
@@ -50,6 +51,10 @@ interface TaskListProps {
   emptyMessage?: string;
   currentCategory?: TaskCategory;
   taskViewModel?: TaskViewModel;
+  tags?: Tag[];
+  taskTags?: Record<string, string[]>;
+  onCreateTag?: (name: string, color: string) => void;
+  onUpdateTaskTags?: (taskId: string, tagIds: string[]) => void;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -74,6 +79,10 @@ export const TaskList: React.FC<TaskListProps> = ({
   emptyMessage = "No tasks found",
   currentCategory,
   taskViewModel,
+  tags = [],
+  taskTags = {},
+  onCreateTag,
+  onUpdateTaskTags,
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
@@ -220,6 +229,10 @@ export const TaskList: React.FC<TaskListProps> = ({
         isDraggable={!!onReorder}
         currentCategory={currentCategory}
         taskViewModel={taskViewModel}
+        tags={tags}
+        selectedTagIds={taskTags[task.id.value] ?? []}
+        onCreateTag={onCreateTag}
+        onUpdateTaskTags={onUpdateTaskTags}
       />
     );
   };

@@ -27,6 +27,8 @@ import { useTaskLogs } from "./task-card/hooks/useTaskLogs";
 import { useTaskDefer } from "./task-card/hooks/useTaskDefer";
 import { useTaskNote } from "../hooks/useTaskNote";
 import { TaskViewModel } from "../view-models/TaskViewModel";
+import { Tag } from "../../../tags/presentation/view-models/TagViewModel";
+import { Badge } from "../../../../shared/ui/badge";
 
 interface TaskCardProps {
   task: Task;
@@ -46,6 +48,10 @@ interface TaskCardProps {
   isDraggable?: boolean;
   currentCategory?: TaskCategory;
   taskViewModel?: TaskViewModel;
+  tags?: Tag[];
+  selectedTagIds?: string[];
+  onCreateTag?: (name: string, color: string) => void;
+  onUpdateTaskTags?: (taskId: string, tagIds: string[]) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -66,6 +72,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isDraggable = false,
   currentCategory,
   taskViewModel,
+  tags = [],
+  selectedTagIds = [],
+  onCreateTag,
+  onUpdateTaskTags,
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
@@ -132,6 +142,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
     if ((task.note || "") !== data.note) {
       await handleSaveNote(data.note);
+    }
+
+    if (onUpdateTaskTags) {
+      onUpdateTaskTags(task.id.value, data.tagIds);
     }
   };
 
@@ -312,6 +326,23 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           )}
         </div>
 
+        {selectedTagIds.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1">
+            {tags
+              .filter((tag) => selectedTagIds.includes(tag.id))
+              .map((tag) => (
+                <Badge
+                  key={tag.id}
+                  variant="secondary"
+                  className="text-[10px] px-2 py-0.5"
+                  style={{ borderColor: tag.color, color: tag.color }}
+                >
+                  {tag.name}
+                </Badge>
+              ))}
+          </div>
+        )}
+
         {/* Logs section */}
         <TaskLogsDisplay
           lastLog={lastLog}
@@ -343,6 +374,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         task={task}
         onClose={() => setShowEditModal(false)}
         onSave={handleSaveTaskChanges}
+        tags={tags}
+        selectedTagIds={selectedTagIds}
+        onCreateTag={onCreateTag}
       />
     </>
   );

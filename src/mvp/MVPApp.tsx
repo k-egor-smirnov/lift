@@ -14,7 +14,7 @@ import { TaskList } from "../features/tasks/presentation/components/TaskList";
 import { TodayView } from "../features/today/presentation/components/TodayView";
 import { TodayMobileView } from "../features/today/presentation/components/TodayMobileView";
 import { AllLogsView } from "../features/logs/presentation/components";
-import { Sidebar } from "./components/Sidebar";
+import { ActiveView, Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { MobileLayout } from "./components/MobileLayout";
 import {
@@ -58,14 +58,13 @@ import { Settings } from "../features/settings/presentation/components/Settings"
 import { ContentArea } from "./components/ContentArea";
 import { ResultUtils } from "@/shared/domain/Result";
 import { DateOnly } from "@/shared/domain/value-objects/DateOnly";
+import { useTagViewModel } from "../features/tags/presentation/view-models/TagViewModel";
 
 export const MVPApp: React.FC = () => {
   const { t } = useTranslation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const [activeView, setActiveView] = useState<
-    "today" | "logs" | "settings" | TaskCategory
-  >("today");
+  const [activeView, setActiveView] = useState<ActiveView>("today");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbReady, setIsDbReady] = useState(false);
   const [, setTaskLogs] = useState<Record<string, LogEntry[]>>({});
@@ -79,13 +78,22 @@ export const MVPApp: React.FC = () => {
     stopStartOfDayAvailabilityMonitoring,
   } = useOnboardingViewModel();
 
+  const {
+    tags,
+    tagsCollapsed,
+    taskTags,
+    createTag,
+    assignTagsToTask,
+    removeTaskTagRelations,
+    toggleTagsCollapsed,
+    getTaskCountByTag,
+  } = useTagViewModel();
   // Check if device is mobile based on viewport
   const isMobile = () => {
     return window.innerWidth <= 640;
   };
 
-  const shouldUseMobileView =
-    isMobile() && activeView === "today";
+  const shouldUseMobileView = isMobile() && activeView === "today";
 
   // Get services from DI container
   const database = getService<TodoDatabase>(tokens.DATABASE_TOKEN);
@@ -380,7 +388,12 @@ export const MVPApp: React.FC = () => {
 
   // Update view model filter when active view changes
   useEffect(() => {
-    if (activeView === "today" || activeView === "logs") {
+    if (
+      activeView === "today" ||
+      activeView === "logs" ||
+      activeView === "settings" ||
+      activeView.startsWith("tag:")
+    ) {
       setViewModelFilter({});
     } else {
       setViewModelFilter({ category: activeView });
@@ -496,9 +509,10 @@ export const MVPApp: React.FC = () => {
     async (taskId: string) => {
       if (confirm("Are you sure you want to delete this task?")) {
         await deleteTask(taskId);
+        removeTaskTagRelations(taskId);
       }
     },
-    [deleteTask]
+    [deleteTask, removeTaskTagRelations]
   );
 
   const handleAddToToday = useCallback(
@@ -616,12 +630,9 @@ export const MVPApp: React.FC = () => {
     [addTaskToTodayUseCase]
   );
 
-  const handleViewChange = useCallback(
-    (view: "today" | "logs" | TaskCategory) => {
-      setActiveView(view);
-    },
-    []
-  );
+  const handleViewChange = useCallback((view: ActiveView) => {
+    setActiveView(view);
+  }, []);
 
   const loadTaskLogs = useCallback(
     async (taskId: string): Promise<LogEntry[]> => {
@@ -715,7 +726,10 @@ export const MVPApp: React.FC = () => {
   // Note: Removed handleTodayRefresh as it's replaced by event bus auto-refresh
 
   const handleMobileCreateTask = useCallback(
-    async (title: string, category: TaskCategory = TaskCategory.INBOX): Promise<void> => {
+    async (
+      title: string,
+      category: TaskCategory = TaskCategory.INBOX
+    ): Promise<void> => {
       try {
         const success = await createTask({
           title,
@@ -761,6 +775,27 @@ export const MVPApp: React.FC = () => {
 
   const hasOverdueTasks = overdueCount > 0;
 
+  const filteredTasks = useMemo(() => {
+    const baseTasks = getFilteredTasks();
+    if (!activeView.startsWith("tag:")) {
+      return baseTasks;
+    }
+
+    const activeTagId = activeView.slice(4);
+    return baseTasks.filter((task) =>
+      (taskTags[task.id.value] ?? []).includes(activeTagId)
+    );
+  }, [activeView, getFilteredTasks, taskTags]);
+
+  const tagTaskCounts = useMemo(
+    () =>
+      tags.reduce(
+        (acc, tag) => ({ ...acc, [tag.id]: getTaskCountByTag(tag.id) }),
+        {} as Record<string, number>
+      ),
+    [tags, taskTags, getTaskCountByTag]
+  );
+
   // Show loading state while database is initializing
   if (!isDbReady) {
     return (
@@ -775,7 +810,10 @@ export const MVPApp: React.FC = () => {
 
   // Get the current category for modal
   const currentCategory =
-    activeView === "today" || activeView === "logs"
+    activeView === "today" ||
+    activeView === "logs" ||
+    activeView === "settings" ||
+    activeView.startsWith("tag:")
       ? TaskCategory.INBOX
       : activeView;
   const hideCategorySelection = activeView !== "today";
@@ -810,6 +848,11 @@ export const MVPApp: React.FC = () => {
         isMobileMenuOpen={isMobileMenuOpen}
         onMobileMenuClose={handleMobileMenuClose}
         showTodayHighlight={isStartOfDayAvailable}
+        tags={tags}
+        tagsCollapsed={tagsCollapsed}
+        tagTaskCounts={tagTaskCounts}
+        onCreateTag={createTag}
+        onToggleTagsCollapsed={toggleTagsCollapsed}
       />
 
       {/* Main Content */}
@@ -883,8 +926,12 @@ export const MVPApp: React.FC = () => {
             todayDependencies={todayDependencies}
             logDependencies={logDependencies}
             taskViewModel={taskViewModel}
-            tasks={getFilteredTasks()}
+            tasks={filteredTasks}
             currentCategory={currentCategory}
+            tags={tags}
+            taskTags={taskTags}
+            onCreateTag={createTag}
+            onUpdateTaskTags={assignTagsToTask}
             todayTaskIds={todayTaskIds}
             lastLogs={lastLogs}
             onCreateTask={handleCreateTask}

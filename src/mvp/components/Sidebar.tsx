@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
   Sun,
   Zap,
@@ -7,22 +7,47 @@ import {
   Clock,
   FileText,
   Settings,
+  ChevronDown,
+  Plus,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
 import { Button } from "../../shared/ui/button";
 import { cn } from "../../shared/lib/utils";
 import LiftLogo from "../../../assets/icon.png";
+import { Input } from "../../shared/ui/input";
+import { Tag } from "../../features/tags/presentation/view-models/TagViewModel";
+
+export type ActiveView =
+  | "today"
+  | "logs"
+  | "settings"
+  | TaskCategory
+  | `tag:${string}`;
 
 interface SidebarProps {
-  activeView: "today" | "logs" | "settings" | TaskCategory;
-  onViewChange: (view: "today" | "logs" | "settings" | TaskCategory) => void;
+  activeView: ActiveView;
+  onViewChange: (view: ActiveView) => void;
   taskCounts: Record<TaskCategory, number>;
   hasOverdueTasks: boolean;
   isMobileMenuOpen: boolean;
   onMobileMenuClose: () => void;
   showTodayHighlight: boolean;
+  tags: Tag[];
+  tagsCollapsed: boolean;
+  tagTaskCounts: Record<string, number>;
+  onCreateTag: (name: string, color: string) => void;
+  onToggleTagsCollapsed: () => void;
 }
+
+const TAG_COLORS = [
+  "#f43f5e",
+  "#f59e0b",
+  "#10b981",
+  "#3b82f6",
+  "#8b5cf6",
+  "#ec4899",
+];
 
 const getCategoryInfo = (category: TaskCategory, t: any) => {
   switch (category) {
@@ -47,8 +72,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileMenuOpen,
   onMobileMenuClose,
   showTodayHighlight,
+  tags,
+  tagsCollapsed,
+  tagTaskCounts,
+  onCreateTag,
+  onToggleTagsCollapsed,
 }) => {
   const { t } = useTranslation();
+  const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
 
   const menuItems = [
     {
@@ -78,11 +110,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     count: null,
   };
 
-  const handleItemClick = (
-    viewId: "today" | "logs" | "settings" | TaskCategory
-  ) => {
+  const randomTagColor = useMemo(
+    () => TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)],
+    [isCreateTagOpen]
+  );
+
+  const handleItemClick = (viewId: ActiveView) => {
     onViewChange(viewId);
     onMobileMenuClose();
+  };
+
+  const handleCreateTag = () => {
+    if (!newTagName.trim()) return;
+    onCreateTag(newTagName.trim(), randomTagColor);
+    setNewTagName("");
+    setIsCreateTagOpen(false);
   };
 
   const sidebarContent = (
@@ -141,11 +183,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     "bg-primary/10 text-primary hover:bg-primary/15"
                 )}
                 data-testid={`sidebar-${item.id.toLowerCase()}`}
-                aria-current={activeView === item.id ? "page" : undefined}
-                aria-label={`${item.name}${
-                  item.count !== null ? ` (${item.count} tasks)` : ""
-                }`}
-                role="listitem"
               >
                 <div className="flex items-center space-x-3">
                   <item.icon className="w-5 h-5" aria-hidden="true" />
@@ -167,7 +204,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           ? "text-muted-foreground bg-red-300/20"
                           : "bg-muted text-muted-foreground"
                     )}
-                    aria-label={`${item.count} tasks`}
                   >
                     {item.count}
                   </span>
@@ -175,9 +211,81 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </Button>
             );
           })}
+
+          <div className="pt-2 mt-2 border-t">
+            <div className="flex items-center justify-between mb-1 px-1">
+              <Button
+                variant="ghost"
+                className="h-8 px-2 flex-1 justify-start text-muted-foreground"
+                onClick={onToggleTagsCollapsed}
+              >
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 mr-2 transition-transform",
+                    tagsCollapsed && "-rotate-90"
+                  )}
+                />
+                <span className="text-xs uppercase tracking-wide">Тэги</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setIsCreateTagOpen((prev) => !prev)}
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {!tagsCollapsed && (
+              <div className="space-y-1">
+                {isCreateTagOpen && (
+                  <div className="px-2 pb-2">
+                    <Input
+                      value={newTagName}
+                      onChange={(event) => setNewTagName(event.target.value)}
+                      placeholder="Новый тэг"
+                      className="h-8 text-xs"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          handleCreateTag();
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
+                {tags.map((tag) => {
+                  const viewId = `tag:${tag.id}` as const;
+                  return (
+                    <Button
+                      key={tag.id}
+                      variant={activeView === viewId ? "secondary" : "ghost"}
+                      onClick={() => handleItemClick(viewId)}
+                      className={cn(
+                        "w-full justify-between h-8 px-2 text-left font-normal",
+                        activeView === viewId &&
+                          "bg-primary/10 text-primary hover:bg-primary/15"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        <span className="text-sm truncate">{tag.name}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {tagTaskCounts[tag.id] ?? 0}
+                      </span>
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Settings at the bottom */}
         <div className="mt-auto pt-4 border-t">
           <Button
             variant={activeView === settingsItem.id ? "secondary" : "ghost"}
@@ -188,9 +296,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 "bg-primary/10 text-primary hover:bg-primary/15"
             )}
             data-testid={`sidebar-${settingsItem.id.toLowerCase()}`}
-            aria-current={activeView === settingsItem.id ? "page" : undefined}
-            aria-label={settingsItem.name}
-            role="listitem"
           >
             <div className="flex items-center space-x-3">
               <settingsItem.icon className="w-5 h-5" aria-hidden="true" />
@@ -204,20 +309,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Desktop Sidebar */}
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:z-30">
         <div className="flex flex-col flex-grow bg-background">
           {sidebarContent}
         </div>
       </div>
 
-      {/* Mobile Sidebar */}
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 z-50 md:hidden"
           role="dialog"
           aria-modal="true"
-          aria-label="Navigation menu"
         >
           <div
             className="fixed inset-0 bg-black/50 transition-opacity"
