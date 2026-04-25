@@ -8,6 +8,8 @@ import {
   TaskTitleChangedEvent,
   TaskSoftDeletedEvent,
   TaskNoteChangedEvent,
+  TaskDeferredEvent,
+  TaskUndeferredEvent,
 } from "../../../../shared/domain/events/TaskEvents";
 import { TodoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 import { DomainEventType } from "../../../../shared/domain/types";
@@ -53,6 +55,12 @@ export class TaskLogEventHandler implements EventHandler {
         break;
       case DomainEventType.TASK_SOFT_DELETED:
         await this.handleTaskSoftDeleted(event as TaskSoftDeletedEvent);
+        break;
+      case DomainEventType.TASK_DEFERRED:
+        await this.handleTaskDeferred(event as TaskDeferredEvent);
+        break;
+      case DomainEventType.TASK_UNDEFERRED:
+        await this.handleTaskUndeferred(event as TaskUndeferredEvent);
         break;
     }
   }
@@ -202,6 +210,39 @@ export class TaskLogEventHandler implements EventHandler {
       metadata: {
         eventType: event.eventType,
         deletedAt: event.deletedAt.toISOString(),
+      },
+      createdAt: new Date(event.createdAt),
+    });
+  }
+
+  private async handleTaskDeferred(event: TaskDeferredEvent): Promise<void> {
+    const logId = `task-deferred-${event.aggregateId}-${event.createdAt}`;
+
+    await this.database.taskLogs.put({
+      id: logId,
+      taskId: event.taskId.value,
+      type: "SYSTEM",
+      message: `Task deferred until ${event.deferredUntil.toISOString().slice(0, 10)}`,
+      metadata: {
+        eventType: event.eventType,
+        deferredUntil: event.deferredUntil.toISOString(),
+      },
+      createdAt: new Date(event.createdAt),
+    });
+  }
+
+  private async handleTaskUndeferred(
+    event: TaskUndeferredEvent
+  ): Promise<void> {
+    const logId = `task-undeferred-${event.aggregateId}-${event.createdAt}`;
+
+    await this.database.taskLogs.put({
+      id: logId,
+      taskId: event.taskId.value,
+      type: "SYSTEM",
+      message: "Task returned from deferred",
+      metadata: {
+        eventType: event.eventType,
       },
       createdAt: new Date(event.createdAt),
     });

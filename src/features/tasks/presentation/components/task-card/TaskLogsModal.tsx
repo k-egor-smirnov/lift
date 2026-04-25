@@ -3,13 +3,25 @@ import { LogEntry } from "../../../../../shared/application/use-cases/GetTaskLog
 import { useTranslation } from "react-i18next";
 import { useCurrentTime } from "@/shared/presentation/contexts/CurrentTimeContext";
 import { formatTimeAgo } from "@/shared/utils/timeFormat";
-import { Settings, User, AlertTriangle, FileText, Pen } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  FileText,
+  Pen,
+  PencilLine,
+  RotateCcw,
+  Settings,
+  Undo2,
+  User,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "../../../../../shared/ui/dialog";
+import { DomainEventType } from "../../../../../shared/domain/types";
 
 interface TaskLogsModalProps {
   isOpen: boolean;
@@ -48,6 +60,65 @@ const getLogTypeColor = (type: "SYSTEM" | "USER" | "CONFLICT"): string => {
   }
 };
 
+const getLogEventKey = (log: LogEntry): string => {
+  const eventType = log.metadata?.eventType as DomainEventType | undefined;
+
+  if (eventType === DomainEventType.TASK_COMPLETED) {
+    return "completed";
+  }
+  if (eventType === DomainEventType.TASK_DEFERRED) {
+    return "deferred";
+  }
+  if (eventType === DomainEventType.TASK_UNDEFERRED) {
+    return "undeferred";
+  }
+  if (eventType === DomainEventType.TASK_TITLE_CHANGED) {
+    return "title_changed";
+  }
+  if (eventType === DomainEventType.TASK_CATEGORY_CHANGED) {
+    return "status_changed";
+  }
+  if (eventType === DomainEventType.TASK_COMPLETION_REVERTED) {
+    return "reverted";
+  }
+
+  if (log.type === "USER") {
+    return "user";
+  }
+  if (log.type === "CONFLICT") {
+    return "conflict";
+  }
+
+  return "system";
+};
+
+const getLogActionVisual = (
+  log: LogEntry
+): { Icon: React.ComponentType<{ className?: string }>; className: string } => {
+  const eventType = log.metadata?.eventType as DomainEventType | undefined;
+
+  if (eventType === DomainEventType.TASK_COMPLETED) {
+    return { Icon: CheckCircle2, className: "text-emerald-600" };
+  }
+  if (eventType === DomainEventType.TASK_DEFERRED) {
+    return { Icon: CalendarClock, className: "text-amber-600" };
+  }
+  if (eventType === DomainEventType.TASK_UNDEFERRED) {
+    return { Icon: Undo2, className: "text-indigo-600" };
+  }
+  if (eventType === DomainEventType.TASK_TITLE_CHANGED) {
+    return { Icon: PencilLine, className: "text-violet-600" };
+  }
+  if (eventType === DomainEventType.TASK_CATEGORY_CHANGED) {
+    return { Icon: RotateCcw, className: "text-sky-600" };
+  }
+
+  return {
+    Icon: getLogTypeIcon(log.type),
+    className: getLogTypeColor(log.type),
+  };
+};
+
 export const TaskLogsModal: React.FC<TaskLogsModalProps> = ({
   isOpen,
   onClose,
@@ -73,7 +144,6 @@ export const TaskLogsModal: React.FC<TaskLogsModalProps> = ({
       }, 100);
     }
   }, [isOpen]);
-
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -120,7 +190,8 @@ export const TaskLogsModal: React.FC<TaskLogsModalProps> = ({
               aria-label={t("taskCard.taskLogEntries")}
             >
               {taskLogs.map((log) => {
-                const LogIcon = getLogTypeIcon(log.type);
+                const { Icon, className } = getLogActionVisual(log);
+                const eventKey = getLogEventKey(log);
                 return (
                   <div
                     key={log.id}
@@ -128,29 +199,22 @@ export const TaskLogsModal: React.FC<TaskLogsModalProps> = ({
                     role="listitem"
                   >
                     <div className="flex items-start space-x-2">
-                      <LogIcon
-                        className={`w-3 h-3 mt-0.5 ${getLogTypeColor(
-                          log.type
-                        )}`}
+                      <Icon
+                        className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${className}`}
+                        data-testid={`log-action-icon-${eventKey}`}
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
                           {log.message}
                         </p>
-                        <div className="flex items-center justify-between mt-1">
-                          <span
-                            className={`text-xs px-1 py-0.5 rounded font-medium ${
-                              log.type === "SYSTEM"
-                                ? "bg-blue-100 text-blue-800"
-                                : log.type === "USER"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {log.type}
-                          </span>
+                        <div className="flex items-center justify-end mt-1">
                           <span className="text-xs text-gray-500">
-                            {formatTimeAgo(log.createdAt, now, t, i18n.language)}
+                            {formatTimeAgo(
+                              log.createdAt,
+                              now,
+                              t,
+                              i18n.language
+                            )}
                           </span>
                         </div>
                       </div>
