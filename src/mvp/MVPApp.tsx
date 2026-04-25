@@ -728,6 +728,115 @@ export const MVPApp: React.FC = () => {
     [reorderTasksUseCase, loadTasks]
   );
 
+  const handleDropTaskOnCategory = useCallback(
+    async (taskId: string, category: TaskCategory) => {
+      const task = allTasks.find((item) => item.id.value === taskId);
+      if (!task || task.category === category) {
+        return;
+      }
+
+      try {
+        if (category === TaskCategory.DEFERRED) {
+          const tomorrow = DateOnly.getCurrentDate();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          tomorrow.setHours(9, 0, 0, 0);
+          await handleDeferTask(taskId, tomorrow);
+          return;
+        }
+
+        if (task.category === TaskCategory.DEFERRED) {
+          const undeferResult = await undeferTaskUseCase.execute({ taskId });
+          if (!undeferResult.success) {
+            console.error("Failed to undefer task before moving category");
+            toast.error(t("toasts.undeferFailed"));
+            return;
+          }
+        }
+
+        const targetMaxOrder = allTasks
+          .filter(
+            (item) =>
+              item.id.value !== taskId &&
+              item.isActive &&
+              item.category === category
+          )
+          .reduce((maxOrder, item) => Math.max(maxOrder, item.order), 0);
+
+        const result = await updateTaskUseCase.execute({
+          taskId,
+          category,
+          order: Math.max(Date.now(), targetMaxOrder + 1),
+        });
+
+        if (result.success) {
+          await loadTasks({ silent: true });
+          toast.success(
+            `Задача перемещена в ${t(`categories.${category.toLowerCase()}`)}`
+          );
+        } else {
+          console.error("Failed to move task:", (result as any).error);
+          toast.error(t("toasts.updateFailed", "Failed to update task"));
+        }
+      } catch (error) {
+        console.error("Error moving task to category:", error);
+        toast.error(t("toasts.updateFailed", "Failed to update task"));
+      }
+    },
+    [
+      allTasks,
+      handleDeferTask,
+      loadTasks,
+      t,
+      undeferTaskUseCase,
+      updateTaskUseCase,
+    ]
+  );
+
+  const handleDropTaskOnToday = useCallback(
+    async (taskId: string) => {
+      const task = allTasks.find((item) => item.id.value === taskId);
+      if (!task || todayTaskIds.includes(taskId)) {
+        return;
+      }
+
+      try {
+        const result = await addTaskToTodayUseCase.execute({ taskId });
+        if (result.success) {
+          toast.success("Задача добавлена в Сегодня");
+        } else {
+          console.error(
+            "Failed to add task to today:",
+            (result as any).error.message
+          );
+          toast.error(t("toasts.addToTodayFailed", "Failed to add to today"));
+        }
+      } catch (error) {
+        console.error("Error adding task to today:", error);
+        toast.error(t("toasts.addToTodayFailed", "Failed to add to today"));
+      }
+    },
+    [addTaskToTodayUseCase, allTasks, t, todayTaskIds]
+  );
+
+  const handleDropTaskOnTag = useCallback(
+    (taskId: string, tagId: string) => {
+      const task = allTasks.find((item) => item.id.value === taskId);
+      const tag = tags.find((item) => item.id === tagId);
+      if (!task || !tag) {
+        return;
+      }
+
+      const currentTagIds = taskTags[taskId] ?? [];
+      if (currentTagIds.includes(tagId)) {
+        return;
+      }
+
+      assignTagsToTask(taskId, [...currentTagIds, tagId]);
+      toast.success(`Тэг «${tag.name}» добавлен`);
+    },
+    [allTasks, assignTagsToTask, tags, taskTags]
+  );
+
   // Note: Removed handleTodayRefresh as it's replaced by event bus auto-refresh
 
   const handleMobileCreateTask = useCallback(
@@ -966,6 +1075,9 @@ export const MVPApp: React.FC = () => {
             onDeleteTask={handleDeleteTask}
             onAddToToday={handleAddToToday}
             onReorderTasks={handleReorderTasks}
+            onDropTaskOnToday={handleDropTaskOnToday}
+            onDropTaskOnCategory={handleDropTaskOnCategory}
+            onDropTaskOnTag={handleDropTaskOnTag}
             onLoadTaskLogs={loadTaskLogs}
             onCreateTaskLog={handleCreateTaskLog}
             onDeferTask={handleDeferTask}

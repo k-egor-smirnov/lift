@@ -43,12 +43,16 @@ export class SyncInitializer {
     try {
       console.log("Initializing sync system...");
 
-      // Проверяем конфигурацию
-      const config = getSupabaseConfig();
-      if (!config.environment.url || !config.environment.anonKey) {
+      if (
+        !import.meta.env.VITE_SUPABASE_URL ||
+        !import.meta.env.VITE_SUPABASE_ANON_KEY
+      ) {
         console.warn("Supabase configuration not found, sync disabled");
         return;
       }
+
+      // Проверяем конфигурацию
+      const config = getSupabaseConfig();
 
       // DI контейнер уже настроен в di/index.ts
       // configureSyncContainer(); // Убираем дублирование

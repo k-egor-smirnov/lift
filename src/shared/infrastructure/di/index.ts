@@ -1,7 +1,15 @@
 import "reflect-metadata";
 import { container, configureContainer } from "./container";
 import { configureSyncContainer } from "./syncContainer";
+import { DebouncedSyncService } from "../../application/services/DebouncedSyncService";
 import * as tokens from "./tokens";
+
+const registerNoopDebouncedSyncService = (): void => {
+  container.registerInstance(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN, {
+    triggerSync: () => {},
+    cleanup: () => {},
+  } as DebouncedSyncService);
+};
 
 /**
  * Инициализирует все DI контейнеры в правильном порядке
@@ -16,9 +24,13 @@ export function initializeContainers(): void {
 
     console.log("DI containers initialized successfully");
   } catch (error) {
-    console.error("Failed to initialize DI containers:", error);
+    console.warn(
+      "Sync dependencies unavailable, continuing local-first:",
+      error
+    );
     // Если sync контейнер не удалось настроить, пытаемся настроить хотя бы основной
     try {
+      registerNoopDebouncedSyncService();
       configureContainer();
       console.log("Main container initialized without sync dependencies");
     } catch (mainError) {

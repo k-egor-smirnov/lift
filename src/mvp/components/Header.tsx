@@ -51,9 +51,7 @@ const getViewDescription = (
     return t("logs.subtitle", "View all system and user activity");
   if (view === "settings") return t("settings.app.description");
   if (view.startsWith("tag:")) {
-    return activeTagName
-      ? `Задачи с тэгом «${activeTagName}»`
-      : "Задачи с выбранным тэгом";
+    return "";
   }
 
   switch (view) {
@@ -120,6 +118,8 @@ export const Header: React.FC<HeaderProps> = ({
 
   const headerHeight = isCollapsed ? "h-14" : "";
 
+  const description = getViewDescription(activeView, t, activeTagName);
+
   return (
     <>
       <header
@@ -166,15 +166,17 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               {/* Description - hidden when collapsed */}
-              <div
-                className={`transition-all duration-300 overflow-hidden ${
-                  isCollapsed ? "max-h-0 opacity-0" : "max-h-20 opacity-100"
-                }`}
-              >
-                <p className="text-gray-500 text-sm md:text-base leading-relaxed">
-                  {getViewDescription(activeView, t, activeTagName)}
-                </p>
-              </div>
+              {description ? (
+                <div
+                  className={`transition-all duration-300 overflow-hidden ${
+                    isCollapsed ? "max-h-0 opacity-0" : "max-h-20 opacity-100"
+                  }`}
+                >
+                  <p className="text-gray-500 text-sm md:text-base leading-relaxed">
+                    {description}
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

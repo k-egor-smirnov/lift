@@ -42,7 +42,10 @@ interface ContentAreaProps {
   onEditTask: (taskId: string, newTitle: string) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   onAddToToday: (taskId: string) => Promise<void>;
-  onReorderTasks: (taskIds: string[]) => Promise<void>;
+  onReorderTasks: (tasks: Task[]) => Promise<void>;
+  onDropTaskOnToday: (taskId: string) => void;
+  onDropTaskOnCategory: (taskId: string, category: TaskCategory) => void;
+  onDropTaskOnTag: (taskId: string, tagId: string) => void;
   onLoadTaskLogs: (taskId: string) => Promise<void>;
   onCreateTaskLog: (taskId: string, content: string) => Promise<void>;
   onDeferTask: (taskId: string, deferredUntil: Date) => Promise<void>;
@@ -69,6 +72,9 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   onDeleteTask,
   onAddToToday,
   onReorderTasks,
+  onDropTaskOnToday,
+  onDropTaskOnCategory,
+  onDropTaskOnTag,
   onLoadTaskLogs,
   onCreateTaskLog,
   onDeferTask,
@@ -105,6 +111,9 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             taskTags={taskTags}
             onCreateTag={onCreateTag}
             onUpdateTaskTags={onUpdateTaskTags}
+            onDropOnToday={onDropTaskOnToday}
+            onDropOnCategory={onDropTaskOnCategory}
+            onDropOnTag={onDropTaskOnTag}
           />
         </ViewContainer>
       );
@@ -138,6 +147,9 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
             onDelete={onDeleteTask}
             onAddToToday={onAddToToday}
             onReorder={onReorderTasks}
+            onDropOnToday={onDropTaskOnToday}
+            onDropOnCategory={onDropTaskOnCategory}
+            onDropOnTag={onDropTaskOnTag}
             onLoadTaskLogs={onLoadTaskLogs}
             onCreateLog={onCreateTaskLog}
             lastLogs={lastLogs}

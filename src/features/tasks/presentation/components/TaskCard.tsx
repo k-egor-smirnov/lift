@@ -52,6 +52,10 @@ interface TaskCardProps {
   selectedTagIds?: string[];
   onCreateTag?: (name: string, color: string) => void;
   onUpdateTaskTags?: (taskId: string, tagIds: string[]) => void;
+  animationDirection?: -1 | 1;
+  isListDragActive?: boolean;
+  isActiveDragItem?: boolean;
+  suppressDropIndicator?: boolean;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -76,6 +80,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   selectedTagIds = [],
   onCreateTag,
   onUpdateTaskTags,
+  animationDirection = 1,
+  isListDragActive = false,
+  isActiveDragItem = false,
+  suppressDropIndicator = false,
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement>(null);
@@ -202,9 +210,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     transition,
   };
 
-  const isDraggingState = isDragging;
+  const isDraggingState = isDragging || isActiveDragItem;
   const isCompleted = task.status === TaskStatus.COMPLETED;
   const isTouch = isTouchDevice();
+  const cardOpacity = isActiveDragItem ? 0.5 : isCompleted ? 0.62 : 1;
 
   // Touch gesture handlers
   const { attachGestures } = useTouchGestures({
@@ -236,9 +245,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <>
       {/* Blue line indicator for drop location */}
-      {isOver && <div className="h-0.5 bg-blue-500 mx-4 mb-2 rounded-full" />}
+      {isOver && !suppressDropIndicator && (
+        <div
+          className="h-0.5 bg-blue-500 mx-4 mb-2 rounded-full"
+          data-testid="task-drop-indicator"
+        />
+      )}
 
       <motion.article
+        layout={isListDragActive ? false : "position"}
         ref={(node) => {
           setNodeRef(node);
           if (cardRef.current !== node) {
@@ -250,11 +265,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         {...(isDraggable ? attributes : {})}
         {...(isDraggable ? listeners : {})}
         className={`
-          bg-white rounded-lg border shadow-sm px-4 py-2 transition-all duration-200 hover:shadow-md
+          bg-white rounded-lg border shadow-sm px-4 py-2 transition-shadow duration-150 hover:shadow-md
           ${isOverdue ? "border-red-300 bg-red-50" : "border-gray-200"}
-          ${isCompleted ? "opacity-60" : ""}
           ${isTouch ? "touch-manipulation" : ""}
-          ${isDraggingState ? "opacity-50" : ""}
           ${isDraggable ? "cursor-grab active:cursor-grabbing" : ""}
           relative group
         `}
@@ -265,13 +278,31 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           isTouch ? `touch-help-${task.id.value}` : ""
         }`}
         data-testid="task-card"
+        data-animation-direction={animationDirection === -1 ? "up" : "down"}
+        initial={{
+          opacity: 0,
+          y: animationDirection * 12,
+          scale: 0.98,
+        }}
         animate={{
+          opacity: cardOpacity,
+          y: 0,
           scale: isDraggingState ? 1.02 : 1,
           boxShadow: isDraggingState
             ? "0 10px 25px rgba(0, 0, 0, 0.15)"
             : "0 1px 3px rgba(0, 0, 0, 0.1)",
         }}
-        transition={{ duration: 0.2 }}
+        exit={{
+          opacity: 0,
+          y: animationDirection * -8,
+          scale: 0.98,
+          transition: { duration: 0.14, ease: "easeIn" },
+        }}
+        transition={{
+          duration: 0.16,
+          ease: "easeOut",
+          layout: { duration: 0.18, ease: [0.2, 0, 0, 1] },
+        }}
         onClick={handleCardClick}
         onPointerDownCapture={handlePointerDownCapture}
         onPointerMoveCapture={handlePointerMoveCapture}

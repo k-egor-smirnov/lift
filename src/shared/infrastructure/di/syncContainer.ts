@@ -54,7 +54,7 @@ export function configureSyncContainer(): void {
 
     console.log("Sync container configured successfully");
   } catch (error) {
-    console.error("Failed to configure sync container:", error);
+    console.warn("Failed to configure sync container:", error);
     throw error;
   }
 }

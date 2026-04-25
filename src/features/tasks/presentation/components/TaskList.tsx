@@ -1,4 +1,10 @@
-import React, { useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Zap, Target, Inbox } from "lucide-react";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory } from "../../../../shared/domain/types";
@@ -27,7 +33,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface TaskListProps {
   tasks: Task[];
@@ -55,8 +61,18 @@ interface TaskListProps {
   taskTags?: Record<string, string[]>;
   onCreateTag?: (name: string, color: string) => void;
   onUpdateTaskTags?: (taskId: string, tagIds: string[]) => void;
+  onDropOnToday?: (taskId: string) => void;
+  onDropOnCategory?: (taskId: string, category: TaskCategory) => void;
+  onDropOnTag?: (taskId: string, tagId: string) => void;
   forceShowCategory?: boolean;
 }
+
+type TaskAnimationDirection = -1 | 1;
+
+type TaskDropTarget =
+  | { type: "today" }
+  | { type: "category"; category: TaskCategory }
+  | { type: "tag"; tagId: string };
 
 export const TaskList: React.FC<TaskListProps> = ({
   tasks,
@@ -84,23 +100,88 @@ export const TaskList: React.FC<TaskListProps> = ({
   taskTags = {},
   onCreateTag,
   onUpdateTaskTags,
+  onDropOnToday,
+  onDropOnCategory,
+  onDropOnTag,
   forceShowCategory = false,
 }) => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
-    null
-  );
+  const [isOverExternalDropTarget, setIsOverExternalDropTarget] =
+    useState(false);
+  const [isOverSidebarDropScope, setIsOverSidebarDropScope] = useState(false);
+  const previousTaskPositionsRef = useRef<
+    Map<string, { index: number; order: number }>
+  >(new Map());
+  const lastDragPointRef = useRef<{ x: number; y: number } | null>(null);
+  const hoveredDropTargetRef = useRef<HTMLElement | null>(null);
+  const hoveredDropTargetDataRef = useRef<TaskDropTarget | null>(null);
+  const isOverExternalDropTargetRef = useRef(false);
+  const isOverSidebarDropScopeRef = useRef(false);
+  const trackingFrameRef = useRef<number | null>(null);
 
   // Sort tasks by order field first
-  const sortedTasks = [...tasks].sort((a, b) => a.order - b.order);
+  const sortedTasks = useMemo(
+    () => [...tasks].sort((a, b) => a.order - b.order),
+    [tasks]
+  );
+  const canDragTasks = Boolean(
+    onReorder || onDropOnToday || onDropOnCategory || onDropOnTag
+  );
+  const activeTaskId = activeTask?.id.value ?? null;
+  const isDragActive = activeTask !== null;
+
+  const taskAnimationDirections = useMemo(() => {
+    const previousPositions = previousTaskPositionsRef.current;
+    const previousOrders = Array.from(previousPositions.values()).map(
+      (position) => position.order
+    );
+    const minPreviousOrder =
+      previousOrders.length > 0 ? Math.min(...previousOrders) : undefined;
+
+    return sortedTasks.reduce<Record<string, TaskAnimationDirection>>(
+      (acc, task, index) => {
+        const taskId = task.id.value;
+        const previousPosition = previousPositions.get(taskId);
+
+        if (!previousPosition) {
+          acc[taskId] =
+            minPreviousOrder !== undefined && task.order <= minPreviousOrder
+              ? -1
+              : 1;
+          return acc;
+        }
+
+        acc[taskId] = index < previousPosition.index ? -1 : 1;
+        return acc;
+      },
+      {}
+    );
+  }, [sortedTasks]);
+
+  useEffect(() => {
+    previousTaskPositionsRef.current = new Map(
+      sortedTasks.map((task, index) => [
+        task.id.value,
+        { index, order: task.order },
+      ])
+    );
+  }, [sortedTasks]);
 
   // Calculate overdue and today task IDs
-  const overdueTaskIds = sortedTasks
-    .filter(
-      (task) =>
-        task.category === TaskCategory.INBOX && task.isOverdue(overdueDays)
-    )
-    .map((task) => task.id.value);
+  const overdueTaskIds = useMemo(
+    () =>
+      new Set(
+        sortedTasks
+          .filter(
+            (task) =>
+              task.category === TaskCategory.INBOX &&
+              task.isOverdue(overdueDays)
+          )
+          .map((task) => task.id.value)
+      ),
+    [overdueDays, sortedTasks]
+  );
+  const todayTaskIdSet = useMemo(() => new Set(todayTaskIds), [todayTaskIds]);
 
   // Today task IDs are passed as props from parent component
 
@@ -116,42 +197,249 @@ export const TaskList: React.FC<TaskListProps> = ({
     })
   );
 
-  // Custom modifier to apply drag offset
-  const applyDragOffset = ({
+  const getActivatorCoordinates = (event: Event | null) => {
+    if (!event) return null;
+
+    if ("clientX" in event && "clientY" in event) {
+      return {
+        x: event.clientX,
+        y: event.clientY,
+      };
+    }
+
+    if ("touches" in event && event.touches.length > 0) {
+      return {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY,
+      };
+    }
+
+    return null;
+  };
+
+  // Keep the compact preview centered under the pointer for stable menu drops.
+  const centerDragOverlay = ({
+    activatorEvent,
+    activeNodeRect,
+    overlayNodeRect,
     transform,
   }: {
+    activatorEvent: Event | null;
+    activeNodeRect: { left: number; top: number } | null;
+    overlayNodeRect: { width: number; height: number } | null;
     transform: { x: number; y: number; scaleX: number; scaleY: number };
   }) => {
-    if (!dragOffset) return transform;
+    const activatorCoordinates = getActivatorCoordinates(activatorEvent);
+    if (!activatorCoordinates || !activeNodeRect || !overlayNodeRect) {
+      return transform;
+    }
+
+    const activatorOffset = {
+      x: activatorCoordinates.x - activeNodeRect.left,
+      y: activatorCoordinates.y - activeNodeRect.top,
+    };
 
     return {
       ...transform,
-      x: transform.x + dragOffset.x,
-      y: transform.y + dragOffset.y,
+      x: transform.x + activatorOffset.x - overlayNodeRect.width / 2,
+      y: transform.y + activatorOffset.y - overlayNodeRect.height / 2,
     };
   };
 
+  const getDropStateFromPoint = useCallback(
+    (point: {
+      x: number;
+      y: number;
+    }): {
+      dropTargetElement: HTMLElement | null;
+      isOverSidebarDropScope: boolean;
+    } => {
+      const elements =
+        document.elementsFromPoint?.(point.x, point.y) ??
+        [document.elementFromPoint(point.x, point.y)].filter(Boolean);
+
+      let dropTargetElement: HTMLElement | null = null;
+      let isOverSidebarDropScope = false;
+
+      for (const element of elements) {
+        if (!(element instanceof HTMLElement)) {
+          continue;
+        }
+
+        dropTargetElement ??= element.closest(
+          "[data-task-drop-target]"
+        ) as HTMLElement | null;
+        isOverSidebarDropScope ||= Boolean(
+          element.closest("[data-task-drop-scope='sidebar']")
+        );
+
+        if (dropTargetElement && isOverSidebarDropScope) {
+          break;
+        }
+      }
+
+      return { dropTargetElement, isOverSidebarDropScope };
+    },
+    []
+  );
+
+  const readTaskDropTarget = useCallback(
+    (target: HTMLElement | null): TaskDropTarget | null => {
+      if (!target) {
+        return null;
+      }
+
+      if (target.dataset.taskDropTarget === "today") {
+        return { type: "today" };
+      }
+
+      if (target.dataset.taskDropTarget === "category") {
+        const category = target.dataset.taskDropCategory as
+          | TaskCategory
+          | undefined;
+
+        if (
+          category &&
+          Object.values(TaskCategory).includes(category as TaskCategory)
+        ) {
+          return { type: "category", category };
+        }
+      }
+
+      if (target.dataset.taskDropTarget === "tag") {
+        const tagId = target.dataset.taskDropTagId;
+        if (tagId) {
+          return { type: "tag", tagId };
+        }
+      }
+
+      return null;
+    },
+    []
+  );
+
+  const updateHoveredDropTarget = useCallback(
+    (point: { x: number; y: number }) => {
+      const {
+        dropTargetElement: nextTarget,
+        isOverSidebarDropScope: nextIsOverSidebarDropScope,
+      } = getDropStateFromPoint(point);
+      const nextDropTargetData = readTaskDropTarget(nextTarget);
+      const nextIsOverExternalDropTarget = nextDropTargetData !== null;
+
+      if (hoveredDropTargetRef.current !== nextTarget) {
+        hoveredDropTargetRef.current?.removeAttribute("data-task-drop-hover");
+        nextTarget?.setAttribute("data-task-drop-hover", "true");
+        hoveredDropTargetRef.current = nextTarget;
+      }
+
+      hoveredDropTargetDataRef.current = nextDropTargetData;
+
+      if (
+        isOverExternalDropTargetRef.current !== nextIsOverExternalDropTarget
+      ) {
+        isOverExternalDropTargetRef.current = nextIsOverExternalDropTarget;
+        setIsOverExternalDropTarget(nextIsOverExternalDropTarget);
+      }
+
+      if (isOverSidebarDropScopeRef.current !== nextIsOverSidebarDropScope) {
+        isOverSidebarDropScopeRef.current = nextIsOverSidebarDropScope;
+        setIsOverSidebarDropScope(nextIsOverSidebarDropScope);
+      }
+    },
+    [getDropStateFromPoint, readTaskDropTarget]
+  );
+
+  const flushDropTargetTracking = useCallback(() => {
+    trackingFrameRef.current = null;
+    if (lastDragPointRef.current) {
+      updateHoveredDropTarget(lastDragPointRef.current);
+    }
+  }, [updateHoveredDropTarget]);
+
+  const scheduleDropTargetTracking = useCallback(
+    (point: { x: number; y: number }) => {
+      lastDragPointRef.current = point;
+
+      if (trackingFrameRef.current !== null) {
+        return;
+      }
+
+      trackingFrameRef.current = window.requestAnimationFrame(
+        flushDropTargetTracking
+      );
+    },
+    [flushDropTargetTracking]
+  );
+
+  const trackDragPointer = useCallback(
+    (event: PointerEvent) => {
+      scheduleDropTargetTracking({ x: event.clientX, y: event.clientY });
+    },
+    [scheduleDropTargetTracking]
+  );
+
+  const startDropTargetTracking = useCallback(
+    (point: { x: number; y: number } | null) => {
+      document.body.setAttribute("data-task-dragging", "true");
+      if (point) {
+        scheduleDropTargetTracking(point);
+      }
+
+      window.addEventListener("pointermove", trackDragPointer, {
+        passive: true,
+      });
+    },
+    [scheduleDropTargetTracking, trackDragPointer]
+  );
+
+  const stopDropTargetTracking = useCallback(() => {
+    window.removeEventListener("pointermove", trackDragPointer);
+    if (trackingFrameRef.current !== null) {
+      window.cancelAnimationFrame(trackingFrameRef.current);
+      trackingFrameRef.current = null;
+    }
+    document.body.removeAttribute("data-task-dragging");
+    hoveredDropTargetRef.current?.removeAttribute("data-task-drop-hover");
+    hoveredDropTargetRef.current = null;
+    hoveredDropTargetDataRef.current = null;
+    isOverExternalDropTargetRef.current = false;
+    isOverSidebarDropScopeRef.current = false;
+    setIsOverExternalDropTarget(false);
+    setIsOverSidebarDropScope(false);
+    lastDragPointRef.current = null;
+  }, [trackDragPointer]);
+
+  useEffect(() => {
+    return () => {
+      stopDropTargetTracking();
+    };
+  }, [stopDropTargetTracking]);
+
   // Group tasks by category if needed
-  const groupedTasks = groupByCategory
-    ? sortedTasks.reduce(
-        (acc, task) => {
-          const category = task.category;
-          if (!acc[category]) {
-            acc[category] = [];
-          }
-          acc[category].push(task);
-          return acc;
-        },
-        {} as Record<TaskCategory, Task[]>
-      )
-    : { all: sortedTasks };
+  const groupedTasks = useMemo(
+    () =>
+      groupByCategory
+        ? sortedTasks.reduce(
+            (acc, task) => {
+              const category = task.category;
+              if (!acc[category]) {
+                acc[category] = [];
+              }
+              acc[category].push(task);
+              return acc;
+            },
+            {} as Record<TaskCategory, Task[]>
+          )
+        : { all: sortedTasks },
+    [groupByCategory, sortedTasks]
+  );
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const task = sortedTasks.find((t) => t.id.value === active.id);
+    const task = sortedTasks.find((t) => t.id.value === String(active.id));
     setActiveTask(task || null);
 
-    // Calculate offset from click point to element's top-left corner
     const activatorEvent = (event as any).activatorEvent;
 
     if (
@@ -159,29 +447,53 @@ export const TaskList: React.FC<TaskListProps> = ({
       activatorEvent.clientX !== undefined &&
       activatorEvent.clientY !== undefined
     ) {
-      // Get the actual DOM element to calculate its bounding rect
-      const element = document.querySelector(`#task-${active.id}`);
-      // Get the DndContext container to account for its position
-      const dndContainer =
-        element?.closest("[data-dnd-context]") || document.body;
-
-      if (element) {
-        const rect = element.getBoundingClientRect();
-        const containerRect = dndContainer.getBoundingClientRect();
-
-        // Calculate simple offset from click point to element's top-left corner
-        setDragOffset({
-          x: activatorEvent.clientX - rect.left,
-          y: activatorEvent.clientY - rect.top,
-        });
-      }
+      startDropTargetTracking({
+        x: activatorEvent.clientX,
+        y: activatorEvent.clientY,
+      });
+    } else {
+      startDropTargetTracking(null);
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    const activeTaskId = String(active.id);
+    const wasOverExternalDropTarget = isOverExternalDropTargetRef.current;
+    const finalDropState = lastDragPointRef.current
+      ? getDropStateFromPoint(lastDragPointRef.current)
+      : null;
+    const finalDropTargetElement = finalDropState
+      ? finalDropState.dropTargetElement
+      : hoveredDropTargetRef.current;
+    const finalDropTarget =
+      (finalDropTargetElement && readTaskDropTarget(finalDropTargetElement)) ||
+      (!finalDropState ? hoveredDropTargetDataRef.current : null);
+    const wasOverSidebarDropScope =
+      isOverSidebarDropScopeRef.current ||
+      Boolean(finalDropState?.isOverSidebarDropScope);
+
     setActiveTask(null);
-    setDragOffset(null);
+    stopDropTargetTracking();
+
+    if (finalDropTarget?.type === "today") {
+      onDropOnToday?.(activeTaskId);
+      return;
+    }
+
+    if (finalDropTarget?.type === "category") {
+      onDropOnCategory?.(activeTaskId, finalDropTarget.category);
+      return;
+    }
+
+    if (finalDropTarget?.type === "tag") {
+      onDropOnTag?.(activeTaskId, finalDropTarget.tagId);
+      return;
+    }
+
+    if (wasOverExternalDropTarget || wasOverSidebarDropScope) {
+      return;
+    }
 
     if (!over || active.id === over.id) {
       return;
@@ -189,10 +501,10 @@ export const TaskList: React.FC<TaskListProps> = ({
 
     if (onReorder) {
       const oldIndex = sortedTasks.findIndex(
-        (task) => task.id.value === active.id
+        (task) => task.id.value === activeTaskId
       );
       const newIndex = sortedTasks.findIndex(
-        (task) => task.id.value === over.id
+        (task) => task.id.value === String(over.id)
       );
       const newTasks = arrayMove(sortedTasks, oldIndex, newIndex);
       onReorder(newTasks);
@@ -200,6 +512,8 @@ export const TaskList: React.FC<TaskListProps> = ({
   };
 
   const renderTaskCard = (task: Task) => {
+    const animationDirection = taskAnimationDirections[task.id.value] ?? 1;
+
     // Use DeferredTaskCard for deferred tasks
     if (task.category === TaskCategory.DEFERRED && onUndefer) {
       return (
@@ -207,6 +521,8 @@ export const TaskList: React.FC<TaskListProps> = ({
           key={task.id.value}
           task={task}
           onUndefer={onUndefer}
+          animationDirection={animationDirection}
+          isListDragActive={isDragActive}
         />
       );
     }
@@ -223,18 +539,24 @@ export const TaskList: React.FC<TaskListProps> = ({
         onDefer={onDefer}
         showTodayButton={showTodayButton}
         showDeferButton={showDeferButton}
-        isOverdue={overdueTaskIds.includes(task.id.value)}
-        isInTodaySelection={todayTaskIds.includes(task.id.value)}
+        isOverdue={overdueTaskIds.has(task.id.value)}
+        isInTodaySelection={todayTaskIdSet.has(task.id.value)}
         lastLog={lastLogs[task.id.value] || null}
         onLoadTaskLogs={onLoadTaskLogs}
         onCreateLog={onCreateLog}
-        isDraggable={!!onReorder}
+        isDraggable={canDragTasks}
+        isListDragActive={isDragActive}
+        isActiveDragItem={activeTaskId === task.id.value}
+        suppressDropIndicator={
+          isOverExternalDropTarget || isOverSidebarDropScope
+        }
         currentCategory={forceShowCategory ? undefined : currentCategory}
         taskViewModel={taskViewModel}
         tags={tags}
         selectedTagIds={taskTags[task.id.value] ?? []}
         onCreateTag={onCreateTag}
         onUpdateTaskTags={onUpdateTaskTags}
+        animationDirection={animationDirection}
       />
     );
   };
@@ -267,27 +589,6 @@ export const TaskList: React.FC<TaskListProps> = ({
     );
   };
 
-  if (sortedTasks.length === 0) {
-    return (
-      <div className="space-y-6">
-        {/* Inline Task Creator - не показываем для отложенных задач */}
-        {onCreateTask &&
-          currentCategory &&
-          currentCategory !== TaskCategory.DEFERRED && (
-            <InlineTaskCreator
-              onCreateTask={onCreateTask}
-              category={currentCategory}
-              placeholder={`Добавить задачу...`}
-            />
-          )}
-
-        <div className="text-center py-8 text-gray-500">
-          <p>{emptyMessage}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Inline Task Creator - не показываем для отложенных задач */}
@@ -309,7 +610,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         modifiers={[restrictToWindowEdges]}
       >
         <div data-dnd-context>
-          <div className="space-y-4">
+          <div className="space-y-4" data-testid="task-list">
             {Object.entries(groupedTasks).map(
               ([categoryKey, categoryTasks]) => {
                 const category = categoryKey as TaskCategory;
@@ -324,7 +625,9 @@ export const TaskList: React.FC<TaskListProps> = ({
                       strategy={verticalListSortingStrategy}
                     >
                       <div className="space-y-3">
-                        {categoryTasks.map(renderTaskCard)}
+                        <AnimatePresence initial={false}>
+                          {categoryTasks.map(renderTaskCard)}
+                        </AnimatePresence>
                       </div>
                     </SortableContext>
                   </div>
@@ -333,12 +636,20 @@ export const TaskList: React.FC<TaskListProps> = ({
             )}
           </div>
 
-          <DragOverlay modifiers={[applyDragOffset]}>
+          <DragOverlay
+            dropAnimation={null}
+            modifiers={[centerDragOverlay, restrictToWindowEdges]}
+            style={{ pointerEvents: "none" }}
+          >
             {activeTask ? (
               <motion.div
-                className="bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-[240px] text-sm"
+                className="pointer-events-none bg-white rounded-lg border-2 border-blue-300 shadow-lg p-2 max-w-[240px] text-sm"
                 initial={{ scale: 0.8, opacity: 0.8 }}
-                animate={{ scale: 1, opacity: 1 }}
+                animate={{
+                  scale: 1,
+                  opacity: isOverSidebarDropScope ? 0.55 : 1,
+                }}
+                transition={{ duration: 0.12, ease: "easeOut" }}
                 data-testid="drag-overlay"
               >
                 <p className="font-medium text-gray-800 truncate">
@@ -354,6 +665,21 @@ export const TaskList: React.FC<TaskListProps> = ({
           </DragOverlay>
         </div>
       </DndContext>
+
+      <AnimatePresence initial={false}>
+        {sortedTasks.length === 0 && (
+          <motion.div
+            key="empty-state"
+            className="text-center py-8 text-gray-500"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+          >
+            <p>{emptyMessage}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

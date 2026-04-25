@@ -56,4 +56,8 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  body[data-task-dragging] [data-task-drop-target] {
+    cursor: grabbing !important;
+  }
 }

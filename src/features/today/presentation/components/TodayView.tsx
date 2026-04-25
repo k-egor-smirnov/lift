@@ -32,6 +32,9 @@ interface TodayViewProps {
   taskTags?: Record<string, string[]>;
   onCreateTag?: (name: string, color: string) => void;
   onUpdateTaskTags?: (taskId: string, tagIds: string[]) => void;
+  onDropOnToday?: (taskId: string) => void;
+  onDropOnCategory?: (taskId: string, category: TaskCategory) => void;
+  onDropOnTag?: (taskId: string, tagId: string) => void;
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({
@@ -49,6 +52,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
   taskTags = {},
   onCreateTag,
   onUpdateTaskTags,
+  onDropOnToday,
+  onDropOnCategory,
+  onDropOnTag,
 }) => {
   const { t } = useTranslation();
   // Use global store
@@ -407,6 +413,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onDefer={onDefer}
                 onUndefer={onUndefer}
                 onReorder={onReorderTasks}
+                onDropOnToday={onDropOnToday}
+                onDropOnCategory={onDropOnCategory}
+                onDropOnTag={onDropOnTag}
                 showTodayButton={true}
                 showDeferButton={true}
                 lastLogs={lastLogs}
@@ -450,6 +459,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onDefer={onDefer}
                 onUndefer={onUndefer}
                 onReorder={onReorderTasks}
+                onDropOnToday={onDropOnToday}
+                onDropOnCategory={onDropOnCategory}
+                onDropOnTag={onDropOnTag}
                 showTodayButton={true}
                 showDeferButton={false}
                 lastLogs={lastLogs}

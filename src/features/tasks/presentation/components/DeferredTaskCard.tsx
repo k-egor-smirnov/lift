@@ -1,5 +1,6 @@
 import React from "react";
 import { Clock, RotateCcw } from "lucide-react";
+import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
@@ -7,11 +8,15 @@ import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 interface DeferredTaskCardProps {
   task: Task;
   onUndefer: (taskId: TaskId) => Promise<void>;
+  animationDirection?: -1 | 1;
+  isListDragActive?: boolean;
 }
 
 export const DeferredTaskCard: React.FC<DeferredTaskCardProps> = ({
   task,
   onUndefer,
+  animationDirection = 1,
+  isListDragActive = false,
 }) => {
   const { t } = useTranslation();
 
@@ -34,11 +39,29 @@ export const DeferredTaskCard: React.FC<DeferredTaskCardProps> = ({
   };
 
   return (
-    <div
+    <motion.div
+      layout={isListDragActive ? false : "position"}
       className={`
-      p-4 bg-white rounded-lg border-2 transition-all duration-200 hover:shadow-md
+      p-4 bg-white rounded-lg border-2 transition-shadow duration-150 hover:shadow-md
       ${isOverdue ? "border-orange-200 bg-orange-50" : "border-gray-200"}
     `}
+      role="article"
+      id={`task-${task.id.value}`}
+      data-testid="task-card"
+      data-animation-direction={animationDirection === -1 ? "up" : "down"}
+      initial={{ opacity: 0, y: animationDirection * 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{
+        opacity: 0,
+        y: animationDirection * -8,
+        scale: 0.98,
+        transition: { duration: 0.14, ease: "easeIn" },
+      }}
+      transition={{
+        duration: 0.16,
+        ease: "easeOut",
+        layout: { duration: 0.18, ease: [0.2, 0, 0, 1] },
+      }}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
@@ -79,6 +102,6 @@ export const DeferredTaskCard: React.FC<DeferredTaskCardProps> = ({
           <RotateCcw className="w-4 h-4" />
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 };

@@ -182,6 +182,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       className="flex flex-col h-full bg-white"
       role="navigation"
       aria-label="Main navigation"
+      data-testid="sidebar-drop-scope"
+      data-task-drop-scope="sidebar"
     >
       <div className="flex items-center justify-between p-6 h-16 box-border">
         <div className="flex items-center space-x-2">
@@ -221,6 +223,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               item.id === "today" &&
               showTodayHighlight &&
               activeView !== "today";
+            const isTodayDropTarget = item.id === "today";
+            const isCategoryDropTarget = Object.values(TaskCategory).includes(
+              item.id as TaskCategory
+            );
+            const taskDropTarget = isTodayDropTarget
+              ? "today"
+              : isCategoryDropTarget
+                ? "category"
+                : undefined;
 
             return (
               <Button
@@ -229,10 +240,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => handleItemClick(item.id)}
                 className={cn(
                   "w-full justify-between h-auto p-3 text-left font-normal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
+                  taskDropTarget &&
+                    "data-[task-drop-hover=true]:bg-blue-50 data-[task-drop-hover=true]:text-blue-700 data-[task-drop-hover=true]:ring-2 data-[task-drop-hover=true]:ring-blue-300",
                   activeView === item.id &&
                     "bg-primary/10 text-primary hover:bg-primary/15"
                 )}
                 data-testid={`sidebar-${item.id.toLowerCase()}`}
+                data-task-drop-target={taskDropTarget}
+                data-task-drop-category={
+                  isCategoryDropTarget ? item.id : undefined
+                }
               >
                 <div className="flex items-center space-x-3">
                   <item.icon className="w-5 h-5" aria-hidden="true" />
@@ -329,9 +346,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleItemClick(viewId)}
                         className={cn(
                           "flex-1 justify-between h-8 px-2 text-left font-normal",
+                          "data-[task-drop-hover=true]:bg-blue-50 data-[task-drop-hover=true]:text-blue-700 data-[task-drop-hover=true]:ring-2 data-[task-drop-hover=true]:ring-blue-300",
                           activeView === viewId &&
                             "bg-primary/10 text-primary hover:bg-primary/15"
                         )}
+                        data-testid={`sidebar-tag-${tag.id}`}
+                        data-task-drop-target="tag"
+                        data-task-drop-tag-id={tag.id}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <span
