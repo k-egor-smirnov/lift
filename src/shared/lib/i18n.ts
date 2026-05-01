@@ -13,6 +13,7 @@ const resources = {
       navigation: {
         today: "Today",
         settings: "Settings",
+        logs: "Logs",
         descriptions: {
           today: "Focus on what matters most today",
           simple: "Quick tasks that take less than 15 minutes",
@@ -25,9 +26,19 @@ const resources = {
         close: "Close",
         save: "Save",
         cancel: "Cancel",
+        enabled: "Enabled",
+        disabled: "Disabled",
       },
       settings: {
         title: "Settings",
+        confirmReset: "Are you sure you want to reset settings to defaults?",
+        inboxOverdueDays: "Inbox overdue days",
+        inboxOverdueDaysDesc:
+          "Number of days after which inbox tasks are considered overdue",
+        keyboardShortcuts: "Keyboard shortcuts",
+        keyboardShortcutsDesc: "Enable or disable keyboard shortcuts",
+        oneDay: "1 day",
+        thirtyDays: "30 days",
         tabs: {
           auth: "Authentication",
           sync: "Synchronization",
@@ -81,6 +92,13 @@ const resources = {
           info: "App Information",
         },
       },
+      shortcuts: {
+        newTask: "New Task",
+        todayView: "Today View",
+        inboxView: "Inbox View",
+        simpleTasks: "Simple Tasks",
+        focusTasks: "Focus Tasks",
+      },
       todayView: {
         title: "Today's Tasks",
         startOfDay: "Start of day",
@@ -89,7 +107,8 @@ const resources = {
         noTasksSelected: "No tasks selected for today",
         startByAdding: "Start by adding tasks from your inbox",
         tip: "Tip",
-        dailySelectionResets: "Daily selection resets at midnight. Tasks will remain in your inbox.",
+        dailySelectionResets:
+          "Daily selection resets at midnight. Tasks will remain in your inbox.",
         activeTasks: "Active Tasks",
         completedTasks: "Completed Tasks",
         addTaskPlaceholder: "Add task to today...",
@@ -195,6 +214,8 @@ const resources = {
         close: "Закрыть",
         save: "Сохранить",
         cancel: "Отмена",
+        enabled: "Включено",
+        disabled: "Отключено",
         delete: "Удалить",
         edit: "Редактировать",
         loading: "Загрузка...",
@@ -203,6 +224,14 @@ const resources = {
       },
       settings: {
         title: "Настройки",
+        confirmReset: "Вы уверены, что хотите сбросить настройки?",
+        inboxOverdueDays: "Дней до просрочки входящих",
+        inboxOverdueDaysDesc:
+          "Количество дней, после которых задачи входящих считаются просроченными",
+        keyboardShortcuts: "Горячие клавиши",
+        keyboardShortcutsDesc: "Включить или отключить горячие клавиши",
+        oneDay: "1 день",
+        thirtyDays: "30 дней",
         tabs: {
           auth: "Авторизация",
           sync: "Синхронизация",
@@ -261,6 +290,13 @@ const resources = {
           testConnection: "Тестировать подключение",
         },
       },
+      shortcuts: {
+        newTask: "Новая задача",
+        todayView: "Просмотр сегодня",
+        inboxView: "Просмотр входящих",
+        simpleTasks: "Простые задачи",
+        focusTasks: "Задачи фокуса",
+      },
       taskCard: {
         deferTask: "Отложить задачу",
         deferTaskWithTitle: "Отложить задачу: {{title}}",
@@ -315,7 +351,8 @@ const resources = {
         syncError: "Ошибка синхронизации",
         syncSendError: "Ошибка отправки данных",
         realtimeEnableFailed: "Не удалось включить real-time обновления",
-        realtimeSubscriptionError: "Ошибка подписки на изменения PostgreSQL. Проверьте настройки Realtime в Supabase",
+        realtimeSubscriptionError:
+          "Ошибка подписки на изменения PostgreSQL. Проверьте настройки Realtime в Supabase",
         networkError: "Нет подключения к сети",
         unknownSyncError: "Неизвестная ошибка синхронизации",
         forcePushError: "Ошибка принудительной отправки",
@@ -363,7 +400,8 @@ const resources = {
         noTasksSelected: "Нет задач на сегодня",
         startByAdding: "Начните с добавления задач из входящих",
         tip: "Совет",
-        dailySelectionResets: "Список на сегодня обновляется в полночь. Задачи останутся во входящих.",
+        dailySelectionResets:
+          "Список на сегодня обновляется в полночь. Задачи останутся во входящих.",
         activeTasks: "Активные задачи",
         completedTasks: "Выполненные",
         addTaskPlaceholder: "Добавить задачу на сегодня...",
@@ -382,14 +420,18 @@ const resources = {
         loadingTasks: "Загрузка задач...",
       },
       config: {
-        missingSupabaseEnv: "Отсутствуют обязательные переменные окружения для Supabase. Убедитесь, что VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY установлены.",
+        missingSupabaseEnv:
+          "Отсутствуют обязательные переменные окружения для Supabase. Убедитесь, что VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY установлены.",
         invalidSupabaseUrl: "Некорректный URL Supabase",
         invalidSupabaseKey: "Некорректный anon key для Supabase",
-        syncIntervalTooShort: "Интервал автосинхронизации не может быть меньше 1 минуты",
+        syncIntervalTooShort:
+          "Интервал автосинхронизации не может быть меньше 1 минуты",
         retryCountInvalid: "Количество попыток должно быть от 1 до 10",
-        retryDelayTooShort: "Задержка между попытками не может быть меньше 1 секунды",
+        retryDelayTooShort:
+          "Задержка между попытками не может быть меньше 1 секунды",
         batchSizeInvalid: "Размер батча должен быть от 1 до 1000",
-        syncTimeoutTooShort: "Таймаут синхронизации не может быть меньше 5 секунд",
+        syncTimeoutTooShort:
+          "Таймаут синхронизации не может быть меньше 5 секунд",
       },
       dailyModal: {
         goodMorning: "Доброе утро!",
