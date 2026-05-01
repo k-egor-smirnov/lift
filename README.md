@@ -2,7 +2,7 @@
 
 # 🚀 Lift
 
-### Daily Todo PWA — Фокус на продуктивность
+### Lift — Фокус на продуктивность
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
@@ -208,8 +208,8 @@ src/
 
 ## 📚 Документация
 
-- [Требования](./.kiro/specs/daily-todo-pwa/requirements.md)
-- [Дизайн](./.kiro/specs/daily-todo-pwa/design.md)
+- [Требования](./.kiro/specs/lift/requirements.md)
+- [Дизайн](./.kiro/specs/lift/design.md)
 - [Технический стек](./.kiro/steering/tech.md)
 
 ---

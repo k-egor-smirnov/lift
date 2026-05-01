@@ -1,17 +1,17 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Daily Todo PWA MVP", () => {
+test.describe("Lift MVP", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
   });
 
   test("should display the main page with correct title", async ({ page }) => {
     // Check page title
-    await expect(page).toHaveTitle(/Daily Todo PWA/);
+    await expect(page).toHaveTitle(/Lift/);
 
     // Check main heading
     await expect(
-      page.getByRole("heading", { name: /Daily Todo PWA - MVP/ })
+      page.getByRole("heading", { name: /Lift - MVP/ })
     ).toBeVisible();
 
     // Check navigation tabs

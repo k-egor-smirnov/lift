@@ -14,9 +14,9 @@ export default defineConfig({
       },
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "masked-icon.svg"],
       manifest: {
-        name: "Daily Todo PWA",
-        short_name: "DailyTodo",
-        description: "A daily task management PWA with focus on today's tasks",
+        name: "Lift",
+        short_name: "Lift",
+        description: "Lift - Task management with focus on today's tasks",
         theme_color: "#ffffff",
         background_color: "#ffffff",
         display: "standalone",

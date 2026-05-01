@@ -42,7 +42,7 @@ export class SupabaseClientFactory {
       },
       global: {
         headers: {
-          "X-Client-Info": "daily-todo-pwa",
+          "X-Client-Info": "lift",
         },
       },
     });
