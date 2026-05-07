@@ -7,6 +7,9 @@ import {
   TaskCategoryChangedEvent,
   TaskReviewedEvent,
   TaskNoteChangedEvent,
+  TaskTitleChangedEvent,
+  TaskDeferredEvent,
+  TaskUndeferredEvent,
 } from "../../../../../shared/domain/events/TaskEvents";
 import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../../../shared/domain/value-objects/NonEmptyTitle";
@@ -97,6 +100,30 @@ describe("TaskLogEventHandler", () => {
     });
   });
 
+  describe("handleTaskTitleChanged", () => {
+    it("should create system log for title change", async () => {
+      const taskId = TaskId.generate();
+      const fromTitle = NonEmptyTitle.fromString("Old title");
+      const toTitle = NonEmptyTitle.fromString("New title");
+      const event = new TaskTitleChangedEvent(taskId, fromTitle, toTitle);
+
+      await handler.handle(event);
+
+      expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
+        id: `task-title-changed-${event.aggregateId}-${event.createdAt}`,
+        taskId: taskId.value,
+        type: "SYSTEM",
+        message: 'Task title changed from "Old title" to "New title"',
+        metadata: {
+          eventType: event.eventType,
+          fromTitle: "Old title",
+          toTitle: "New title",
+        },
+        createdAt: new Date(event.createdAt),
+      });
+    });
+  });
+
   describe("handleTaskReviewed", () => {
     it("should create system log for task review", async () => {
       const taskId = TaskId.generate();
@@ -175,6 +202,46 @@ describe("TaskLogEventHandler", () => {
           eventType: event.eventType,
           fromNote: "Old note",
           toNote: "New note",
+        },
+        createdAt: new Date(event.createdAt),
+      });
+    });
+  });
+
+  describe("deferred lifecycle logs", () => {
+    it("should create system log for task defer", async () => {
+      const taskId = TaskId.generate();
+      const deferredUntil = new Date("2026-05-02T00:00:00.000Z");
+      const event = new TaskDeferredEvent(taskId, deferredUntil);
+
+      await handler.handle(event);
+
+      expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
+        id: `task-deferred-${event.aggregateId}-${event.createdAt}`,
+        taskId: taskId.value,
+        type: "SYSTEM",
+        message: "Task deferred until 2026-05-02",
+        metadata: {
+          eventType: event.eventType,
+          deferredUntil: deferredUntil.toISOString(),
+        },
+        createdAt: new Date(event.createdAt),
+      });
+    });
+
+    it("should create system log for task return from deferred", async () => {
+      const taskId = TaskId.generate();
+      const event = new TaskUndeferredEvent(taskId);
+
+      await handler.handle(event);
+
+      expect(mockDatabase.taskLogs.put).toHaveBeenCalledWith({
+        id: `task-undeferred-${event.aggregateId}-${event.createdAt}`,
+        taskId: taskId.value,
+        type: "SYSTEM",
+        message: "Task returned from deferred",
+        metadata: {
+          eventType: event.eventType,
         },
         createdAt: new Date(event.createdAt),
       });

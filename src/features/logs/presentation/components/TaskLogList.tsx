@@ -1,9 +1,21 @@
 import React from "react";
-import { Settings, User, AlertTriangle, FileText, Loader2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  FileText,
+  FolderSync,
+  Loader2,
+  PencilLine,
+  Settings,
+  Undo2,
+  User,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useCurrentTime } from "@/shared/presentation/contexts/CurrentTimeContext";
 import { formatTimeAgo } from "@/shared/utils/timeFormat";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import { DomainEventType } from "../../../../shared/domain/types";
 
 interface TaskLogListProps {
   logs: LogEntry[];
@@ -28,19 +40,56 @@ const getLogTypeIcon = (type: "SYSTEM" | "USER" | "CONFLICT") => {
   }
 };
 
-const getLogTypeColor = (type: "SYSTEM" | "USER" | "CONFLICT"): string => {
-  switch (type) {
-    case "SYSTEM":
-      return "bg-blue-100 text-blue-800";
-    case "USER":
-      return "bg-green-100 text-green-800";
-    case "CONFLICT":
-      return "bg-red-100 text-red-800";
-    default:
-      return "bg-gray-100 text-gray-800";
+const getLogActionVisual = (
+  log: LogEntry
+): { Icon: React.ComponentType<{ className?: string }>; className: string } => {
+  const eventType = log.metadata?.eventType as DomainEventType | undefined;
+
+  if (eventType === DomainEventType.TASK_COMPLETED) {
+    return { Icon: CheckCircle2, className: "text-emerald-600" };
   }
+  if (eventType === DomainEventType.TASK_DEFERRED) {
+    return { Icon: CalendarClock, className: "text-amber-600" };
+  }
+  if (eventType === DomainEventType.TASK_UNDEFERRED) {
+    return { Icon: Undo2, className: "text-indigo-600" };
+  }
+  if (eventType === DomainEventType.TASK_TITLE_CHANGED) {
+    return { Icon: PencilLine, className: "text-violet-600" };
+  }
+  if (eventType === DomainEventType.TASK_CATEGORY_CHANGED) {
+    return { Icon: FolderSync, className: "text-sky-600" };
+  }
+
+  return {
+    Icon: getLogTypeIcon(log.type),
+    className:
+      log.type === "SYSTEM"
+        ? "text-blue-600"
+        : log.type === "USER"
+          ? "text-green-600"
+          : "text-red-600",
+  };
 };
 
+const getLogActionKey = (log: LogEntry): string => {
+  const eventType = log.metadata?.eventType as DomainEventType | undefined;
+
+  switch (eventType) {
+    case DomainEventType.TASK_COMPLETED:
+      return "completed";
+    case DomainEventType.TASK_DEFERRED:
+      return "deferred";
+    case DomainEventType.TASK_UNDEFERRED:
+      return "undeferred";
+    case DomainEventType.TASK_TITLE_CHANGED:
+      return "title_changed";
+    case DomainEventType.TASK_CATEGORY_CHANGED:
+      return "status_changed";
+    default:
+      return log.type.toLowerCase();
+  }
+};
 
 const formatMetadata = (
   metadata?: Record<string, any>,
@@ -136,60 +185,58 @@ export const TaskLogList: React.FC<TaskLogListProps> = ({
     <div className="space-y-4">
       {/* Log entries */}
       <div className="space-y-3">
-        {logs.map((log) => (
-          <div
-            key={log.id}
-            className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-3 flex-1">
-                {/* Log type indicator */}
-                <div className="flex-shrink-0">
-                  {React.createElement(getLogTypeIcon(log.type), {
-                    className: "w-5 h-5 text-gray-600",
-                  })}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  {/* Header with type and timestamp */}
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span
-                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getLogTypeColor(
-                        log.type
-                      )}`}
-                    >
-                      {log.type}
-                    </span>
-                    {showTaskId && log.taskId && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                        {t("logs.task")}: {log.taskId.slice(-8)}
-                      </span>
-                    )}
-                    <span className="text-sm text-gray-500">
-                      {formatTimeAgo(log.createdAt, now, t, i18n.language)}
-                    </span>
+        {logs.map((log) => {
+          const { Icon, className } = getLogActionVisual(log);
+          const actionKey = getLogActionKey(log);
+          return (
+            <div
+              key={log.id}
+              className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-3 flex-1">
+                  {/* Action indicator */}
+                  <div className="flex-shrink-0">
+                    <Icon
+                      className={`w-5 h-5 ${className}`}
+                      data-testid={`history-action-icon-${actionKey}`}
+                    />
                   </div>
 
-                  {/* Log message */}
-                  <p className="text-gray-900 text-sm leading-relaxed">
-                    {log.message}
-                  </p>
-
-                  {/* Metadata */}
-                  {log.metadata && (
-                    <div className="mt-2">
-                      {formatMetadata(log.metadata, t) && (
-                        <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
-                          {formatMetadata(log.metadata, t)}
-                        </p>
+                  <div className="flex-1 min-w-0">
+                    {/* Header with contextual chips and timestamp */}
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {showTaskId && log.taskId && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          {t("logs.task")}: {log.taskId.slice(-8)}
+                        </span>
                       )}
+                      <span className="text-sm text-gray-500">
+                        {formatTimeAgo(log.createdAt, now, t, i18n.language)}
+                      </span>
                     </div>
-                  )}
+
+                    {/* Log message */}
+                    <p className="text-gray-900 text-sm leading-relaxed">
+                      {log.message}
+                    </p>
+
+                    {/* Metadata */}
+                    {log.metadata && (
+                      <div className="mt-2">
+                        {formatMetadata(log.metadata, t) && (
+                          <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
+                            {formatMetadata(log.metadata, t)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Load more button */}
