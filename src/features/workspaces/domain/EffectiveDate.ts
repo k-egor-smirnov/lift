@@ -3,10 +3,13 @@ import type { WorkspaceState } from "./WorkspaceState";
 const START_OF_DAY_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MILLISECONDS_PER_DAY = 86_400_000;
-const MILLISECONDS_PER_MINUTE = 60_000;
-const MINUTES_PER_DAY = 1_440;
-const RESOLUTION_RADIUS_MINUTES = 36 * 60;
-const OFFSET_SAMPLE_STEP_MINUTES = 60;
+const MILLISECONDS_PER_SECOND = 1_000;
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_DAY = 86_400;
+const RESOLUTION_RADIUS_SECONDS = 36 * 60 * 60;
+const OFFSET_SAMPLE_STEP_SECONDS = 60 * 60;
+const GAP_COARSE_STEP_SECONDS = 60;
+const GAP_REFINEMENT_RADIUS_SECONDS = 60;
 const MAX_BOUNDARY_CACHE_ENTRIES = 256;
 
 const boundaryCache = new Map<string, number>();
@@ -88,23 +91,25 @@ const formatterFor = (timeZone: string): Intl.DateTimeFormat => {
       day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
     });
   } catch {
     throw new Error("Invalid timezone");
   }
 };
 
-interface ZonedMinute {
+interface ZonedSecond {
   date: string;
   hour: number;
   minute: number;
+  second: number;
   ordinal: number;
 }
 
-const zonedMinuteAt = (
+const zonedSecondAt = (
   instantMilliseconds: number,
   formatter: Intl.DateTimeFormat
-): ZonedMinute => {
+): ZonedSecond => {
   const parts = new Map(
     formatter
       .formatToParts(new Date(instantMilliseconds))
@@ -116,6 +121,7 @@ const zonedMinuteAt = (
   const day = parts.get("day");
   const hour = Number(parts.get("hour"));
   const minute = Number(parts.get("minute"));
+  const second = Number(parts.get("second"));
 
   if (
     !year ||
@@ -126,7 +132,10 @@ const zonedMinuteAt = (
     hour > 23 ||
     !Number.isInteger(minute) ||
     minute < 0 ||
-    minute > 59
+    minute > 59 ||
+    !Number.isInteger(second) ||
+    second < 0 ||
+    second > 59
   ) {
     throw new Error("Invalid formatted date");
   }
@@ -138,7 +147,12 @@ const zonedMinuteAt = (
     date,
     hour,
     minute,
-    ordinal: dateOnlyToEpochDay(date) * MINUTES_PER_DAY + hour * 60 + minute,
+    second,
+    ordinal:
+      dateOnlyToEpochDay(date) * SECONDS_PER_DAY +
+      hour * 60 * 60 +
+      minute * 60 +
+      second,
   };
 };
 
@@ -153,84 +167,114 @@ const cacheBoundary = (key: string, instantMilliseconds: number): void => {
 };
 
 /**
- * Resolves a local boundary in a bounded +/-36 hour UTC window. A fold chooses
- * the earliest matching instant. If the wall minute is skipped by a gap, the
- * first valid local minute after it is used. Normal/fold paths sample possible
- * offsets hourly; only the gap path scans the bounded window minute by minute.
+ * Resolves local HH:mm:00 in a bounded +/-36 hour UTC window. Exact offset
+ * candidates preserve historical offset seconds and folds choose the earliest
+ * matching instant. For a gap, a bounded minute scan locates the transition,
+ * then a bounded +/-60 second scan selects the actual first valid instant.
  */
 const resolveBoundaryInstant = (
   localDate: string,
-  boundaryMinutes: number,
+  boundarySeconds: number,
   timeZone: string,
   formatter: Intl.DateTimeFormat
 ): number => {
-  const cacheKey = `${timeZone}\0${localDate}\0${boundaryMinutes}`;
+  const cacheKey = `${timeZone}\0${localDate}\0${boundarySeconds}`;
   const cached = boundaryCache.get(cacheKey);
   if (cached !== undefined) {
     return cached;
   }
 
   const targetOrdinal =
-    dateOnlyToEpochDay(localDate) * MINUTES_PER_DAY + boundaryMinutes;
+    dateOnlyToEpochDay(localDate) * SECONDS_PER_DAY + boundarySeconds;
   const offsets = new Set<number>();
 
   for (
-    let utcMinute = targetOrdinal - RESOLUTION_RADIUS_MINUTES;
-    utcMinute <= targetOrdinal + RESOLUTION_RADIUS_MINUTES;
-    utcMinute += OFFSET_SAMPLE_STEP_MINUTES
+    let utcSecond = targetOrdinal - RESOLUTION_RADIUS_SECONDS;
+    utcSecond <= targetOrdinal + RESOLUTION_RADIUS_SECONDS;
+    utcSecond += OFFSET_SAMPLE_STEP_SECONDS
   ) {
-    const local = zonedMinuteAt(utcMinute * MILLISECONDS_PER_MINUTE, formatter);
-    offsets.add(local.ordinal - utcMinute);
+    const local = zonedSecondAt(utcSecond * MILLISECONDS_PER_SECOND, formatter);
+    offsets.add(local.ordinal - utcSecond);
   }
 
-  let earliestExactUtcMinute: number | undefined;
-  for (const offset of offsets) {
-    const candidateUtcMinute = targetOrdinal - offset;
-    const candidate = zonedMinuteAt(
-      candidateUtcMinute * MILLISECONDS_PER_MINUTE,
-      formatter
-    );
-    if (
-      candidate.ordinal === targetOrdinal &&
-      (earliestExactUtcMinute === undefined ||
-        candidateUtcMinute < earliestExactUtcMinute)
-    ) {
-      earliestExactUtcMinute = candidateUtcMinute;
+  const findEarliestExact = (): number | undefined => {
+    let earliestExactUtcSecond: number | undefined;
+    for (const offset of offsets) {
+      const candidateUtcSecond = targetOrdinal - offset;
+      const candidate = zonedSecondAt(
+        candidateUtcSecond * MILLISECONDS_PER_SECOND,
+        formatter
+      );
+      if (
+        candidate.ordinal === targetOrdinal &&
+        (earliestExactUtcSecond === undefined ||
+          candidateUtcSecond < earliestExactUtcSecond)
+      ) {
+        earliestExactUtcSecond = candidateUtcSecond;
+      }
     }
-  }
+    return earliestExactUtcSecond;
+  };
 
-  if (earliestExactUtcMinute !== undefined) {
-    const result = earliestExactUtcMinute * MILLISECONDS_PER_MINUTE;
+  let earliestExactUtcSecond = findEarliestExact();
+  if (earliestExactUtcSecond !== undefined) {
+    const result = earliestExactUtcSecond * MILLISECONDS_PER_SECOND;
     cacheBoundary(cacheKey, result);
     return result;
   }
 
-  let firstAfter: { utcMinute: number; localOrdinal: number } | undefined;
+  let firstAfterCoarseUtcSecond: number | undefined;
   for (
-    let utcMinute = targetOrdinal - RESOLUTION_RADIUS_MINUTES;
-    utcMinute <= targetOrdinal + RESOLUTION_RADIUS_MINUTES;
-    utcMinute += 1
+    let utcSecond = targetOrdinal - RESOLUTION_RADIUS_SECONDS;
+    utcSecond <= targetOrdinal + RESOLUTION_RADIUS_SECONDS;
+    utcSecond += GAP_COARSE_STEP_SECONDS
   ) {
-    const localOrdinal = zonedMinuteAt(
-      utcMinute * MILLISECONDS_PER_MINUTE,
-      formatter
-    ).ordinal;
+    const local = zonedSecondAt(utcSecond * MILLISECONDS_PER_SECOND, formatter);
+    offsets.add(local.ordinal - utcSecond);
     if (
-      localOrdinal > targetOrdinal &&
-      (firstAfter === undefined ||
-        localOrdinal < firstAfter.localOrdinal ||
-        (localOrdinal === firstAfter.localOrdinal &&
-          utcMinute < firstAfter.utcMinute))
+      local.ordinal > targetOrdinal &&
+      firstAfterCoarseUtcSecond === undefined
     ) {
-      firstAfter = { utcMinute, localOrdinal };
+      firstAfterCoarseUtcSecond = utcSecond;
     }
   }
 
-  if (firstAfter === undefined) {
+  earliestExactUtcSecond = findEarliestExact();
+  if (earliestExactUtcSecond !== undefined) {
+    const result = earliestExactUtcSecond * MILLISECONDS_PER_SECOND;
+    cacheBoundary(cacheKey, result);
+    return result;
+  }
+
+  if (firstAfterCoarseUtcSecond === undefined) {
     throw new Error("Unable to resolve startOfDay boundary in bounded window");
   }
 
-  const result = firstAfter.utcMinute * MILLISECONDS_PER_MINUTE;
+  let firstAfterExactUtcSecond: number | undefined;
+  const refinementStart =
+    firstAfterCoarseUtcSecond - GAP_REFINEMENT_RADIUS_SECONDS;
+  const refinementEnd =
+    firstAfterCoarseUtcSecond + GAP_REFINEMENT_RADIUS_SECONDS;
+  for (
+    let utcSecond = refinementStart;
+    utcSecond <= refinementEnd;
+    utcSecond += 1
+  ) {
+    const localOrdinal = zonedSecondAt(
+      utcSecond * MILLISECONDS_PER_SECOND,
+      formatter
+    ).ordinal;
+    if (localOrdinal > targetOrdinal) {
+      firstAfterExactUtcSecond = utcSecond;
+      break;
+    }
+  }
+
+  if (firstAfterExactUtcSecond === undefined) {
+    throw new Error("Unable to refine startOfDay gap boundary");
+  }
+
+  const result = firstAfterExactUtcSecond * MILLISECONDS_PER_SECOND;
   cacheBoundary(cacheKey, result);
   return result;
 };
@@ -250,12 +294,13 @@ export const effectiveDate = (
   }
 
   const formatter = formatterFor(timeZone);
-  const localDate = zonedMinuteAt(now.getTime(), formatter).date;
+  const localDate = zonedSecondAt(now.getTime(), formatter).date;
   const [boundaryHour, boundaryMinute] = startOfDay.split(":").map(Number);
-  const boundaryMinutes = boundaryHour * 60 + boundaryMinute;
+  const boundarySeconds =
+    boundaryHour * 60 * 60 + boundaryMinute * SECONDS_PER_MINUTE;
   const boundaryInstant = resolveBoundaryInstant(
     localDate,
-    boundaryMinutes,
+    boundarySeconds,
     timeZone,
     formatter
   );
