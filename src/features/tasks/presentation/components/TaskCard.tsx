@@ -86,7 +86,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   suppressDropIndicator = false,
 }) => {
   const { t } = useTranslation();
-  const cardRef = useRef<HTMLElement>(null);
+  const cardRef = useRef<HTMLElement | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const pointerDownCoordsRef = useRef<{ x: number; y: number } | null>(null);
   const draggedBetweenDownAndClickRef = useRef(false);
@@ -257,7 +257,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         ref={(node) => {
           setNodeRef(node);
           if (cardRef.current !== node) {
-            // @ts-ignore
             cardRef.current = node;
           }
         }}

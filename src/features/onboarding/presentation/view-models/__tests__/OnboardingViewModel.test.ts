@@ -53,6 +53,16 @@ vi.mock("../../../../../shared/infrastructure/di", () => ({
           publish: vi.fn(),
         };
       }
+      if (
+        [
+          "ADD_TASK_TO_TODAY_USE_CASE_TOKEN",
+          "REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN",
+          "CREATE_SYSTEM_LOG_USE_CASE_TOKEN",
+          "UNDEFER_TASK_USE_CASE_TOKEN",
+        ].includes(token)
+      ) {
+        return { execute: vi.fn() };
+      }
       return {};
     }),
   },
@@ -61,6 +71,11 @@ vi.mock("../../../../../shared/infrastructure/di", () => ({
     DAILY_SELECTION_REPOSITORY_TOKEN: "DAILY_SELECTION_REPOSITORY_TOKEN",
     LOG_SERVICE_TOKEN: "LOG_SERVICE_TOKEN",
     EVENT_BUS_TOKEN: "EVENT_BUS_TOKEN",
+    ADD_TASK_TO_TODAY_USE_CASE_TOKEN: "ADD_TASK_TO_TODAY_USE_CASE_TOKEN",
+    REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN:
+      "REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN",
+    CREATE_SYSTEM_LOG_USE_CASE_TOKEN: "CREATE_SYSTEM_LOG_USE_CASE_TOKEN",
+    UNDEFER_TASK_USE_CASE_TOKEN: "UNDEFER_TASK_USE_CASE_TOKEN",
   },
 }));
 

@@ -9,7 +9,6 @@ import { TaskLogService } from "../../../../shared/application/services/TaskLogS
 import { AddTaskToTodayUseCase } from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
 import { RemoveTaskFromTodayUseCase } from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
 import { CreateSystemLogUseCase } from "../../../../shared/application/use-cases/CreateSystemLogUseCase";
-import { container, tokens } from "../../../../shared/infrastructure/di";
 import i18n from "../../../../shared/lib/i18n";
 import { UndeferTaskUseCase } from "../../../../shared/application/use-cases/UndeferTaskUseCase";
 
@@ -33,25 +32,19 @@ export class OnboardingService {
   private readonly DEFAULT_OVERDUE_DAYS = 3;
   private readonly DEFAULT_START_OF_DAY_TIME = "09:00";
 
-  private readonly createSystemLogUseCase: CreateSystemLogUseCase;
-
   constructor(
     private readonly taskRepository: TaskRepository,
     private readonly dailySelectionRepository: DailySelectionRepository,
     logService: TaskLogService,
+    addTaskToTodayUseCase: Pick<AddTaskToTodayUseCase, "execute">,
+    removeTaskFromTodayUseCase: Pick<RemoveTaskFromTodayUseCase, "execute">,
+    private readonly createSystemLogUseCase: Pick<
+      CreateSystemLogUseCase,
+      "execute"
+    >,
+    private readonly undeferTaskUseCase: Pick<UndeferTaskUseCase, "execute">,
     private readonly userSettingsService?: UserSettingsService
   ) {
-    const addTaskToTodayUseCase = container.resolve<AddTaskToTodayUseCase>(
-      tokens.ADD_TASK_TO_TODAY_USE_CASE_TOKEN
-    );
-    const removeTaskFromTodayUseCase =
-      container.resolve<RemoveTaskFromTodayUseCase>(
-        tokens.REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN
-      );
-    this.createSystemLogUseCase = container.resolve<CreateSystemLogUseCase>(
-      tokens.CREATE_SYSTEM_LOG_USE_CASE_TOKEN
-    );
-
     // Initialize DailySelectionService for task management
     this.dailySelectionService = new DailySelectionService(
       taskRepository,
@@ -289,12 +282,8 @@ export class OnboardingService {
       const dueDeferredTasks =
         await this.getDueDeferredTasksForDate(targetDate);
       if (dueDeferredTasks.length > 0) {
-        const undeferTaskUseCase = container.resolve<UndeferTaskUseCase>(
-          tokens.UNDEFER_TASK_USE_CASE_TOKEN
-        );
-
         for (const task of dueDeferredTasks) {
-          const result = await undeferTaskUseCase.execute({
+          const result = await this.undeferTaskUseCase.execute({
             taskId: task.id.value,
           });
 

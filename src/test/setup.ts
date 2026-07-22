@@ -134,6 +134,8 @@ vi.mock("../shared/domain/value-objects/NonEmptyTitle", () => {
 
 // Mock DateOnly
 vi.mock("../shared/domain/value-objects/DateOnly", () => {
+  const defaultTestDate = new Date("2023-12-01T12:00:00.000Z");
+
   class InvalidDateOnlyError extends Error {
     constructor(value: string) {
       super(`Invalid DateOnly: ${value}. Must be in YYYY-MM-DD format.`);
@@ -181,7 +183,14 @@ vi.mock("../shared/domain/value-objects/DateOnly", () => {
       }
 
       static getCurrentDate() {
-        return new Date();
+        if (typeof window !== "undefined") {
+          const mockedDate = localStorage.getItem("__dev_mocked_date__");
+          if (mockedDate) {
+            return new Date(mockedDate);
+          }
+        }
+
+        return vi.isFakeTimers() ? new Date() : new Date(defaultTestDate);
       }
 
       static fromDate = (date: Date) => {

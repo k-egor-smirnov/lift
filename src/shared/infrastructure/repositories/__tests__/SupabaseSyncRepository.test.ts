@@ -1,18 +1,41 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 import { SupabaseSyncRepository } from "../SupabaseSyncRepository";
 import { Task } from "../../../domain/entities/Task";
 import { TaskId } from "../../../domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../domain/value-objects/NonEmptyTitle";
 import { TaskCategory, TaskStatus } from "../../../domain/types";
 import { TestTaskIdUtils } from "../../../../test/utils/testHelpers";
+import type { TaskRepository } from "../../../domain/repositories/TaskRepository";
+import type {
+  Database,
+  SupabaseClientFactory,
+} from "../../database/SupabaseClient";
+import type { TodoDatabase } from "../../database/TodoDatabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Mock dependencies
-const mockTaskRepository = {
+const mockTaskRepository: Mocked<TaskRepository> = {
+  findById: vi.fn(),
   saveMany: vi.fn(),
   findAll: vi.fn(),
+  findByCategory: vi.fn(),
+  findByStatus: vi.fn(),
+  findByCategoryAndStatus: vi.fn(),
+  findOverdueTasks: vi.fn(),
+  save: vi.fn(),
+  delete: vi.fn(),
+  count: vi.fn(),
+  countByCategory: vi.fn(),
+  exists: vi.fn(),
 };
 
 const mockClient = {
+  auth: {
+    getUser: vi.fn().mockResolvedValue({
+      data: { user: { id: "test-user-id" } },
+      error: null,
+    }),
+  },
   from: vi.fn(() => ({
     select: vi.fn(() => ({
       eq: vi.fn(() => ({
@@ -24,6 +47,10 @@ const mockClient = {
   })),
 };
 
+const mockClientFactory = {
+  getClient: vi.fn(() => mockClient as unknown as SupabaseClient<Database>),
+} as unknown as SupabaseClientFactory;
+
 const mockDb = {
   dailySelectionEntries: {
     toArray: vi.fn(() => Promise.resolve([])),
@@ -31,6 +58,10 @@ const mockDb = {
   taskLogs: {
     toArray: vi.fn(() => Promise.resolve([])),
   },
+} as unknown as TodoDatabase;
+
+type TestableSupabaseSyncRepository = {
+  updateSyncMetadata(timestamp: Date): Promise<void>;
 };
 
 describe("SupabaseSyncRepository - First Device Login Fix", () => {
@@ -41,13 +72,10 @@ describe("SupabaseSyncRepository - First Device Login Fix", () => {
 
     // Create repository instance with mocked dependencies
     repository = new SupabaseSyncRepository(
-      mockTaskRepository as any,
-      mockClient as any,
-      mockDb as any
+      mockClientFactory,
+      mockTaskRepository,
+      mockDb
     );
-
-    // Mock userId to simulate authenticated user
-    (repository as any).userId = "test-user-id";
   });
 
   it("should not call pushTasks when localTasks is empty (first device login)", async () => {
@@ -68,17 +96,18 @@ describe("SupabaseSyncRepository - First Device Login Fix", () => {
     mockTaskRepository.findAll.mockResolvedValue([]);
 
     // Mock pullTasks to return remote tasks
-    vi.spyOn(repository as any, "pullTasks").mockResolvedValue(remoteTasks);
+    vi.spyOn(repository, "pullTasks").mockResolvedValue(remoteTasks);
 
     // Mock pushTasks to track if it's called
     const pushTasksSpy = vi
-      .spyOn(repository as any, "pushTasks")
+      .spyOn(repository, "pushTasks")
       .mockResolvedValue(undefined);
 
     // Mock updateSyncMetadata
-    vi.spyOn(repository as any, "updateSyncMetadata").mockResolvedValue(
-      undefined
-    );
+    vi.spyOn(
+      repository as unknown as TestableSupabaseSyncRepository,
+      "updateSyncMetadata"
+    ).mockResolvedValue(undefined);
 
     // Act
     const result = await repository.syncTasks();
@@ -109,17 +138,18 @@ describe("SupabaseSyncRepository - First Device Login Fix", () => {
     mockTaskRepository.findAll.mockResolvedValue(localTasks);
 
     // Mock pullTasks to return empty (no new remote tasks)
-    vi.spyOn(repository as any, "pullTasks").mockResolvedValue([]);
+    vi.spyOn(repository, "pullTasks").mockResolvedValue([]);
 
     // Mock pushTasks to track if it's called
     const pushTasksSpy = vi
-      .spyOn(repository as any, "pushTasks")
+      .spyOn(repository, "pushTasks")
       .mockResolvedValue(undefined);
 
     // Mock updateSyncMetadata
-    vi.spyOn(repository as any, "updateSyncMetadata").mockResolvedValue(
-      undefined
-    );
+    vi.spyOn(
+      repository as unknown as TestableSupabaseSyncRepository,
+      "updateSyncMetadata"
+    ).mockResolvedValue(undefined);
 
     // Act
     const result = await repository.syncTasks();

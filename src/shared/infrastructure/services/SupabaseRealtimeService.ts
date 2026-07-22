@@ -265,7 +265,8 @@ export class SupabaseRealtimeService {
    */
   private async handleDailySelectionChange(payload: any): Promise<void> {
     try {
-      let { eventType, new: newRecord, old: oldRecord } = payload;
+      let { eventType } = payload;
+      const { new: newRecord, old: oldRecord } = payload;
       const record =
         eventType === "DELETE" ? oldRecord : newRecord || oldRecord;
 

@@ -21,7 +21,7 @@ export const useKeyboardShortcuts = () => {
     if (settings) {
       keyboardShortcutService.setEnabled(settings.keyboardShortcutsEnabled);
     }
-  }, [settings?.keyboardShortcutsEnabled]);
+  }, [settings]);
 
   /**
    * Register a keyboard shortcut

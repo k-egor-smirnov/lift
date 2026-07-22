@@ -74,7 +74,7 @@ export function useSync(): UseSyncReturn {
         },
       }));
     }
-  }, []);
+  }, [t]);
 
   // Обновление статуса подключения к интернету
   useEffect(() => {
@@ -168,7 +168,7 @@ export function useSync(): UseSyncReturn {
         conflictsResolved: 0,
       };
     }
-  }, []);
+  }, [t]);
 
   // Принудительная отправка локальных изменений
   const forcePush = useCallback(async (): Promise<SyncResult> => {
@@ -210,7 +210,7 @@ export function useSync(): UseSyncReturn {
         conflictsResolved: 0,
       };
     }
-  }, []);
+  }, [t]);
 
   // Включение автоматической синхронизации
   const enableAutoSync = useCallback(() => {
@@ -276,7 +276,7 @@ export function useSync(): UseSyncReturn {
         },
       }));
     }
-  }, []);
+  }, [t]);
 
   // Отключение real-time подписок
   const disableRealtime = useCallback(async () => {

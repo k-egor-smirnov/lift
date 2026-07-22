@@ -18,6 +18,11 @@ import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../../../../shared/domain/types";
 import { GetTaskLogsUseCase } from "../../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { CreateUserLogUseCase } from "../../../../../shared/application/use-cases/CreateUserLogUseCase";
+import { AddTaskToTodayUseCase } from "../../../../../shared/application/use-cases/AddTaskToTodayUseCase";
+import { RemoveTaskFromTodayUseCase } from "../../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
+import { CreateSystemLogUseCase } from "../../../../../shared/application/use-cases/CreateSystemLogUseCase";
+import { UndeferTaskUseCase } from "../../../../../shared/application/use-cases/UndeferTaskUseCase";
+import { container } from "../../../../../shared/infrastructure/di";
 
 // Mock repositories
 const mockTaskRepository: Mocked<TaskRepository> = {
@@ -60,6 +65,21 @@ const mockLogService = new TaskLogService(
   mockGetTaskLogsUseCase,
   mockCreateUserLogUseCase
 );
+const mockAddTaskToTodayUseCase: Pick<AddTaskToTodayUseCase, "execute"> = {
+  execute: vi.fn(),
+};
+const mockRemoveTaskFromTodayUseCase: Pick<
+  RemoveTaskFromTodayUseCase,
+  "execute"
+> = {
+  execute: vi.fn(),
+};
+const mockCreateSystemLogUseCase: Pick<CreateSystemLogUseCase, "execute"> = {
+  execute: vi.fn(),
+};
+const mockUndeferTaskUseCase: Pick<UndeferTaskUseCase, "execute"> = {
+  execute: vi.fn(),
+};
 
 describe("OnboardingService", () => {
   let onboardingService: OnboardingService;
@@ -70,12 +90,36 @@ describe("OnboardingService", () => {
     onboardingService = new OnboardingService(
       mockTaskRepository,
       mockDailySelectionRepository,
-      mockLogService
+      mockLogService,
+      mockAddTaskToTodayUseCase,
+      mockRemoveTaskFromTodayUseCase,
+      mockCreateSystemLogUseCase,
+      mockUndeferTaskUseCase
     );
   });
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("does not resolve hidden dependencies from the infrastructure container", () => {
+    const resolveSpy = vi.spyOn(container, "resolve");
+
+    try {
+      new OnboardingService(
+        mockTaskRepository,
+        mockDailySelectionRepository,
+        mockLogService,
+        mockAddTaskToTodayUseCase,
+        mockRemoveTaskFromTodayUseCase,
+        mockCreateSystemLogUseCase,
+        mockUndeferTaskUseCase
+      );
+
+      expect(resolveSpy).not.toHaveBeenCalled();
+    } finally {
+      resolveSpy.mockRestore();
+    }
   });
 
   describe("isInMorningWindow", () => {
@@ -268,7 +312,7 @@ describe("OnboardingService", () => {
 
   describe("getRegularInboxTasks", () => {
     it("should return regular inbox tasks", async () => {
-      const fixedDate = new Date();
+      const fixedDate = new Date("2023-12-01T12:00:00.000Z");
       const regularTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Regular Inbox Task"),
@@ -296,7 +340,7 @@ describe("OnboardingService", () => {
     });
 
     it("should filter out overdue tasks", async () => {
-      const fixedDate = new Date();
+      const fixedDate = new Date("2023-12-01T12:00:00.000Z");
       const regularTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Regular Inbox Task"),

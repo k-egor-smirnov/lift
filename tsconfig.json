@@ -23,7 +23,12 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "src/test/vitest.d.ts"],
+  "include": [
+    "src",
+    "src/test/vitest.d.ts",
+    "vitest.config.ts",
+    "vitest.integration.config.ts"
+  ],
   "references": [
     {
       "path": "./tsconfig.node.json"

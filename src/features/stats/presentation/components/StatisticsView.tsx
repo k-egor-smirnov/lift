@@ -26,7 +26,7 @@ export const StatisticsView: React.FC = () => {
   useEffect(() => {
     loadStatistics();
     loadChartData();
-  }, []);
+  }, [loadChartData, loadStatistics]);
 
   const getCurrentStats = () => {
     switch (selectedPeriod) {

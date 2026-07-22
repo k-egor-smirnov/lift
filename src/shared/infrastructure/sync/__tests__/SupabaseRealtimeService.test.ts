@@ -55,6 +55,8 @@ describe("SupabaseRealtimeService", () => {
   let realtimeService: SupabaseRealtimeService;
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2023-12-01T12:00:00.000Z"));
     vi.clearAllMocks();
     mockChannel.on.mockReturnThis();
     mockChannel.subscribe.mockReturnThis();
@@ -92,6 +94,7 @@ describe("SupabaseRealtimeService", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
     container.clearInstances();
   });
 

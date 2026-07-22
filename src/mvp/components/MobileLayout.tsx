@@ -50,7 +50,21 @@ const categoryConfig = {
     color: "text-purple-600",
     bgColor: "bg-purple-100",
   },
-};
+} satisfies Record<
+  TaskCategory,
+  {
+    icon: React.ComponentType<{ className?: string }>;
+    label: string;
+    color: string;
+    bgColor: string;
+  }
+>;
+
+const creationCategories = [
+  TaskCategory.INBOX,
+  TaskCategory.SIMPLE,
+  TaskCategory.FOCUS,
+] as const satisfies readonly TaskCategory[];
 
 export const MobileLayout: React.FC<MobileLayoutProps> = ({
   todayDependencies,
@@ -284,14 +298,15 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
               {showCategoryPicker && (
                 <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
                   <div className="p-2 grid grid-cols-3 gap-2">
-                    {Object.entries(categoryConfig).map(([cat, config]) => {
+                    {creationCategories.map((cat) => {
+                      const config = categoryConfig[cat];
                       const Icon = config.icon;
                       const isSelected = cat === newTaskCategory;
                       return (
                         <button
                           key={cat}
                           onClick={() => {
-                            setNewTaskCategory(cat as TaskCategory);
+                            setNewTaskCategory(cat);
                             setShowCategoryPicker(false);
                             inputRef.current?.focus();
                           }}
@@ -436,14 +451,15 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
             {showCategoryPicker && (
               <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
                 <div className="p-2 grid grid-cols-3 gap-2">
-                  {Object.entries(categoryConfig).map(([cat, config]) => {
+                  {creationCategories.map((cat) => {
+                    const config = categoryConfig[cat];
                     const Icon = config.icon;
                     const isSelected = cat === newTaskCategory;
                     return (
                       <button
                         key={cat}
                         onClick={() => {
-                          setNewTaskCategory(cat as TaskCategory);
+                          setNewTaskCategory(cat);
                           setShowCategoryPicker(false);
                           inputRef.current?.focus();
                         }}

@@ -15,6 +15,10 @@ import { DailySelectionRepository } from "../../../../shared/domain/repositories
 import { taskEventBus } from "../../../../shared/infrastructure/events/TaskEventBus";
 import { TaskEventType } from "../../../../shared/domain/events/TaskEvent";
 import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
+import { AddTaskToTodayUseCase } from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
+import { RemoveTaskFromTodayUseCase } from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
+import { CreateSystemLogUseCase } from "../../../../shared/application/use-cases/CreateSystemLogUseCase";
+import { UndeferTaskUseCase } from "../../../../shared/application/use-cases/UndeferTaskUseCase";
 
 /**
  * State for the onboarding view model
@@ -75,6 +79,19 @@ const createOnboardingService = () => {
     getTaskLogsUseCase,
     createUserLogUseCase
   );
+  const addTaskToTodayUseCase = container.resolve<AddTaskToTodayUseCase>(
+    tokens.ADD_TASK_TO_TODAY_USE_CASE_TOKEN
+  );
+  const removeTaskFromTodayUseCase =
+    container.resolve<RemoveTaskFromTodayUseCase>(
+      tokens.REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN
+    );
+  const createSystemLogUseCase = container.resolve<CreateSystemLogUseCase>(
+    tokens.CREATE_SYSTEM_LOG_USE_CASE_TOKEN
+  );
+  const undeferTaskUseCase = container.resolve<UndeferTaskUseCase>(
+    tokens.UNDEFER_TASK_USE_CASE_TOKEN
+  );
 
   // UserSettings repository is not in DI container, create manually
   const userSettingsRepository = new UserSettingsRepositoryImpl(todoDatabase);
@@ -84,6 +101,10 @@ const createOnboardingService = () => {
     taskRepository,
     dailySelectionRepository,
     logService,
+    addTaskToTodayUseCase,
+    removeTaskFromTodayUseCase,
+    createSystemLogUseCase,
+    undeferTaskUseCase,
     userSettingsService
   );
 };

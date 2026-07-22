@@ -536,13 +536,22 @@ describe("device detection utilities", () => {
     });
 
     it("should default to desktop in server environment", () => {
-      const originalWindow = global.window;
-      // @ts-ignore
-      delete global.window;
+      const originalWindow = Object.getOwnPropertyDescriptor(
+        globalThis,
+        "window"
+      );
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: undefined,
+      });
 
-      expect(getDeviceType()).toBe("desktop");
-
-      global.window = originalWindow;
+      try {
+        expect(getDeviceType()).toBe("desktop");
+      } finally {
+        if (originalWindow) {
+          Object.defineProperty(globalThis, "window", originalWindow);
+        }
+      }
     });
   });
 });

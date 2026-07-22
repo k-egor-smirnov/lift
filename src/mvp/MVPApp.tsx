@@ -154,7 +154,15 @@ export const MVPApp: React.FC = () => {
       changeTaskNoteUseCase,
       getTodayTasksUseCase,
     }),
-    []
+    [
+      changeTaskNoteUseCase,
+      completeTaskUseCase,
+      createTaskUseCase,
+      deleteTaskUseCase,
+      getTodayTasksUseCase,
+      taskRepository,
+      updateTaskUseCase,
+    ]
   );
 
   const todayDependencies: TodayViewModelDependencies = useMemo(
@@ -164,7 +172,12 @@ export const MVPApp: React.FC = () => {
       removeTaskFromTodayUseCase,
       completeTaskUseCase,
     }),
-    []
+    [
+      addTaskToTodayUseCase,
+      completeTaskUseCase,
+      getTodayTasksUseCase,
+      removeTaskFromTodayUseCase,
+    ]
   );
 
   const logDependencies: LogViewModelDependencies = useMemo(
@@ -172,13 +185,13 @@ export const MVPApp: React.FC = () => {
       getTaskLogsUseCase,
       createUserLogUseCase,
     }),
-    []
+    [createUserLogUseCase, getTaskLogsUseCase]
   );
 
   // Create the view model instances
   const taskViewModel = useMemo(
     () => createTaskViewModel(taskDependencies),
-    []
+    [taskDependencies]
   );
   // Initialize keyboard shortcuts
   const { registerShortcut, unregisterShortcut, isEnabled } =
@@ -221,7 +234,7 @@ export const MVPApp: React.FC = () => {
     };
 
     initializeApp();
-  }, [database, loadTasks]);
+  }, [database, loadTasks, taskEventAdapter]);
 
   // Load today task IDs
   const loadTodayTaskIds = useCallback(async () => {
@@ -466,7 +479,7 @@ export const MVPApp: React.FC = () => {
         toast.error(t("toasts.completeFailed"));
       }
     },
-    [completeTask, loadTasks]
+    [completeTask, loadTasks, t]
   );
 
   const handleEditTask = useCallback(
@@ -566,7 +579,7 @@ export const MVPApp: React.FC = () => {
         toast.error(t("toasts.deferFailed"));
       }
     },
-    [deferTaskUseCase, loadTasks, removeTaskFromTodayUseCase]
+    [deferTaskUseCase, loadTasks, removeTaskFromTodayUseCase, t]
   );
 
   const handleUndeferTask = useCallback(
@@ -590,7 +603,7 @@ export const MVPApp: React.FC = () => {
         toast.error(t("toasts.undeferError"));
       }
     },
-    [undeferTaskUseCase, loadTasks]
+    [undeferTaskUseCase, loadTasks, t]
   );
 
   const handleViewChange = useCallback((view: ActiveView) => {
@@ -863,7 +876,7 @@ export const MVPApp: React.FC = () => {
         (acc, tag) => ({ ...acc, [tag.id]: getTaskCountByTag(tag.id) }),
         {} as Record<string, number>
       ),
-    [tags, taskTags, getTaskCountByTag]
+    [tags, getTaskCountByTag]
   );
 
   const activeTagName = useMemo(() => {

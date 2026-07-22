@@ -12,6 +12,8 @@ describe("TaskRepositoryImpl", () => {
   let repository: TaskRepositoryImpl;
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2023-12-01T12:00:00.000Z"));
     db = new TodoDatabase();
     await db.initialize();
     await db.clearAllData();
@@ -20,6 +22,7 @@ describe("TaskRepositoryImpl", () => {
 
   afterEach(async () => {
     await db.close();
+    vi.useRealTimers();
   });
 
   describe("save and findById", () => {

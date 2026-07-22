@@ -2,9 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { ulid } from "ulid";
 
 // Mock Date to return consistent date for tests - must be before other imports
-const MOCK_DATE = "2023-12-01T00:00:00.000Z";
-vi.useFakeTimers();
-vi.setSystemTime(new Date(MOCK_DATE));
+const MOCK_DATE = "2023-12-01T12:00:00.000Z";
 
 import { Task } from "../../../../../shared/domain/entities/Task";
 import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
@@ -79,6 +77,8 @@ describe("TodayViewModel", () => {
   let viewModel: ReturnType<typeof createTodayViewModel>;
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(MOCK_DATE));
     vi.clearAllMocks();
     viewModel = createTodayViewModel(dependencies);
   });

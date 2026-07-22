@@ -66,21 +66,24 @@ export const useStatsViewModel = create<StatsState>((set, get) => ({
 
     try {
       switch (selectedPeriod) {
-        case "day":
+        case "day": {
           const dailyStats =
             await statisticsService.getDailyStatistics(selectedDate);
           set({ dailyStats });
           break;
-        case "week":
+        }
+        case "week": {
           const weeklyStats =
             await statisticsService.getWeeklyStatistics(selectedDate);
           set({ weeklyStats });
           break;
-        case "month":
+        }
+        case "month": {
           const monthlyStats =
             await statisticsService.getMonthlyStatistics(selectedDate);
           set({ monthlyStats });
           break;
+        }
       }
     } catch (error) {
       set({
@@ -161,10 +164,11 @@ export const formatPeriodLabel = (period: StatsPeriod, date: Date): string => {
         month: "long",
         day: "numeric",
       });
-    case "week":
+    case "week": {
       const weekStart = getWeekStart(date);
       const weekEnd = getWeekEnd(date);
       return `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+    }
     case "month":
       return date.toLocaleDateString("en-US", {
         year: "numeric",

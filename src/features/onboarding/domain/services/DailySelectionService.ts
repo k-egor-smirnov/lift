@@ -16,9 +16,12 @@ export class DailySelectionService {
     private taskRepository: TaskRepository,
     private dailySelectionRepository: DailySelectionRepository,
     _logService: TaskLogService,
-    private addTaskToTodayUseCase: AddTaskToTodayUseCase,
-    private removeTaskFromTodayUseCase: RemoveTaskFromTodayUseCase,
-    private createSystemLogUseCase: CreateSystemLogUseCase
+    private addTaskToTodayUseCase: Pick<AddTaskToTodayUseCase, "execute">,
+    private removeTaskFromTodayUseCase: Pick<
+      RemoveTaskFromTodayUseCase,
+      "execute"
+    >,
+    private createSystemLogUseCase: Pick<CreateSystemLogUseCase, "execute">
   ) {}
 
   /**

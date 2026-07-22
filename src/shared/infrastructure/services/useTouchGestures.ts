@@ -162,11 +162,14 @@ export const useTouchGestures = (options: TouchGestureOptions = {}) => {
  * Detect if device supports touch
  */
 export const isTouchDevice = (): boolean => {
+  const legacyNavigator = navigator as Navigator & {
+    msMaxTouchPoints?: number;
+  };
+
   return (
     "ontouchstart" in window ||
     navigator.maxTouchPoints > 0 ||
-    // @ts-ignore
-    navigator.msMaxTouchPoints > 0
+    (legacyNavigator.msMaxTouchPoints ?? 0) > 0
   );
 };
 
