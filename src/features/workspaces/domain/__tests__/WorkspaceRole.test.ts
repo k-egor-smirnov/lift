@@ -1,5 +1,6 @@
 import {
   can,
+  isWorkspaceRole,
   matrixPowerLevel,
   validateRoleTransition,
   WorkspaceRole,
@@ -50,6 +51,80 @@ describe("workspace roles", () => {
       [WorkspaceRole.Editor]: 50,
       [WorkspaceRole.Viewer]: 0,
     });
+  });
+
+  it.each([[undefined], [null], ["CUSTOM"], [42]])(
+    "rejects malformed roles deliberately: %p",
+    (role) => {
+      expect(isWorkspaceRole(role)).toBe(false);
+      expect(() => can(role as WorkspaceRole, "read")).toThrow(
+        "Invalid WorkspaceRole"
+      );
+    }
+  );
+
+  it.each([[undefined], [null], ["CUSTOM"], [42]])(
+    "rejects a malformed actor role before evaluating a transition: %p",
+    (role) => {
+      expect(() =>
+        validateRoleTransition({
+          actorRole: role as WorkspaceRole,
+          previousRoles: { "@owner:test": WorkspaceRole.Owner },
+          nextRoles: { "@owner:test": WorkspaceRole.Owner },
+        })
+      ).toThrow("Invalid WorkspaceRole");
+    }
+  );
+
+  it.each([[undefined], [null], ["CUSTOM"], [42]])(
+    "rejects every malformed own previous role value, including undefined: %p",
+    (role) => {
+      expect(() =>
+        validateRoleTransition({
+          actorRole: WorkspaceRole.Owner,
+          previousRoles: {
+            "@owner:test": WorkspaceRole.Owner,
+            "@member:test": role as WorkspaceRole,
+          },
+          nextRoles: { "@owner:test": WorkspaceRole.Owner },
+        })
+      ).toThrow("Invalid WorkspaceRole");
+    }
+  );
+
+  it.each([[undefined], [null], ["CUSTOM"], [42]])(
+    "rejects every malformed own next role value, including undefined: %p",
+    (role) => {
+      expect(() =>
+        validateRoleTransition({
+          actorRole: WorkspaceRole.Owner,
+          previousRoles: {
+            "@owner:test": WorkspaceRole.Owner,
+            "@member:test": WorkspaceRole.Viewer,
+          },
+          nextRoles: {
+            "@owner:test": WorkspaceRole.Owner,
+            "@member:test": role as WorkspaceRole,
+          },
+        })
+      ).toThrow("Invalid WorkspaceRole");
+    }
+  );
+
+  it("rejects the Editor Viewer-to-CUSTOM role bypass", () => {
+    expect(() =>
+      validateRoleTransition({
+        actorRole: WorkspaceRole.Editor,
+        previousRoles: {
+          "@owner:test": WorkspaceRole.Owner,
+          "@viewer:test": WorkspaceRole.Viewer,
+        },
+        nextRoles: {
+          "@owner:test": WorkspaceRole.Owner,
+          "@viewer:test": "CUSTOM" as WorkspaceRole,
+        },
+      })
+    ).toThrow("Invalid WorkspaceRole");
   });
 
   it("does not let an admin grant Owner or Admin", () => {
