@@ -1,4 +1,3 @@
-import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskCard } from "../TaskCard";
@@ -39,7 +38,7 @@ const createMockTask = (overrides: Partial<any> = {}): Task => {
 
 // Mock log entry
 const createMockLog = (overrides: Partial<LogEntry> = {}): LogEntry => ({
-  id: 1,
+  id: "log-1",
   taskId: "task-1",
   type: "USER",
   message: "Test log message",
@@ -142,8 +141,8 @@ describe.skip("TaskCard", () => {
       const onLoadTaskLogs = vi
         .fn()
         .mockResolvedValue([
-          createMockLog({ id: 1, message: "Log 1" }),
-          createMockLog({ id: 2, message: "Log 2" }),
+          createMockLog({ id: "log-1", message: "Log 1" }),
+          createMockLog({ id: "log-2", message: "Log 2" }),
         ]);
       const lastLog = createMockLog();
 
@@ -173,8 +172,8 @@ describe.skip("TaskCard", () => {
 
     it("should display log history when loaded", async () => {
       const mockLogs = [
-        createMockLog({ id: 1, message: "First log", type: "SYSTEM" }),
-        createMockLog({ id: 2, message: "Second log", type: "USER" }),
+        createMockLog({ id: "log-1", message: "First log", type: "SYSTEM" }),
+        createMockLog({ id: "log-2", message: "Second log", type: "USER" }),
       ];
       const onLoadTaskLogs = vi.fn().mockResolvedValue(mockLogs);
       const lastLog = createMockLog();
@@ -281,7 +280,7 @@ describe.skip("TaskCard", () => {
       render(<TaskCard {...mockProps} task={completedTask} />);
 
       expect(
-        screen.getAllByText((content, element) => {
+        screen.getAllByText((_content, element) => {
           return element?.textContent?.includes("↩️ Revert") || false;
         })[0]
       ).toBeInTheDocument();
@@ -313,7 +312,7 @@ describe.skip("TaskCard", () => {
       );
 
       expect(
-        screen.getAllByText((content, element) => {
+        screen.getAllByText((_content, element) => {
           return element?.textContent?.includes("5m ago") || false;
         })[0]
       ).toBeInTheDocument();
@@ -334,7 +333,7 @@ describe.skip("TaskCard", () => {
       );
 
       expect(
-        screen.getAllByText((content, element) => {
+        screen.getAllByText((_content, element) => {
           return element?.textContent?.includes("30s ago") || false;
         })[0]
       ).toBeInTheDocument();

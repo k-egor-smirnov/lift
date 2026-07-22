@@ -98,6 +98,8 @@ describe("TaskViewModel", () => {
   let viewModel: ReturnType<typeof createTaskViewModel>;
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2023-12-01T00:00:00.000Z"));
     vi.clearAllMocks();
     viewModel = createTaskViewModel(dependencies);
   });
@@ -214,10 +216,8 @@ describe("TaskViewModel", () => {
   describe("completeTask", () => {
     it("should complete task successfully", async () => {
       const taskId = TestTaskIdUtils.getValidTaskIdString();
-      const mockResponse = { taskId };
-
       vi.mocked(mockCompleteTaskUseCase.execute).mockResolvedValue(
-        ResultUtils.ok(mockResponse)
+        ResultUtils.ok(undefined)
       );
       vi.mocked(mockTaskRepository.findAll).mockResolvedValue([]);
 

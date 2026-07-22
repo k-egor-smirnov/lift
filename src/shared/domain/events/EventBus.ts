@@ -6,7 +6,6 @@ import Dexie from "dexie";
 import {
   TodoDatabase,
   EventStoreRecord,
-  HandledEventRecord,
   LockRecord,
 } from "../../infrastructure/database/TodoDatabase";
 import * as tokens from "../../infrastructure/di/tokens";
@@ -237,7 +236,9 @@ export class PersistentEventBusImpl implements PersistentEventBus {
 
   private processingLoopId?: number;
   private isProcessing = false;
+  private activeProcessing?: Promise<void>;
   private isShuttingDown = false;
+  private lastCreatedAt = 0;
 
   constructor(@inject(tokens.DATABASE_TOKEN) private database: TodoDatabase) {}
 
@@ -259,7 +260,7 @@ export class PersistentEventBusImpl implements PersistentEventBus {
         eventId: event.eventId,
         occurredAt: event.occurredAt.toISOString(),
       }),
-      createdAt: Date.now(),
+      createdAt: this.nextCreatedAt(),
       status: "pending" as const,
       attemptCount: 0,
     }));
@@ -452,13 +453,18 @@ export class PersistentEventBusImpl implements PersistentEventBus {
     }
   }
 
-  private async processNextBatch(): Promise<void> {
+  private processNextBatch(): Promise<void> {
     if (this.isProcessing || this.isShuttingDown) {
-      return; // Already processing or shutting down
+      return this.activeProcessing ?? Promise.resolve();
     }
 
     this.isProcessing = true;
+    this.activeProcessing = this.runNextBatch();
 
+    return this.activeProcessing;
+  }
+
+  private async runNextBatch(): Promise<void> {
     try {
       // Acquire global processing lock using Web Locks API with database fallback
       await this.withLock("event-processing", async () => {
@@ -489,17 +495,33 @@ export class PersistentEventBusImpl implements PersistentEventBus {
         }
 
         // Process each aggregate's events in order
-        for (const [aggregateId, events] of eventsByAggregate) {
-          await this.processAggregateEvents(aggregateId, events);
+        for (const events of eventsByAggregate.values()) {
+          await this.processAggregateEvents(events);
         }
       });
     } finally {
       this.isProcessing = false;
+      this.activeProcessing = undefined;
     }
   }
 
-  private async processEventsDirectly(): Promise<void> {
-    // Get pending events, grouped by aggregateId for ordered processing
+  private async processAggregateEvents(
+    events: EventStoreRecord[]
+  ): Promise<void> {
+    // Sort events by creation time to ensure proper ordering
+    events.sort((a, b) => a.createdAt - b.createdAt);
+
+    for (const eventRecord of events) {
+      await this.processEvent(eventRecord);
+    }
+  }
+
+  /** Process pending events without acquiring the scheduler lock (test/manual use). */
+  async processEventsDirectly(): Promise<void> {
+    if (this.activeProcessing) {
+      await this.activeProcessing;
+    }
+
     const pendingEvents = await this.database.eventStore
       .where("status")
       .equals("pending")
@@ -511,34 +533,15 @@ export class PersistentEventBusImpl implements PersistentEventBus {
       .limit(this.PROCESSING_BATCH_SIZE)
       .toArray();
 
-    if (pendingEvents.length === 0) {
-      return;
-    }
-
-    // Group by aggregateId to ensure ordered processing per aggregate
     const eventsByAggregate = new Map<string, EventStoreRecord[]>();
     for (const event of pendingEvents) {
-      if (!eventsByAggregate.has(event.aggregateId)) {
-        eventsByAggregate.set(event.aggregateId, []);
-      }
-      eventsByAggregate.get(event.aggregateId)!.push(event);
+      const events = eventsByAggregate.get(event.aggregateId) ?? [];
+      events.push(event);
+      eventsByAggregate.set(event.aggregateId, events);
     }
 
-    // Process each aggregate's events in order
-    for (const [aggregateId, events] of eventsByAggregate) {
-      await this.processAggregateEvents(aggregateId, events);
-    }
-  }
-
-  private async processAggregateEvents(
-    aggregateId: string,
-    events: EventStoreRecord[]
-  ): Promise<void> {
-    // Sort events by creation time to ensure proper ordering
-    events.sort((a, b) => a.createdAt - b.createdAt);
-
-    for (const eventRecord of events) {
-      await this.processEvent(eventRecord);
+    for (const events of eventsByAggregate.values()) {
+      await this.processAggregateEvents(events);
     }
   }
 
@@ -668,6 +671,11 @@ export class PersistentEventBusImpl implements PersistentEventBus {
   private extractAggregateId(event: DomainEvent): string {
     const eventData = event.getEventData();
     return eventData.taskId || eventData.aggregateId || "unknown";
+  }
+
+  private nextCreatedAt(): number {
+    this.lastCreatedAt = Math.max(Date.now(), this.lastCreatedAt + 1);
+    return this.lastCreatedAt;
   }
 
   private extractAggregateType(event: DomainEvent): string {

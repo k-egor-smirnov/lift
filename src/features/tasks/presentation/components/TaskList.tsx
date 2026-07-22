@@ -52,7 +52,7 @@ interface TaskListProps {
   onReorder?: (tasks: Task[]) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
-  onCreateTask?: (title: string, category: TaskCategory) => Promise<void>;
+  onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
   emptyMessage?: string;
   currentCategory?: TaskCategory;
@@ -200,14 +200,18 @@ export const TaskList: React.FC<TaskListProps> = ({
   const getActivatorCoordinates = (event: Event | null) => {
     if (!event) return null;
 
-    if ("clientX" in event && "clientY" in event) {
+    if (event instanceof MouseEvent) {
       return {
         x: event.clientX,
         y: event.clientY,
       };
     }
 
-    if ("touches" in event && event.touches.length > 0) {
+    if (
+      typeof TouchEvent !== "undefined" &&
+      event instanceof TouchEvent &&
+      event.touches.length > 0
+    ) {
       return {
         x: event.touches[0].clientX,
         y: event.touches[0].clientY,

@@ -9,11 +9,6 @@ import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../shared/domain/types";
 import { Task } from "../shared/domain/entities/Task";
 import { TaskId } from "../shared/domain/value-objects/TaskId";
-import { TaskList } from "../features/tasks/presentation/components/TaskList";
-
-import { TodayView } from "../features/today/presentation/components/TodayView";
-import { TodayMobileView } from "../features/today/presentation/components/TodayMobileView";
-import { AllLogsView } from "../features/logs/presentation/components";
 import { ActiveView, Sidebar } from "./components/Sidebar";
 import { getVisibleTasks } from "./utils/viewFilters";
 import { Header } from "./components/Header";
@@ -22,10 +17,7 @@ import {
   createTaskViewModel,
   TaskViewModelDependencies,
 } from "../features/tasks/presentation/view-models/TaskViewModel";
-import {
-  TodayViewModelDependencies,
-  createTodayViewModel,
-} from "../features/today/presentation/view-models/TodayViewModel";
+import { TodayViewModelDependencies } from "../features/today/presentation/view-models/TodayViewModel";
 import { useKeyboardShortcuts } from "../shared/infrastructure/services/useKeyboardShortcuts";
 import { DailyModalContainer } from "../features/onboarding";
 import { useOnboardingViewModel } from "../features/onboarding/presentation/view-models/OnboardingViewModel";
@@ -55,7 +47,6 @@ import { CreateUserLogUseCase } from "../shared/application/use-cases/CreateUser
 import { ChangeTaskNoteUseCase } from "../shared/application/use-cases/ChangeTaskNoteUseCase";
 import { LogViewModelDependencies } from "../features/logs/presentation/view-models/LogViewModel";
 import { toast, Toaster } from "sonner";
-import { Settings } from "../features/settings/presentation/components/Settings";
 import { ContentArea } from "./components/ContentArea";
 import { ResultUtils } from "@/shared/domain/Result";
 import { DateOnly } from "@/shared/domain/value-objects/DateOnly";
@@ -63,7 +54,7 @@ import { useTagViewModel } from "../features/tags/presentation/view-models/TagVi
 
 export const MVPApp: React.FC = () => {
   const { t } = useTranslation();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [, setIsCreateModalOpen] = useState(false);
 
   const [activeView, setActiveView] = useState<ActiveView>("today");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -189,11 +180,6 @@ export const MVPApp: React.FC = () => {
     () => createTaskViewModel(taskDependencies),
     []
   );
-  const todayViewModel = useMemo(
-    () => createTodayViewModel(todayDependencies),
-    []
-  );
-
   // Initialize keyboard shortcuts
   const { registerShortcut, unregisterShortcut, isEnabled } =
     useKeyboardShortcuts();
@@ -211,9 +197,6 @@ export const MVPApp: React.FC = () => {
     clearError,
     getTodayTaskIds: getTaskViewModelTodayTaskIds,
   } = taskViewModel();
-
-  // Subscribe to today view model for getting today task IDs
-  const { getTodayTaskIds } = todayViewModel();
 
   // Initialize database and load tasks on component mount
   useEffect(() => {
@@ -610,31 +593,6 @@ export const MVPApp: React.FC = () => {
     [undeferTaskUseCase, loadTasks]
   );
 
-  const handleReturnTaskToToday = useCallback(
-    async (taskId: string) => {
-      try {
-        const result = await addTaskToTodayUseCase.execute({ taskId });
-        if (result.success) {
-          console.log("Task returned to today successfully");
-
-          // Refresh the daily modal data to remove the task from modal lists
-          const { loadDailyModalData } = useOnboardingViewModel.getState();
-          await loadDailyModalData();
-
-          // Note: TodayView will auto-refresh via event bus when task is returned
-        } else {
-          console.error(
-            "Failed to return task to today:",
-            (result as any).error.message
-          );
-        }
-      } catch (error) {
-        console.error("Error returning task to today:", error);
-      }
-    },
-    [addTaskToTodayUseCase]
-  );
-
   const handleViewChange = useCallback((view: ActiveView) => {
     setActiveView(view);
   }, []);
@@ -940,15 +898,18 @@ export const MVPApp: React.FC = () => {
     );
   }
 
-  // Get the current category for modal
-  const currentCategory =
-    activeView === "today" ||
-    activeView === "logs" ||
-    activeView === "settings" ||
-    activeView.startsWith("tag:")
-      ? TaskCategory.INBOX
-      : activeView;
-  const hideCategorySelection = activeView !== "today";
+  // Non-category views create tasks in Inbox by default.
+  const currentCategory = (() => {
+    switch (activeView) {
+      case TaskCategory.SIMPLE:
+      case TaskCategory.FOCUS:
+      case TaskCategory.DEFERRED:
+      case TaskCategory.INBOX:
+        return activeView;
+      default:
+        return TaskCategory.INBOX;
+    }
+  })();
 
   // If mobile view should be used, render it directly without sidebar/header
   if (shouldUseMobileView) {
@@ -965,6 +926,7 @@ export const MVPApp: React.FC = () => {
         onCreateLog={handleCreateTaskLog}
         onCreateTask={handleMobileCreateTask}
         onComplete={handleCompleteTask}
+        onAddToToday={handleAddToToday}
       />
     );
   }

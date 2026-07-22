@@ -9,7 +9,6 @@ import { TaskLogService } from "../../../../shared/application/services/TaskLogS
 import { AddTaskToTodayUseCase } from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
 import { RemoveTaskFromTodayUseCase } from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
 import { CreateSystemLogUseCase } from "../../../../shared/application/use-cases/CreateSystemLogUseCase";
-import { EventBus } from "../../../../shared/domain/events/EventBus";
 import { container, tokens } from "../../../../shared/infrastructure/di";
 import i18n from "../../../../shared/lib/i18n";
 import { UndeferTaskUseCase } from "../../../../shared/application/use-cases/UndeferTaskUseCase";
@@ -39,25 +38,19 @@ export class OnboardingService {
   constructor(
     private readonly taskRepository: TaskRepository,
     private readonly dailySelectionRepository: DailySelectionRepository,
-    private readonly logService: TaskLogService,
+    logService: TaskLogService,
     private readonly userSettingsService?: UserSettingsService
   ) {
-    // Get EventBus from DI container
-    const eventBus = container.resolve<EventBus>(tokens.EVENT_BUS_TOKEN);
-
-    // Create use cases
-    const addTaskToTodayUseCase = new AddTaskToTodayUseCase(
-      dailySelectionRepository,
-      taskRepository,
-      eventBus
+    const addTaskToTodayUseCase = container.resolve<AddTaskToTodayUseCase>(
+      tokens.ADD_TASK_TO_TODAY_USE_CASE_TOKEN
     );
-
-    const removeTaskFromTodayUseCase = new RemoveTaskFromTodayUseCase(
-      dailySelectionRepository,
-      eventBus
+    const removeTaskFromTodayUseCase =
+      container.resolve<RemoveTaskFromTodayUseCase>(
+        tokens.REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN
+      );
+    this.createSystemLogUseCase = container.resolve<CreateSystemLogUseCase>(
+      tokens.CREATE_SYSTEM_LOG_USE_CASE_TOKEN
     );
-
-    this.createSystemLogUseCase = new CreateSystemLogUseCase();
 
     // Initialize DailySelectionService for task management
     this.dailySelectionService = new DailySelectionService(
@@ -293,7 +286,8 @@ export class OnboardingService {
       await this.dailySelectionService.clearSelectionForDate(targetDate);
 
       // Automatically return deferred tasks that are due on the effective day
-      const dueDeferredTasks = await this.getDueDeferredTasksForDate(targetDate);
+      const dueDeferredTasks =
+        await this.getDueDeferredTasksForDate(targetDate);
       if (dueDeferredTasks.length > 0) {
         const undeferTaskUseCase = container.resolve<UndeferTaskUseCase>(
           tokens.UNDEFER_TASK_USE_CASE_TOKEN

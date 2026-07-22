@@ -15,7 +15,7 @@ export class DailySelectionService {
   constructor(
     private taskRepository: TaskRepository,
     private dailySelectionRepository: DailySelectionRepository,
-    private logService: TaskLogService,
+    _logService: TaskLogService,
     private addTaskToTodayUseCase: AddTaskToTodayUseCase,
     private removeTaskFromTodayUseCase: RemoveTaskFromTodayUseCase,
     private createSystemLogUseCase: CreateSystemLogUseCase

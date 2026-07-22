@@ -1,4 +1,4 @@
-import { injectable, inject } from "tsyringe";
+import { inject } from "tsyringe";
 import { TaskId } from "../../domain/value-objects/TaskId";
 import { Task } from "../../domain/entities/Task";
 import { TaskRepository } from "../../domain/repositories/TaskRepository";

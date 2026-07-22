@@ -32,7 +32,13 @@ const mockEventBus: EventBus = {
 };
 
 const mockDatabase = {
-  transaction: vi.fn(),
+  transaction: vi.fn(
+    async (
+      _mode: string,
+      _tables: unknown,
+      callback: () => unknown | Promise<unknown>
+    ) => await callback()
+  ),
   syncQueue: {
     add: vi.fn(),
   },
@@ -50,13 +56,6 @@ describe("CreateTaskUseCase", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Mock transaction to execute the callback immediately
-    vi.mocked(mockDatabase.transaction).mockImplementation(
-      async (mode, tables, callback) => {
-        return await callback();
-      }
-    );
 
     useCase = new CreateTaskUseCase(
       mockTaskRepository,
@@ -111,7 +110,7 @@ describe("CreateTaskUseCase", () => {
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
         expect(result.error.code).toBe("INVALID_TITLE");
-        expect(result.error.message).toContain("title cannot be empty");
+        expect(result.error.message).toContain("Title cannot be empty");
       }
 
       expect(mockTaskRepository.save).not.toHaveBeenCalled();

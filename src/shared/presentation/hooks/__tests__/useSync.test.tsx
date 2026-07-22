@@ -1,42 +1,28 @@
-import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-  beforeAll,
-  vi,
-} from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useSync } from "../useSync";
-import {
-  getSyncService,
-  getRealtimeService,
-} from "../../infrastructure/di/syncContainer";
 
-// Мокаем DI контейнер для синхронизации
-vi.mock("../../infrastructure/di/syncContainer", () => {
-  const mockSyncService = {
+const { mockSyncService, mockRealtimeService } = vi.hoisted(() => ({
+  mockSyncService: {
     performSync: vi.fn(),
     performBackgroundSync: vi.fn(),
     forcePushLocalChanges: vi.fn(),
     getSyncStatus: vi.fn(),
-  };
-
-  const mockRealtimeService = {
+  },
+  mockRealtimeService: {
     subscribeToTaskChanges: vi.fn(),
     unsubscribeFromTaskChanges: vi.fn(),
     isConnected: vi.fn(),
     disconnect: vi.fn(),
-  };
+    getConnectionStatus: vi.fn(),
+  },
+}));
 
-  return {
-    getSyncService: vi.fn().mockReturnValue(mockSyncService),
-    getRealtimeService: vi.fn().mockReturnValue(mockRealtimeService),
-    mockSyncService,
-    mockRealtimeService,
-  };
-});
+// Мокаем DI контейнер для синхронизации
+vi.mock("../../../infrastructure/di/syncContainer", () => ({
+  getSyncService: vi.fn().mockReturnValue(mockSyncService),
+  getRealtimeService: vi.fn().mockReturnValue(mockRealtimeService),
+}));
 
 // Мокаем navigator.onLine
 Object.defineProperty(navigator, "onLine", {
@@ -55,15 +41,6 @@ Object.defineProperty(window, "removeEventListener", {
 });
 
 describe("useSync", () => {
-  let mockSyncService: any;
-  let mockRealtimeService: any;
-
-  beforeAll(async () => {
-    const module = await import("../../infrastructure/di/syncContainer");
-    mockSyncService = module.mockSyncService;
-    mockRealtimeService = module.mockRealtimeService;
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -75,7 +52,7 @@ describe("useSync", () => {
     });
 
     mockRealtimeService.isConnected.mockReturnValue(false);
-    mockRealtimeService.getConnectionStatus = vi.fn().mockReturnValue({
+    mockRealtimeService.getConnectionStatus.mockReturnValue({
       isConnected: false,
       activeSubscriptions: 0,
       subscribedUsers: [],
@@ -97,11 +74,7 @@ describe("useSync", () => {
       expect(result.current.syncStatus).toBe("idle");
       expect(result.current.lastSyncAt).toBeNull();
       expect(result.current.error).toBeNull();
-      expect(result.current.realtimeStatus).toEqual({
-        isConnected: false,
-        activeSubscriptions: 0,
-        subscribedUsers: [],
-      });
+      expect(result.current.realtimeStatus).toBe("disconnected");
     });
 
     it("should setup online/offline listeners", () => {
@@ -157,7 +130,7 @@ describe("useSync", () => {
 
       // Assert
       expect(mockSyncService.performSync).toHaveBeenCalled();
-      expect(result.current.syncStatus).toBe("idle");
+      expect(result.current.syncStatus).toBe("synced");
     });
 
     it("should handle sync errors", async () => {
@@ -184,7 +157,7 @@ describe("useSync", () => {
 
       // Assert
       expect(result.current.error).toEqual(mockResult.error);
-      expect(result.current.syncStatus).toBe("idle");
+      expect(result.current.syncStatus).toBe("error");
     });
 
     it("should force push local changes", async () => {
@@ -262,8 +235,7 @@ describe("useSync", () => {
 
       // Act - симулируем прохождение времени
       await act(async () => {
-        vi.advanceTimersByTime(30000); // 30 секунд
-        await vi.runAllTimersAsync();
+        await vi.advanceTimersByTimeAsync(30000); // 30 секунд
       });
 
       // Assert
@@ -273,23 +245,17 @@ describe("useSync", () => {
 
     it("should update realtime status periodically", async () => {
       // Arrange
-      const mockStatus = {
-        isConnected: true,
-        activeSubscriptions: 2,
-        subscribedUsers: ["user1", "user2"],
-      };
-      mockRealtimeService.getConnectionStatus.mockReturnValue(mockStatus);
+      mockRealtimeService.isConnected.mockReturnValue(true);
 
       const { result } = renderHook(() => useSync());
 
       // Act - симулируем прохождение времени
       await act(async () => {
-        vi.advanceTimersByTime(30000); // 30 секунд
-        await vi.runAllTimersAsync();
+        await vi.advanceTimersByTimeAsync(30000); // 30 секунд
       });
 
       // Assert
-      expect(result.current.realtimeStatus).toEqual(mockStatus);
+      expect(result.current.realtimeStatus).toBe("connected");
     });
   });
 });

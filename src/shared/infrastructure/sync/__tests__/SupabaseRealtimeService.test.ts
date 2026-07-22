@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { container } from "tsyringe";
 import { SupabaseRealtimeService } from "../../services/SupabaseRealtimeService";
-import { SupabaseClientFactory } from "../../database/SupabaseClient";
-import { TaskLogService } from "../../../application/services/TaskLogService";
-import { DailySelectionRepository } from "../../../domain/repositories/DailySelectionRepository";
 import * as tokens from "../../di/tokens";
+import { taskEventBus } from "../../events/TaskEventBus";
+import { TaskEventType } from "../../../domain/events/TaskEvent";
 
 // Мокаем Supabase клиент
 const mockChannel = {
@@ -26,11 +25,6 @@ const mockSupabaseClient = {
 
 const mockSupabaseClientFactory = {
   getClient: vi.fn().mockReturnValue(mockSupabaseClient),
-};
-
-const mockLogService = {
-  logSystem: vi.fn(),
-  logUserAction: vi.fn(),
 };
 
 const mockDailySelectionRepository = {
@@ -59,9 +53,20 @@ const mockTaskRepository = {
 
 describe("SupabaseRealtimeService", () => {
   let realtimeService: SupabaseRealtimeService;
-  let mockCallback: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    mockChannel.on.mockReturnThis();
+    mockChannel.subscribe.mockReturnThis();
+    mockChannel.unsubscribe.mockResolvedValue({ error: null });
+    mockSupabaseClient.channel.mockReturnValue(mockChannel);
+    mockSupabaseClient.removeAllChannels.mockResolvedValue({ error: null });
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: "test-user-id" } },
+      error: null,
+    });
+    mockSupabaseClientFactory.getClient.mockReturnValue(mockSupabaseClient);
+
     // Очищаем контейнер
     container.clearInstances();
 
@@ -70,7 +75,6 @@ describe("SupabaseRealtimeService", () => {
       tokens.SUPABASE_CLIENT_FACTORY_TOKEN,
       mockSupabaseClientFactory
     );
-    container.registerInstance(tokens.LOG_SERVICE_TOKEN, mockLogService);
     container.registerInstance(
       tokens.DAILY_SELECTION_REPOSITORY_TOKEN,
       mockDailySelectionRepository
@@ -83,14 +87,11 @@ describe("SupabaseRealtimeService", () => {
     // Создаем экземпляр сервиса
     realtimeService = container.resolve(SupabaseRealtimeService);
 
-    // Создаем мок колбэка
-    mockCallback = vi.fn();
-
-    // Сбрасываем все моки
-    vi.clearAllMocks();
+    vi.spyOn(taskEventBus, "emit").mockResolvedValue(undefined);
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     container.clearInstances();
   });
 
@@ -308,12 +309,7 @@ describe("SupabaseRealtimeService", () => {
   });
 
   describe("handleDailySelectionChange", () => {
-    beforeEach(() => {
-      // Подписываемся на события
-      realtimeService.on("daily_selection_changed", mockCallback);
-    });
-
-    it("should handle INSERT event for current date", () => {
+    it("should handle INSERT event for current date", async () => {
       // Arrange
       const today = new Date().toISOString().split("T")[0];
       const payload = {
@@ -332,17 +328,18 @@ describe("SupabaseRealtimeService", () => {
       };
 
       // Act
-      (realtimeService as any).handleDailySelectionChange(payload);
+      await realtimeService["handleDailySelectionChange"](payload);
 
       // Assert
-      expect(mockCallback).toHaveBeenCalledWith({
-        eventType: "INSERT",
-        data: payload.new,
-        date: today,
+      expect(taskEventBus.emit).toHaveBeenCalledWith({
+        type: TaskEventType.TASK_ADDED_TO_TODAY,
+        taskId: "task-1",
+        timestamp: expect.any(Date),
+        data: { date: today },
       });
     });
 
-    it("should handle UPDATE event for current date", () => {
+    it("should handle UPDATE event for current date", async () => {
       // Arrange
       const today = new Date().toISOString().split("T")[0];
       const payload = {
@@ -369,17 +366,18 @@ describe("SupabaseRealtimeService", () => {
       };
 
       // Act
-      (realtimeService as any).handleDailySelectionChange(payload);
+      await realtimeService["handleDailySelectionChange"](payload);
 
       // Assert
-      expect(mockCallback).toHaveBeenCalledWith({
-        eventType: "UPDATE",
-        data: payload.new,
-        date: today,
+      expect(taskEventBus.emit).toHaveBeenCalledWith({
+        type: TaskEventType.TASK_ADDED_TO_TODAY,
+        taskId: "task-1",
+        timestamp: expect.any(Date),
+        data: { date: today },
       });
     });
 
-    it("should handle soft delete (UPDATE with deleted_at) as DELETE event", () => {
+    it("should handle soft delete (UPDATE with deleted_at) as DELETE event", async () => {
       // Arrange
       const today = new Date().toISOString().split("T")[0];
       const payload = {
@@ -406,17 +404,18 @@ describe("SupabaseRealtimeService", () => {
       };
 
       // Act
-      (realtimeService as any).handleDailySelectionChange(payload);
+      await realtimeService["handleDailySelectionChange"](payload);
 
       // Assert
-      expect(mockCallback).toHaveBeenCalledWith({
-        eventType: "DELETE",
-        data: payload.new,
-        date: today,
+      expect(taskEventBus.emit).toHaveBeenCalledWith({
+        type: TaskEventType.TASK_REMOVED_FROM_TODAY,
+        taskId: "task-1",
+        timestamp: expect.any(Date),
+        data: { date: today },
       });
     });
 
-    it("should ignore soft-deleted records for INSERT events", () => {
+    it("should ignore soft-deleted records for INSERT events", async () => {
       // Arrange
       const today = new Date().toISOString().split("T")[0];
       const payload = {
@@ -435,13 +434,13 @@ describe("SupabaseRealtimeService", () => {
       };
 
       // Act
-      (realtimeService as any).handleDailySelectionChange(payload);
+      await realtimeService["handleDailySelectionChange"](payload);
 
       // Assert
-      expect(mockCallback).not.toHaveBeenCalled();
+      expect(taskEventBus.emit).not.toHaveBeenCalled();
     });
 
-    it("should ignore events for different dates", () => {
+    it("should ignore events for different dates", async () => {
       // Arrange
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
         .toISOString()
@@ -462,13 +461,13 @@ describe("SupabaseRealtimeService", () => {
       };
 
       // Act
-      (realtimeService as any).handleDailySelectionChange(payload);
+      await realtimeService["handleDailySelectionChange"](payload);
 
       // Assert
-      expect(mockCallback).not.toHaveBeenCalled();
+      expect(taskEventBus.emit).not.toHaveBeenCalled();
     });
 
-    it("should handle DELETE event for current date", () => {
+    it("should handle DELETE event for current date", async () => {
       // Arrange
       const today = new Date().toISOString().split("T")[0];
       const payload = {
@@ -487,13 +486,14 @@ describe("SupabaseRealtimeService", () => {
       };
 
       // Act
-      (realtimeService as any).handleDailySelectionChange(payload);
+      await realtimeService["handleDailySelectionChange"](payload);
 
       // Assert
-      expect(mockCallback).toHaveBeenCalledWith({
-        eventType: "DELETE",
-        data: payload.old,
-        date: today,
+      expect(taskEventBus.emit).toHaveBeenCalledWith({
+        type: TaskEventType.TASK_REMOVED_FROM_TODAY,
+        taskId: "task-1",
+        timestamp: expect.any(Date),
+        data: { date: today },
       });
     });
   });

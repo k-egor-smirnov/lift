@@ -95,7 +95,7 @@ export class DailySelectionRepositoryImpl implements DailySelectionRepository {
       .where("[date+taskId]")
       .equals([date.value, taskId.value])
       .filter((record) => !record.deletedAt) // Исключаем удаленные записи
-      .modify({ completedFlag: completed, updatedAt: Date.now() });
+      .modify({ completedFlag: completed, updatedAt: new Date() });
   }
 
   async getTaskCompletionStatus(
@@ -130,7 +130,7 @@ export class DailySelectionRepositoryImpl implements DailySelectionRepository {
       .where("date")
       .equals(date.value)
       .filter((record) => !record.deletedAt) // Только неудаленные записи
-      .modify({ deletedAt: new Date(), updatedAt: Date.now() });
+      .modify({ deletedAt: new Date(), updatedAt: new Date() });
   }
 
   async countTasksForDay(date: DateOnly): Promise<number> {
@@ -162,7 +162,7 @@ export class DailySelectionRepositoryImpl implements DailySelectionRepository {
       .where("taskId")
       .equals(taskId.value)
       .filter((record) => !record.deletedAt) // Только неудаленные записи
-      .modify({ deletedAt: new Date(), updatedAt: Date.now() });
+      .modify({ deletedAt: new Date(), updatedAt: new Date() });
   }
 
   /**

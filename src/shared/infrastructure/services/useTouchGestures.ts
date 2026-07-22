@@ -64,7 +64,7 @@ export const useTouchGestures = (options: TouchGestureOptions = {}) => {
     }
   };
 
-  const handleTouchMove = (event: TouchEvent) => {
+  const handleTouchMove = (_event: TouchEvent) => {
     // Cancel long press if user moves finger
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);

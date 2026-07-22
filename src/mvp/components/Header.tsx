@@ -5,7 +5,6 @@ import {
   Target,
   Inbox,
   FileText,
-  Plus,
   Menu,
   Clock,
   Settings,
@@ -41,11 +40,7 @@ const getViewTitle = (view: ActiveView, t: any, activeTagName?: string) => {
   }
 };
 
-const getViewDescription = (
-  view: ActiveView,
-  t: any,
-  activeTagName?: string
-) => {
+const getViewDescription = (view: ActiveView, t: any) => {
   if (view === "today") return t("navigation.descriptions.today");
   if (view === "logs")
     return t("logs.subtitle", "View all system and user activity");
@@ -94,14 +89,12 @@ export const Header: React.FC<HeaderProps> = ({
   onMobileMenuToggle,
 }) => {
   const { t } = useTranslation();
-  const [scrollY, setScrollY] = useState(0);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const IconComponent = getViewIcon(activeView);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      setScrollY(currentScrollY);
 
       // Collapse header when scrolling down on mobile
       const isMobile = window.innerWidth <= 768;
@@ -118,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const headerHeight = isCollapsed ? "h-14" : "";
 
-  const description = getViewDescription(activeView, t, activeTagName);
+  const description = getViewDescription(activeView, t);
 
   return (
     <>

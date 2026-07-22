@@ -12,6 +12,7 @@ import { LogViewModelDependencies } from "../../features/logs/presentation/view-
 import { TaskViewModel } from "../../features/tasks/presentation/view-models/TaskViewModel";
 import { LogEntry } from "../../shared/application/use-cases/GetTaskLogsUseCase";
 import { ViewContainer } from "./ViewContainer";
+import { TaskId } from "../../shared/domain/value-objects/TaskId";
 
 interface ContentAreaProps {
   activeView: ActiveView;
@@ -37,7 +38,7 @@ interface ContentAreaProps {
   lastLogs: Record<string, LogEntry>;
 
   // Event handlers
-  onCreateTask: (title: string, category: TaskCategory) => Promise<void>;
+  onCreateTask: (title: string, category: TaskCategory) => Promise<boolean>;
   onCompleteTask: (taskId: string) => Promise<void>;
   onEditTask: (taskId: string, newTitle: string) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
@@ -46,10 +47,10 @@ interface ContentAreaProps {
   onDropTaskOnToday: (taskId: string) => void;
   onDropTaskOnCategory: (taskId: string, category: TaskCategory) => void;
   onDropTaskOnTag: (taskId: string, tagId: string) => void;
-  onLoadTaskLogs: (taskId: string) => Promise<void>;
-  onCreateTaskLog: (taskId: string, content: string) => Promise<void>;
+  onLoadTaskLogs: (taskId: string) => Promise<LogEntry[]>;
+  onCreateTaskLog: (taskId: string, content: string) => Promise<boolean>;
   onDeferTask: (taskId: string, deferredUntil: Date) => Promise<void>;
-  onUndeferTask: (taskId: string) => Promise<void>;
+  onUndeferTask: (taskId: TaskId) => Promise<void>;
 }
 
 export const ContentArea: React.FC<ContentAreaProps> = ({

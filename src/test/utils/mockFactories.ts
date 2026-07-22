@@ -132,7 +132,7 @@ export const createMockDatabase = (): MockedObject<TodoDatabase> => {
 
   // Mock transaction to execute callback immediately
   mockDb.transaction.mockImplementation(
-    async (mode: any, tables: any, callback: any) => {
+    async (_mode: any, _tables: any, callback: any) => {
       return await callback();
     }
   );
@@ -156,6 +156,7 @@ export const createMockDailySelectionRepository =
     clearDay: vi.fn(),
     countTasksForDay: vi.fn(),
     getLastSelectionDateForTask: vi.fn(),
+    removeTaskFromAllDays: vi.fn(),
   });
 
 /**

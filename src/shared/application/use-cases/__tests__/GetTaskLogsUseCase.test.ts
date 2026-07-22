@@ -26,12 +26,11 @@ const mockQuery = {
   toArray: vi.fn(),
 };
 
-const mockDatabase = {
-  taskLogs: {
-    toCollection: vi.fn(),
-    where: vi.fn(),
-  },
-} as unknown as TodoDatabase;
+const mockTaskLogsTable = {
+  toCollection: vi.fn(),
+  where: vi.fn(),
+};
+const mockDatabase = { taskLogs: mockTaskLogsTable } as unknown as TodoDatabase;
 
 describe("GetTaskLogsUseCase", () => {
   let useCase: GetTaskLogsUseCase;
@@ -61,10 +60,8 @@ describe("GetTaskLogsUseCase", () => {
       toArray: vi.fn(),
     };
 
-    vi.mocked(mockDatabase.taskLogs.toCollection).mockReturnValue(
-      mockCollection
-    );
-    vi.mocked(mockDatabase.taskLogs.where).mockReturnValue(mockWhereResult);
+    mockTaskLogsTable.toCollection.mockReturnValue(mockCollection);
+    mockTaskLogsTable.where.mockReturnValue(mockWhereResult);
 
     useCase = new GetTaskLogsUseCase(mockDatabase);
   });
@@ -74,14 +71,14 @@ describe("GetTaskLogsUseCase", () => {
       // Arrange
       const mockLogs: TaskLogRecord[] = [
         {
-          id: 1,
+          id: "log-1",
           taskId: "task_1",
           type: "USER",
           message: "User log 1",
           createdAt: new Date("2024-01-15T10:00:00Z"),
         },
         {
-          id: 2,
+          id: "log-2",
           taskId: "task_2",
           type: "SYSTEM",
           message: "System log 1",
@@ -110,7 +107,7 @@ describe("GetTaskLogsUseCase", () => {
         expect(response.pagination.hasPreviousPage).toBe(false);
       }
 
-      expect(mockDatabase.taskLogs.toCollection).toHaveBeenCalled();
+      expect(mockTaskLogsTable.toCollection).toHaveBeenCalled();
       expect(mockCollection.reverse).toHaveBeenCalled(); // Default desc order
       expect(mockCollection.offset).toHaveBeenCalledWith(0);
       expect(mockCollection.limit).toHaveBeenCalledWith(20);
@@ -121,7 +118,7 @@ describe("GetTaskLogsUseCase", () => {
       const taskId = TaskId.generate();
       const mockLogs: TaskLogRecord[] = [
         {
-          id: 1,
+          id: "log-1",
           taskId: taskId.value,
           type: "USER",
           message: "Task-specific log",
@@ -130,20 +127,18 @@ describe("GetTaskLogsUseCase", () => {
       ];
 
       // Setup the where chain properly
-      const mockWhereResult = vi
-        .mocked(mockDatabase.taskLogs.where)
-        .mockReturnValue({
-          equals: vi.fn().mockReturnValue({
-            count: vi.fn().mockResolvedValue(1),
-            reverse: vi.fn().mockReturnValue({
-              offset: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue({
-                  toArray: vi.fn().mockResolvedValue(mockLogs),
-                }),
+      mockTaskLogsTable.where.mockReturnValue({
+        equals: vi.fn().mockReturnValue({
+          count: vi.fn().mockResolvedValue(1),
+          reverse: vi.fn().mockReturnValue({
+            offset: vi.fn().mockReturnValue({
+              limit: vi.fn().mockReturnValue({
+                toArray: vi.fn().mockResolvedValue(mockLogs),
               }),
             }),
           }),
-        } as any);
+        }),
+      });
 
       const request: GetTaskLogsRequest = {
         taskId: taskId.value,
@@ -159,14 +154,14 @@ describe("GetTaskLogsUseCase", () => {
         expect(result.data.logs[0].taskId).toBe(taskId.value);
       }
 
-      expect(mockDatabase.taskLogs.where).toHaveBeenCalledWith("taskId");
+      expect(mockTaskLogsTable.where).toHaveBeenCalledWith("taskId");
     });
 
     it("should filter logs by type", async () => {
       // Arrange
       const mockLogs: TaskLogRecord[] = [
         {
-          id: 1,
+          id: "log-1",
           type: "SYSTEM",
           message: "System log",
           createdAt: new Date("2024-01-15T10:00:00Z"),
@@ -190,14 +185,14 @@ describe("GetTaskLogsUseCase", () => {
         expect(result.data.logs[0].type).toBe("SYSTEM");
       }
 
-      expect(mockDatabase.taskLogs.where).toHaveBeenCalledWith("type");
+      expect(mockTaskLogsTable.where).toHaveBeenCalledWith("type");
     });
 
     it("should handle pagination correctly", async () => {
       // Arrange
       const mockLogs: TaskLogRecord[] = [
         {
-          id: 3,
+          id: "log-3",
           type: "USER",
           message: "Page 2 log",
           createdAt: new Date("2024-01-15T10:00:00Z"),
@@ -330,7 +325,7 @@ describe("GetTaskLogsUseCase", () => {
       // Arrange
       const mockLogs: TaskLogRecord[] = [
         {
-          id: 1,
+          id: "log-1",
           taskId: "task_1",
           type: "USER",
           message: "Test message",
@@ -349,7 +344,7 @@ describe("GetTaskLogsUseCase", () => {
       expect(ResultUtils.isSuccess(result)).toBe(true);
       if (ResultUtils.isSuccess(result)) {
         const logEntry = result.data.logs[0];
-        expect(logEntry.id).toBe(1);
+        expect(logEntry.id).toBe("log-1");
         expect(logEntry.taskId).toBe("task_1");
         expect(logEntry.type).toBe("USER");
         expect(logEntry.message).toBe("Test message");
@@ -373,7 +368,7 @@ describe("GetTaskLogsUseCase", () => {
 
       // Assert
       expect(ResultUtils.isSuccess(result)).toBe(true);
-      expect(mockDatabase.taskLogs.where).toHaveBeenCalledWith("taskId");
+      expect(mockTaskLogsTable.where).toHaveBeenCalledWith("taskId");
     });
   });
 

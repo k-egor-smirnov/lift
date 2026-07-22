@@ -35,7 +35,7 @@ interface SettingsProps {
   onClose?: () => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
+export const Settings: React.FC<SettingsProps> = () => {
   const { t, i18n } = useTranslation();
   const {
     isOnline,
@@ -49,7 +49,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   } = useSync();
 
   // Auth state
-  const { user, loading, signIn, signUp, signOut } = useAuth();
+  const { user, signIn, signUp, signOut } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -178,7 +178,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
 
         // Тест 3: Проверка подключения к Supabase
         try {
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from("tasks")
             .select("count")
             .limit(1);
@@ -209,7 +209,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
 
         // Тест 5: Проверка таблицы sync_metadata
         try {
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from("sync_metadata")
             .select("*")
             .limit(1);
@@ -487,7 +487,9 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                       </ul>
                       <div className="text-xs mt-2">
                         {t("settings.app.browserStatus")}:{" "}
-                        {navigator.onLine ? t("settings.sync.online") : t("settings.sync.offline")}
+                        {navigator.onLine
+                          ? t("settings.sync.online")
+                          : t("settings.sync.offline")}
                       </div>
                     </div>
                   </AlertDescription>
@@ -539,7 +541,9 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                     className="w-full"
                     disabled={isLoading}
                   >
-                    {isLoading ? t("settings.app.testingConnection") : t("settings.app.testConnection")}
+                    {isLoading
+                      ? t("settings.app.testingConnection")
+                      : t("settings.app.testConnection")}
                   </Button>
                 </div>
 

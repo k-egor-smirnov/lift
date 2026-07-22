@@ -100,8 +100,8 @@ export class TodoDatabase extends Dexie {
   handledEvents!: Table<HandledEventRecord>;
   locks!: Table<LockRecord>;
 
-  constructor() {
-    super("TodoDatabase");
+  constructor(databaseName = "TodoDatabase") {
+    super(databaseName);
 
     // Version 1 - Initial schema
     this.version(1).stores({
@@ -135,7 +135,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade((trans) => {
+      .upgrade((_trans) => {
         // Data migration logic if needed
         console.log(
           "Upgrading database to version 2 - adding event store tables"
@@ -196,7 +196,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async (_trans) => {
         console.log(
           "Upgrading database to version 4 - adding deferred tasks support"
         );
@@ -221,7 +221,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async (_trans) => {
         console.log(
           "Upgrading database to version 5 - adding soft delete support for daily selection entries"
         );
@@ -325,7 +325,7 @@ export class TodoDatabase extends Dexie {
         handledEvents: "[eventId+handlerId], eventId, handlerId",
         locks: "id, expiresAt",
       })
-      .upgrade(async (trans) => {
+      .upgrade(async (_trans) => {
         console.log(
           "Upgrading database to version 8 - adding note field to tasks"
         );

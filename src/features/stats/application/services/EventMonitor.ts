@@ -331,11 +331,11 @@ export class EventMonitor {
   // Private helper methods
 
   private async getOldestPendingEvent(): Promise<EventStoreRecord | undefined> {
-    return await this.database.eventStore
+    const pendingEvents = await this.database.eventStore
       .where("status")
       .equals("pending")
-      .orderBy("createdAt")
-      .first();
+      .sortBy("createdAt");
+    return pendingEvents[0];
   }
 
   private async getNewestEvent(): Promise<EventStoreRecord | undefined> {

@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeEach, vi, Mock } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+  type Mocked,
+} from "vitest";
 import { OnboardingService } from "../OnboardingService";
 import { TaskRepository } from "../../../../../shared/domain/repositories/TaskRepository";
 import { DailySelectionRepository } from "../../../../../shared/domain/repositories/DailySelectionRepository";
@@ -8,9 +16,11 @@ import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../../../shared/domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../../../../shared/domain/types";
+import { GetTaskLogsUseCase } from "../../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import { CreateUserLogUseCase } from "../../../../../shared/application/use-cases/CreateUserLogUseCase";
 
 // Mock repositories
-const mockTaskRepository: Mock<TaskRepository> = {
+const mockTaskRepository: Mocked<TaskRepository> = {
   findById: vi.fn(),
   findAll: vi.fn(),
   findByCategory: vi.fn(),
@@ -25,7 +35,7 @@ const mockTaskRepository: Mock<TaskRepository> = {
   exists: vi.fn(),
 };
 
-const mockDailySelectionRepository: Mock<DailySelectionRepository> = {
+const mockDailySelectionRepository: Mocked<DailySelectionRepository> = {
   addTaskToDay: vi.fn(),
   removeTaskFromDay: vi.fn(),
   getTasksForDay: vi.fn(),
@@ -37,16 +47,19 @@ const mockDailySelectionRepository: Mock<DailySelectionRepository> = {
   clearDay: vi.fn(),
   countTasksForDay: vi.fn(),
   getLastSelectionDateForTask: vi.fn(),
+  removeTaskFromAllDays: vi.fn(),
 };
 
-const mockLogService: Mock<TaskLogService> = {
-  createLog: vi.fn(),
-  getLogs: vi.fn(),
-  getLogsByType: vi.fn(),
-  getLogsByDateRange: vi.fn(),
-  clearLogs: vi.fn(),
-  clearLogsByType: vi.fn(),
-};
+const mockGetTaskLogsUseCase = {
+  execute: vi.fn(),
+} as unknown as GetTaskLogsUseCase;
+const mockCreateUserLogUseCase = {
+  execute: vi.fn(),
+} as unknown as CreateUserLogUseCase;
+const mockLogService = new TaskLogService(
+  mockGetTaskLogsUseCase,
+  mockCreateUserLogUseCase
+);
 
 describe("OnboardingService", () => {
   let onboardingService: OnboardingService;
@@ -59,6 +72,10 @@ describe("OnboardingService", () => {
       mockDailySelectionRepository,
       mockLogService
     );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("isInMorningWindow", () => {
@@ -120,7 +137,7 @@ describe("OnboardingService", () => {
 
       const yesterday = DateOnly.yesterday();
       const taskId = TaskId.generate();
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
+      const fixedDate = new Date();
       const task = new Task(
         taskId,
         new NonEmptyTitle("Test Task"),
@@ -192,7 +209,7 @@ describe("OnboardingService", () => {
 
       const yesterday = DateOnly.yesterday();
       const taskId = TaskId.generate();
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
+      const fixedDate = new Date();
       const deletedTask = new Task(
         taskId,
         new NonEmptyTitle("Deleted Task"),
@@ -251,7 +268,7 @@ describe("OnboardingService", () => {
 
   describe("getRegularInboxTasks", () => {
     it("should return regular inbox tasks", async () => {
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
+      const fixedDate = new Date();
       const regularTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Regular Inbox Task"),
@@ -279,7 +296,7 @@ describe("OnboardingService", () => {
     });
 
     it("should filter out overdue tasks", async () => {
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
+      const fixedDate = new Date();
       const regularTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Regular Inbox Task"),
@@ -292,7 +309,9 @@ describe("OnboardingService", () => {
         fixedDate // inboxEnteredAt - recent date
       );
 
-      const overdueDate = new Date("2023-11-27T12:00:00Z"); // 4 days before 2023-12-01
+      const overdueDate = new Date(
+        fixedDate.getTime() - 4 * 24 * 60 * 60 * 1000
+      );
       const overdueTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Overdue Inbox Task"),
@@ -322,7 +341,7 @@ describe("OnboardingService", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2023-01-02T09:00:00"));
 
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
+      const fixedDate = new Date("2023-01-01T12:00:00Z");
       const unfinishedTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Unfinished Task"),
@@ -464,13 +483,14 @@ describe("OnboardingService", () => {
       vi.useRealTimers();
     });
 
-    it("should return false when not in morning window", async () => {
+    it("should return true after the start-of-day time", async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2023-01-02T15:00:00"));
 
+      expect(DateOnly.getCurrentDate().getHours()).toBe(15);
       const result = await onboardingService.shouldShowDailyModal(3);
 
-      expect(result).toBe(false);
+      expect(result).toBe(true);
 
       vi.useRealTimers();
     });

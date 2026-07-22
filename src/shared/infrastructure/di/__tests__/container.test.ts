@@ -1,16 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { container, tokens } from "../index";
 import { TodoDatabase } from "../../database/TodoDatabase";
 import { TaskRepositoryImpl } from "../../repositories/TaskRepositoryImpl";
 import { CreateTaskUseCase } from "../../../application/use-cases/CreateTaskUseCase";
-import { TaskLogService } from "../../../application/services/TaskLogService";
+import { GetTaskLogsUseCase } from "../../../application/use-cases/GetTaskLogsUseCase";
 
 describe("DI Container", () => {
-  beforeEach(() => {
-    // Clear any existing registrations for clean tests
-    container.clearInstances();
-  });
-
   it("should resolve database instance", () => {
     const database = container.resolve(tokens.DATABASE_TOKEN);
     expect(database).toBeInstanceOf(TodoDatabase);
@@ -28,9 +23,11 @@ describe("DI Container", () => {
     expect(createTaskUseCase).toBeInstanceOf(CreateTaskUseCase);
   });
 
-  it("should resolve log service instance", () => {
-    const logService = container.resolve(tokens.LOG_SERVICE_TOKEN);
-    expect(logService).toBeInstanceOf(TaskLogService);
+  it("should resolve task logs use case instance", () => {
+    const getTaskLogsUseCase = container.resolve<GetTaskLogsUseCase>(
+      tokens.GET_TASK_LOGS_USE_CASE_TOKEN
+    );
+    expect(getTaskLogsUseCase).toBeInstanceOf(GetTaskLogsUseCase);
   });
 
   it("should return same instance for singletons", () => {
@@ -40,7 +37,7 @@ describe("DI Container", () => {
   });
 
   it("should inject dependencies correctly", () => {
-    const createTaskUseCase = container.resolve(
+    const createTaskUseCase = container.resolve<CreateTaskUseCase>(
       tokens.CREATE_TASK_USE_CASE_TOKEN
     );
     expect(createTaskUseCase).toBeDefined();

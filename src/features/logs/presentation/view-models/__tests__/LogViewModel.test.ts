@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createLogViewModel, LogViewModelDependencies } from "../LogViewModel";
 import {
   GetTaskLogsUseCase,
+  GetTaskLogsError,
+  GetTaskLogsResponse,
   LogEntry,
 } from "../../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { CreateUserLogUseCase } from "../../../../../shared/application/use-cases/CreateUserLogUseCase";
-import { ResultUtils } from "../../../../../shared/domain/Result";
+import { Result, ResultUtils } from "../../../../../shared/domain/Result";
 
 // Mock dependencies
 const mockGetTaskLogsUseCase = {
@@ -46,7 +48,7 @@ describe("LogViewModel", () => {
     it("should load logs successfully", async () => {
       const mockLogs: LogEntry[] = [
         {
-          id: 1,
+          id: "log-1",
           taskId: "task-1",
           type: "USER",
           message: "Test log",
@@ -82,7 +84,7 @@ describe("LogViewModel", () => {
     it("should handle load logs error", async () => {
       const errorMessage = "Failed to load logs";
       vi.mocked(mockGetTaskLogsUseCase.execute).mockResolvedValue(
-        ResultUtils.error({ message: errorMessage } as any)
+        ResultUtils.error(new GetTaskLogsError(errorMessage, "GET_FAILED"))
       );
 
       await viewModel.getState().loadLogs();
@@ -94,8 +96,12 @@ describe("LogViewModel", () => {
     });
 
     it("should set loading state during load", async () => {
-      let resolvePromise: (value: any) => void;
-      const promise = new Promise((resolve) => {
+      let resolvePromise: (
+        value: Result<GetTaskLogsResponse, GetTaskLogsError>
+      ) => void;
+      const promise = new Promise<
+        Result<GetTaskLogsResponse, GetTaskLogsError>
+      >((resolve) => {
         resolvePromise = resolve;
       });
 
@@ -108,7 +114,19 @@ describe("LogViewModel", () => {
       expect(viewModel.getState().error).toBe(null);
 
       // Resolve the promise
-      resolvePromise!(ResultUtils.ok({ logs: [], pagination: {} }));
+      resolvePromise!(
+        ResultUtils.ok({
+          logs: [],
+          pagination: {
+            page: 1,
+            pageSize: 20,
+            totalCount: 0,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+        })
+      );
       await loadPromise;
 
       expect(viewModel.getState().loading).toBe(false);
@@ -223,21 +241,21 @@ describe("LogViewModel", () => {
     it("should filter logs correctly", () => {
       const mockLogs: LogEntry[] = [
         {
-          id: 1,
+          id: "log-1",
           taskId: "task-1",
           type: "USER",
           message: "User log",
           createdAt: new Date(),
         },
         {
-          id: 2,
+          id: "log-2",
           taskId: "task-1",
           type: "SYSTEM",
           message: "System log",
           createdAt: new Date(),
         },
         {
-          id: 3,
+          id: "log-3",
           taskId: "task-2",
           type: "USER",
           message: "Another user log",
@@ -264,19 +282,19 @@ describe("LogViewModel", () => {
     it("should group logs by type", () => {
       const mockLogs: LogEntry[] = [
         {
-          id: 1,
+          id: "log-1",
           type: "USER",
           message: "User log",
           createdAt: new Date(),
         },
         {
-          id: 2,
+          id: "log-2",
           type: "SYSTEM",
           message: "System log",
           createdAt: new Date(),
         },
         {
-          id: 3,
+          id: "log-3",
           type: "USER",
           message: "Another user log",
           createdAt: new Date(),
@@ -296,7 +314,7 @@ describe("LogViewModel", () => {
       viewModel.setState({
         logs: [
           {
-            id: 1,
+            id: "log-1",
             type: "USER",
             message: "Test log",
             createdAt: new Date(),

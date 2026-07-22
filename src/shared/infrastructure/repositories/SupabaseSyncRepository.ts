@@ -1,11 +1,7 @@
 import { injectable, inject } from "tsyringe";
 import i18n from "i18next";
 import type { SyncRepository } from "../../domain/repositories/SyncRepository";
-import {
-  SyncResult,
-  SyncError,
-  ConflictResolutionStrategy,
-} from "../../domain/repositories/SyncRepository";
+import { SyncResult } from "../../domain/repositories/SyncRepository";
 import { TaskRepository } from "../../domain/repositories/TaskRepository";
 import { Task } from "../../domain/entities/Task";
 import { TaskId } from "../../domain/value-objects/TaskId";
@@ -574,14 +570,26 @@ export class SupabaseSyncRepository implements SyncRepository {
         throw new Error(`Ошибка получения task logs: ${error.message}`);
       }
 
-      return (data || []).map((row) => ({
-        id: row.id,
-        taskId: row.task_id || undefined,
-        type: row.action as "SYSTEM" | "USER" | "CONFLICT",
-        message: row.details?.message || row.action,
-        metadata: row.details || undefined,
-        createdAt: SupabaseUtils.fromISOString(row.timestamp),
-      }));
+      return (data || []).map((row) => {
+        const details = row.details;
+        const metadata =
+          details !== null &&
+          typeof details === "object" &&
+          !Array.isArray(details)
+            ? details
+            : undefined;
+        const message =
+          typeof metadata?.message === "string" ? metadata.message : row.action;
+
+        return {
+          id: row.id,
+          taskId: row.task_id || undefined,
+          type: row.action as "SYSTEM" | "USER" | "CONFLICT",
+          message,
+          metadata,
+          createdAt: SupabaseUtils.fromISOString(row.timestamp),
+        };
+      });
     } catch (error) {
       console.error("Error pulling task logs from Supabase:", error);
       throw error;

@@ -29,7 +29,7 @@ export class SyncService {
    * @returns Promise<SyncResult>
    */
   async performSync(
-    strategy: ConflictResolutionStrategy = ConflictResolutionStrategy.LAST_MODIFIED_WINS
+    _strategy: ConflictResolutionStrategy = ConflictResolutionStrategy.LAST_MODIFIED_WINS
   ): Promise<SyncResult> {
     try {
       // Проверяем доступность сети
@@ -37,10 +37,13 @@ export class SyncService {
       if (!isOnline) {
         return {
           success: false,
-          syncedCount: 0,
-          conflictsCount: 0,
-          errors: [{ message: i18n.t("toasts.networkError"), type: "network" }],
-          lastSyncTimestamp: new Date(),
+          pushedCount: 0,
+          pulledCount: 0,
+          conflictsResolved: 0,
+          error: {
+            code: "NETWORK_ERROR",
+            message: i18n.t("toasts.networkError"),
+          },
         };
       }
 
@@ -118,7 +121,7 @@ export class SyncService {
    */
   async performBackgroundSync(): Promise<void> {
     try {
-      const result = await this.performSync();
+      await this.performSync();
 
       // В фоновом режиме тихо обрабатываем результат
     } catch (error) {

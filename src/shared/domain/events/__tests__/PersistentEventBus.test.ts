@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import {
-  PersistentEventBusImpl,
-  PersistentEventHandler,
-  EventProcessingStats,
-} from "../EventBus";
+import { PersistentEventBusImpl, PersistentEventHandler } from "../EventBus";
 import { TodoDatabase } from "../../../infrastructure/database/TodoDatabase";
 import { DomainEvent } from "../DomainEvent";
 import { DomainEventType } from "../../types";
@@ -15,8 +11,7 @@ import { TaskCreatedEvent, TaskCompletedEvent } from "../TaskEvents";
 // Mock database for testing
 class TestDatabase extends TodoDatabase {
   constructor() {
-    super();
-    this.name = "TestDatabase_" + Math.random().toString(36).substr(2, 9);
+    super("TestDatabase_" + Math.random().toString(36).substring(2, 11));
   }
 }
 
@@ -425,12 +420,19 @@ describe("PersistentEventBus", () => {
     it("should return correct processing statistics", async () => {
       // Create events in different states
       const taskId = TaskId.generate();
-      const title = NonEmptyTitle.fromString("Test Task");
 
-      // Pending event
-      await eventBus.publishAll([
-        new TaskCreatedEvent(taskId, title, TaskCategory.SIMPLE),
-      ]);
+      // Pending event. Insert it directly so the automatic post-commit
+      // processor cannot race this statistics-only assertion.
+      await database.eventStore.add({
+        id: "pending-event",
+        aggregateId: taskId.value,
+        aggregateType: "task",
+        eventType: DomainEventType.TASK_CREATED,
+        eventData: "{}",
+        createdAt: Date.now(),
+        status: "pending",
+        attemptCount: 0,
+      });
 
       // Processing event
       await database.eventStore.add({
@@ -483,9 +485,11 @@ describe("PersistentEventBus", () => {
     it("should use Web Locks API when available", async () => {
       // Mock navigator.locks
       const mockLocks = {
-        request: vi.fn().mockImplementation(async (name, options, callback) => {
-          return await callback();
-        }),
+        request: vi
+          .fn()
+          .mockImplementation(async (_name, _options, callback) => {
+            return await callback();
+          }),
       };
 
       Object.defineProperty(navigator, "locks", {
@@ -627,6 +631,8 @@ describe("PersistentEventBus", () => {
       const mockEvent = {
         eventId: "test-id",
         occurredAt: new Date(),
+        createdAt: new Date(),
+        aggregateId: "unknown",
         eventType: DomainEventType.TASK_CREATED,
         getEventData: () => ({ someField: "value" }),
       } as DomainEvent;

@@ -12,7 +12,6 @@ import { NonEmptyTitle } from "../../../domain/value-objects/NonEmptyTitle";
 import { TaskCategory, TaskStatus } from "../../../domain/types";
 import { ResultUtils } from "../../../domain/Result";
 import { DebouncedSyncService } from "../../services/DebouncedSyncService";
-import { TestTaskIdUtils } from "../../../test/utils/testHelpers";
 
 // Mock implementations
 const mockTaskRepository: TaskRepository = {
@@ -39,7 +38,13 @@ const mockEventBus: EventBus = {
 };
 
 const mockDatabase = {
-  transaction: vi.fn(),
+  transaction: vi.fn(
+    async (
+      _mode: string,
+      _tables: unknown,
+      callback: () => unknown | Promise<unknown>
+    ) => await callback()
+  ),
   syncQueue: {
     add: vi.fn(),
   },
@@ -57,13 +62,6 @@ describe("CompleteTaskUseCase", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Mock transaction to execute the callback immediately
-    vi.mocked(mockDatabase.transaction).mockImplementation(
-      async (mode, tables, callback) => {
-        return await callback();
-      }
-    );
 
     useCase = new CompleteTaskUseCase(
       mockTaskRepository,
@@ -181,9 +179,7 @@ describe("CompleteTaskUseCase", () => {
       expect(mockTaskRepository.save).toHaveBeenCalledWith(task);
 
       // Should not publish events for already completed task
-      const publishedEvents = vi.mocked(mockEventBus.publishAll).mock
-        .calls[0][0];
-      expect(publishedEvents).toHaveLength(0);
+      expect(mockEventBus.publishAll).not.toHaveBeenCalled();
     });
 
     it("should handle repository save failure", async () => {
@@ -212,7 +208,7 @@ describe("CompleteTaskUseCase", () => {
       // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("COMPLETION_FAILED");
+        expect(result.error.code).toBe("TRANSACTION_FAILED");
         expect(result.error.message).toContain("Database error");
       }
 
@@ -247,7 +243,7 @@ describe("CompleteTaskUseCase", () => {
       // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("COMPLETION_FAILED");
+        expect(result.error.code).toBe("TRANSACTION_FAILED");
         expect(result.error.message).toContain("Event bus error");
       }
 
@@ -283,7 +279,9 @@ describe("CompleteTaskUseCase", () => {
       // Verify the event contains the category at completion
       const publishedEvents = vi.mocked(mockEventBus.publishAll).mock
         .calls[0][0];
-      expect(publishedEvents[0].categoryAtCompletion).toBe(TaskCategory.FOCUS);
+      expect(publishedEvents[0].getEventData().categoryAtCompletion).toBe(
+        TaskCategory.FOCUS
+      );
     });
   });
 });

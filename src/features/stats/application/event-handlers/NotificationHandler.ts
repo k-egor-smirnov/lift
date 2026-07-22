@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../../shared/domain/events/DomainEvent";
+import { DomainEventType } from "../../../../shared/domain/types";
 import { TodoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 import { EventHandler } from "./TaskLogEventHandler";
 
@@ -9,7 +10,7 @@ export class TaskOverdueEvent extends DomainEvent {
     public readonly taskTitle: string,
     public readonly daysSinceInbox: number
   ) {
-    super("TASK_OVERDUE");
+    super(DomainEventType.TASK_OVERDUE);
   }
 
   getEventData(): Record<string, any> {
@@ -31,7 +32,7 @@ export class NotificationHandler implements EventHandler {
   constructor(private database: TodoDatabase) {}
 
   async handle(event: DomainEvent): Promise<void> {
-    if (event.eventType === "TASK_OVERDUE") {
+    if (event.eventType === DomainEventType.TASK_OVERDUE) {
       await this.handleTaskOverdue(event as TaskOverdueEvent);
     }
   }
@@ -117,7 +118,7 @@ export class OverdueTaskChecker {
       .and(
         (task) =>
           task.status === "ACTIVE" &&
-          task.inboxEnteredAt &&
+          task.inboxEnteredAt !== undefined &&
           new Date(task.inboxEnteredAt) <= cutoffDate
       )
       .toArray();

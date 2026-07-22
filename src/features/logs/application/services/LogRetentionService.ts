@@ -253,10 +253,9 @@ export class LogRetentionService {
    */
   private async cleanupCustomLogs(stats: LogCleanupStats): Promise<void> {
     const customLogs = await this.database.taskLogs
-      .where("taskId")
-      .equals(undefined)
-      .reverse()
-      .sortBy("createdAt");
+      .filter((log) => log.taskId === undefined)
+      .toArray();
+    customLogs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     if (customLogs.length <= this.config.maxLogsPerTask) {
       return; // No cleanup needed

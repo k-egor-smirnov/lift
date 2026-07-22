@@ -9,7 +9,6 @@ import { NonEmptyTitle } from "../../../domain/value-objects/NonEmptyTitle";
 import { TaskCategory, TaskStatus } from "../../../domain/types";
 import { ResultUtils } from "../../../domain/Result";
 import { DebouncedSyncService } from "../../services/DebouncedSyncService";
-import { TestTaskIdUtils } from "../../../test/utils/testHelpers";
 
 // Mock implementations
 const mockTaskRepository: TaskRepository = {
@@ -36,7 +35,13 @@ const mockEventBus: EventBus = {
 };
 
 const mockDatabase = {
-  transaction: vi.fn(),
+  transaction: vi.fn(
+    async (
+      _mode: string,
+      _tables: unknown,
+      callback: () => unknown | Promise<unknown>
+    ) => await callback()
+  ),
   syncQueue: {
     add: vi.fn(),
   },
@@ -54,13 +59,6 @@ describe("UpdateTaskUseCase", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Mock transaction to execute the callback immediately
-    vi.mocked(mockDatabase.transaction).mockImplementation(
-      async (mode, tables, callback) => {
-        return await callback();
-      }
-    );
 
     useCase = new UpdateTaskUseCase(
       mockTaskRepository,
@@ -326,7 +324,7 @@ describe("UpdateTaskUseCase", () => {
       // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
       if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("UPDATE_FAILED");
+        expect(result.error.code).toBe("TRANSACTION_FAILED");
         expect(result.error.message).toContain("Database error");
       }
 

@@ -18,7 +18,7 @@ export class StatsUpdateHandler implements EventHandler {
 
   private statisticsService: StatisticsService;
 
-  constructor(private database: TodoDatabase) {
+  constructor(database: TodoDatabase) {
     this.statisticsService = new StatisticsService(database);
   }
 

@@ -15,7 +15,6 @@ export const DevDayTransition: React.FC = () => {
 
   const {
     isModalVisible,
-    modalShownToday,
     loadDailyModalData,
     showDailyModal,
     reset: resetOnboardingState,

@@ -16,7 +16,7 @@ export interface UseTaskNoteReturn {
 
 export function useTaskNote(
   taskId: string,
-  initialNote?: string,
+  _initialNote?: string,
   taskViewModel?: TaskViewModel
 ): UseTaskNoteReturn {
   const [isOpen, setIsOpen] = useState(false);

@@ -23,6 +23,7 @@ const mockDailySelectionRepository: DailySelectionRepository = {
   clearDay: vi.fn(),
   countTasksForDay: vi.fn(),
   getLastSelectionDateForTask: vi.fn(),
+  removeTaskFromAllDays: vi.fn(),
 };
 
 const mockEventBus: EventBus = {

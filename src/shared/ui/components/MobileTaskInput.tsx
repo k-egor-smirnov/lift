@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Zap, Target, Inbox, ChevronDown } from "lucide-react";
+import { Plus, Zap, Target, Inbox, Clock, ChevronDown } from "lucide-react";
 import { TaskCategory } from "../../domain/types";
 
 interface MobileTaskInputProps {
@@ -26,6 +26,12 @@ const categoryConfig = {
     label: "Focus",
     color: "text-blue-600",
     bgColor: "bg-blue-100",
+  },
+  [TaskCategory.DEFERRED]: {
+    icon: Clock,
+    label: "Deferred",
+    color: "text-purple-600",
+    bgColor: "bg-purple-100",
   },
 };
 

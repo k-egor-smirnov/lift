@@ -1,8 +1,4 @@
-import {
-  configureSyncContainer,
-  getSyncService,
-  getRealtimeService,
-} from "../di/syncContainer";
+import { getSyncService, getRealtimeService } from "../di/syncContainer";
 import i18n from "i18next";
 import { SyncService } from "../../application/services/SyncService";
 import { SupabaseRealtimeService } from "../services/SupabaseRealtimeService";

@@ -12,6 +12,7 @@ import { TaskId } from "../../domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../domain/types";
+import { TaskEventType } from "../../domain/events/TaskEvent";
 import { taskEventBus } from "../events/TaskEventBus";
 import * as tokens from "../di/tokens";
 
@@ -38,7 +39,7 @@ export class SupabaseRealtimeService {
     @inject(tokens.TASK_REPOSITORY_TOKEN)
     private taskRepository: TaskRepository,
     @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN)
-    private dailySelectionRepository: DailySelectionRepository
+    _dailySelectionRepository: DailySelectionRepository
   ) {
     this.client = this.clientFactory.getClient();
     this.initializeUserId();
@@ -265,7 +266,8 @@ export class SupabaseRealtimeService {
   private async handleDailySelectionChange(payload: any): Promise<void> {
     try {
       let { eventType, new: newRecord, old: oldRecord } = payload;
-      const record = newRecord || oldRecord;
+      const record =
+        eventType === "DELETE" ? oldRecord : newRecord || oldRecord;
 
       if (!record) {
         console.warn("No record found in daily selection change payload");
@@ -294,10 +296,14 @@ export class SupabaseRealtimeService {
       // Обрабатываем только изменения для сегодняшней даты
       if (recordDate.equals(today)) {
         // Эмитируем событие для обновления списка задач на сегодня
-        taskEventBus.emit("daily_selection_changed", {
-          type: eventType.toLowerCase(),
-          entry: record,
-          date: recordDate,
+        await taskEventBus.emit({
+          type:
+            eventType === "DELETE"
+              ? TaskEventType.TASK_REMOVED_FROM_TODAY
+              : TaskEventType.TASK_ADDED_TO_TODAY,
+          taskId: record.task_id,
+          timestamp: new Date(),
+          data: { date: recordDate.value },
         });
 
         console.log(`Daily selection ${eventType} for today:`, record);
@@ -328,7 +334,7 @@ export class SupabaseRealtimeService {
    */
   private async handleTaskUpdate(
     newRecord: Database["public"]["Tables"]["tasks"]["Row"],
-    oldRecord: Database["public"]["Tables"]["tasks"]["Row"]
+    _oldRecord: Database["public"]["Tables"]["tasks"]["Row"]
   ): Promise<void> {
     const taskId = new TaskId(newRecord.id);
     const localTask = await this.taskRepository.findById(taskId);

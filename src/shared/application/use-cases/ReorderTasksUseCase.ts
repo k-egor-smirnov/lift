@@ -1,5 +1,7 @@
 import { injectable, inject } from "tsyringe";
 import { TaskId } from "../../domain/value-objects/TaskId";
+import { Task } from "../../domain/entities/Task";
+import { DomainEvent } from "../../domain/events/DomainEvent";
 import { TaskRepository } from "../../domain/repositories/TaskRepository";
 import { EventBus } from "../../domain/events/EventBus";
 import { Result, ResultUtils } from "../../domain/Result";
@@ -46,8 +48,8 @@ export class ReorderTasksUseCase {
     request: ReorderTasksRequest
   ): Promise<Result<void, TaskReorderError>> {
     try {
-      const tasks = [];
-      const allEvents: any[] = [];
+      const tasks: Task[] = [];
+      const allEvents: DomainEvent[] = [];
 
       // Validate and load all tasks
       for (const { taskId, order } of request.taskOrders) {

@@ -22,7 +22,7 @@ export interface GetTaskLogsRequest {
  * Log entry with formatted data
  */
 export interface LogEntry {
-  id: number;
+  id: string;
   taskId?: string;
   type: "SYSTEM" | "USER" | "CONFLICT";
   message: string;

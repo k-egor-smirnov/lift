@@ -1,10 +1,4 @@
 import { Task } from "../entities/Task";
-import { TaskId } from "../value-objects/TaskId";
-import { DateOnly } from "../value-objects/DateOnly";
-import {
-  DailySelectionEntryRecord,
-  TaskLogRecord,
-} from "../../infrastructure/database/TodoDatabase";
 
 /**
  * Интерфейс для синхронизации данных с внешними источниками

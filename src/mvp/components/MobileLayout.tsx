@@ -22,6 +22,7 @@ interface MobileLayoutProps {
   onCreateLog: (taskId: string, message: string) => Promise<boolean>;
   onCreateTask: (title: string, category: TaskCategory) => Promise<void>;
   onComplete: (taskId: string) => void;
+  onAddToToday: (taskId: string) => Promise<void>;
 }
 
 const categoryConfig = {
@@ -43,6 +44,12 @@ const categoryConfig = {
     color: "text-blue-600",
     bgColor: "bg-blue-100",
   },
+  [TaskCategory.DEFERRED]: {
+    icon: Clock,
+    label: "Deferred",
+    color: "text-purple-600",
+    bgColor: "bg-purple-100",
+  },
 };
 
 export const MobileLayout: React.FC<MobileLayoutProps> = ({
@@ -57,6 +64,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   onCreateLog,
   onCreateTask,
   onComplete,
+  onAddToToday,
 }) => {
   const [activeScreen, setActiveScreen] = useState(0);
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -70,10 +78,16 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
   const screens = [
     { id: "today", label: t("mobileLayout.today"), component: "today" },
-    { id: "categories", label: t("mobileLayout.categories"), component: "categories" },
+    {
+      id: "categories",
+      label: t("mobileLayout.categories"),
+      component: "categories",
+    },
   ];
 
-  const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(
+    null
+  );
 
   const handleCategoryClick = (category: TaskCategory) => {
     setSelectedCategory(category);
@@ -87,7 +101,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
     const scrollLeft = e.currentTarget.scrollLeft;
     const screenWidth = e.currentTarget.clientWidth;
     const newActiveScreen = Math.round(scrollLeft / screenWidth);
-    
+
     if (newActiveScreen !== activeScreen) {
       setActiveScreen(newActiveScreen);
       if (selectedCategory) {
@@ -132,9 +146,9 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
           {/* Today Screen */}
           <div
             className="w-full h-full flex-shrink-0 overflow-y-auto"
-            style={{ 
+            style={{
               scrollSnapAlign: "start",
-              scrollSnapStop: "always"
+              scrollSnapStop: "always",
             }}
           >
             <TodayMobileView
@@ -146,16 +160,15 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
               onReorderTasks={onReorderTasks}
               onLoadTaskLogs={onLoadTaskLogs}
               onCreateLog={onCreateLog}
-              onCreateTask={onCreateTask}
             />
           </div>
 
           {/* Categories Screen */}
           <div
             className="w-full h-full flex-shrink-0 overflow-y-auto px-4 py-6"
-            style={{ 
+            style={{
               scrollSnapAlign: "start",
-              scrollSnapStop: "always"
+              scrollSnapStop: "always",
             }}
           >
             <div className="mb-6">
@@ -163,19 +176,36 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                 <button
                   onClick={() => {
                     if (containerRef.current) {
-                      containerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+                      containerRef.current.scrollTo({
+                        left: 0,
+                        behavior: "smooth",
+                      });
                     }
                   }}
                   className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                   aria-label={t("mobileLayout.backToToday")}
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
                   </svg>
                 </button>
-                <h2 className="text-2xl font-bold text-gray-900">{t("mobileLayout.categories")}</h2>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {t("mobileLayout.categories")}
+                </h2>
               </div>
-              <p className="text-gray-500 text-sm pl-8">{t("mobileLayout.allTasksByCategory")}</p>
+              <p className="text-gray-500 text-sm pl-8">
+                {t("mobileLayout.allTasksByCategory")}
+              </p>
             </div>
 
             <div className="space-y-6">
@@ -184,7 +214,9 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                 const categoryTasks = tasks.filter(
                   (task) => task.category === cat
                 );
-                const activeTasks = categoryTasks.filter(t => !t.completedAt);
+                const activeTasks = categoryTasks.filter(
+                  (task) => task.isActive
+                );
 
                 return (
                   <div key={cat} className="space-y-2">
@@ -202,21 +234,26 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
                     <div className="pl-7 space-y-1">
                       {activeTasks.length === 0 ? (
-                        <p className="text-sm text-gray-400 italic">{t("mobileLayout.noTasks")}</p>
+                        <p className="text-sm text-gray-400 italic">
+                          {t("mobileLayout.noTasks")}
+                        </p>
                       ) : (
                         <>
-                          {activeTasks.slice(0, 2).map(task => (
-                            <div 
-                              key={task.id.value} 
+                          {activeTasks.slice(0, 2).map((task) => (
+                            <div
+                              key={task.id.value}
                               className="text-sm text-gray-700 flex items-start gap-2"
                             >
                               <span className="text-gray-400 mt-0.5">•</span>
-                              <span className="flex-1 truncate">{task.title.toString()}</span>
+                              <span className="flex-1 truncate">
+                                {task.title.toString()}
+                              </span>
                             </div>
                           ))}
                           {activeTasks.length > 2 && (
                             <p className="text-sm text-gray-500">
-                              {t("mobileLayout.andMore")} {activeTasks.length - 2}
+                              {t("mobileLayout.andMore")}{" "}
+                              {activeTasks.length - 2}
                             </p>
                           )}
                         </>
@@ -224,10 +261,12 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
                       {categoryTasks.length > 0 && (
                         <button
-                          onClick={() => handleCategoryClick(cat as TaskCategory)}
+                          onClick={() =>
+                            handleCategoryClick(cat as TaskCategory)
+                          }
                           className={`mt-2 text-sm font-medium ${config.color} hover:underline`}
                         >
-                        {t("mobileLayout.openCategory")} {config.label} →
+                          {t("mobileLayout.openCategory")} {config.label} →
                         </button>
                       )}
                     </div>
@@ -242,65 +281,67 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         {!selectedCategory && (
           <div className="mobile-bottom-bar">
             <div className="mobile-input-container">
-                {showCategoryPicker && (
-                  <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
-                    <div className="p-2 grid grid-cols-3 gap-2">
-                      {Object.entries(categoryConfig).map(([cat, config]) => {
-                        const Icon = config.icon;
-                        const isSelected = cat === newTaskCategory;
-                        return (
-                          <button
-                            key={cat}
-                            onClick={() => {
-                              setNewTaskCategory(cat as TaskCategory);
-                              setShowCategoryPicker(false);
-                              inputRef.current?.focus();
-                            }}
-                            className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-all ${
-                              isSelected
-                                ? `${config.bgColor} ${config.color} ring-2 ring-offset-1`
-                                : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                            }`}
-                          >
-                            <Icon className="w-5 h-5" />
-                            <span className="text-xs font-medium">{config.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+              {showCategoryPicker && (
+                <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+                  <div className="p-2 grid grid-cols-3 gap-2">
+                    {Object.entries(categoryConfig).map(([cat, config]) => {
+                      const Icon = config.icon;
+                      const isSelected = cat === newTaskCategory;
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            setNewTaskCategory(cat as TaskCategory);
+                            setShowCategoryPicker(false);
+                            inputRef.current?.focus();
+                          }}
+                          className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-all ${
+                            isSelected
+                              ? `${config.bgColor} ${config.color} ring-2 ring-offset-1`
+                              : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span className="text-xs font-medium">
+                            {config.label}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-
-                <div className="flex items-center gap-2 p-3">
-                  <button
-                    onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg ${currentCategory.bgColor} ${currentCategory.color} transition-all active:scale-95`}
-                  >
-                    <CategoryIcon className="w-4 h-4" />
-                  </button>
-
-                  <div className="flex-1 relative">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={newTaskTitle}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                    placeholder={t("tasks.addTaskPlaceholder")}
-                      className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                      autoComplete="off"
-                    />
-                  </div>
-
-                  {newTaskTitle.trim() && (
-                    <button
-                      onClick={handleCreateTask}
-                      className="p-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:scale-95 transition-all"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
-                  )}
                 </div>
+              )}
+
+              <div className="flex items-center gap-2 p-3">
+                <button
+                  onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg ${currentCategory.bgColor} ${currentCategory.color} transition-all active:scale-95`}
+                >
+                  <CategoryIcon className="w-4 h-4" />
+                </button>
+
+                <div className="flex-1 relative">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={t("tasks.addTaskPlaceholder")}
+                    className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                    autoComplete="off"
+                  />
+                </div>
+
+                {newTaskTitle.trim() && (
+                  <button
+                    onClick={handleCreateTask}
+                    className="p-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:scale-95 transition-all"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="mobile-pagination flex justify-center gap-2 py-3">
@@ -327,8 +368,18 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
               onClick={handleCategoryClose}
               className="p-2 -ml-2 text-gray-600 hover:text-gray-900"
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
             </button>
             <div className="flex items-center gap-2">
@@ -357,7 +408,9 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                   {(() => {
                     const config = categoryConfig[selectedCategory];
                     const Icon = config.icon;
-                    return <Icon className="w-12 h-12 mx-auto mb-3 opacity-50" />;
+                    return (
+                      <Icon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    );
                   })()}
                   <p>{t("mobileLayout.noTasksInCategory")}</p>
                 </div>
@@ -401,7 +454,9 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
                         }`}
                       >
                         <Icon className="w-5 h-5" />
-                        <span className="text-xs font-medium">{config.label}</span>
+                        <span className="text-xs font-medium">
+                          {config.label}
+                        </span>
                       </button>
                     );
                   })}

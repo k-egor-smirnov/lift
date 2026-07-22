@@ -15,6 +15,23 @@ export abstract class DomainEvent {
   }
 
   /**
+   * Legacy persistence and projections use this name for the event timestamp.
+   * Keep it as an alias so every event has one canonical creation time.
+   */
+  get createdAt(): Date {
+    return this.occurredAt;
+  }
+
+  /**
+   * Events associated with an aggregate expose its task identifier in their
+   * serialized data. Events without one remain safely partitioned as unknown.
+   */
+  get aggregateId(): string {
+    const taskId = this.getEventData().taskId;
+    return typeof taskId === "string" ? taskId : "unknown";
+  }
+
+  /**
    * Get event data for serialization
    */
   abstract getEventData(): Record<string, any>;
