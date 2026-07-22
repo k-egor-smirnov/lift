@@ -109,6 +109,22 @@ describe("enumerateOccurrenceDates", () => {
     expect(reversed).toEqual(["2026-07-03", "2026-07-06", "2026-07-10"]);
   });
 
+  it("deduplicates repeated valid weekdays", () => {
+    const duplicated = enumerateOccurrenceDates(
+      weeklyRule({ weekdays: [1, 1, 5], startsOn: "2026-07-01" }),
+      "2026-07-01",
+      "2026-07-12"
+    );
+    const unique = enumerateOccurrenceDates(
+      weeklyRule({ weekdays: [1, 5], startsOn: "2026-07-01" }),
+      "2026-07-01",
+      "2026-07-12"
+    );
+
+    expect(duplicated).toEqual(unique);
+    expect(duplicated).toEqual(["2026-07-03", "2026-07-06", "2026-07-10"]);
+  });
+
   it("returns no weekly occurrences for an empty weekday set", () => {
     expect(
       enumerateOccurrenceDates(
@@ -148,8 +164,8 @@ describe("enumerateOccurrenceDates", () => {
     }
   );
 
-  it.each([[[1, 1]], [[-1]], [[7]], [[1.5]]])(
-    "rejects invalid or duplicate weekdays: %p",
+  it.each([[[-1]], [[7]], [[1.5]]])(
+    "rejects an invalid weekday: %p",
     (weekdays) => {
       expect(() =>
         enumerateOccurrenceDates(

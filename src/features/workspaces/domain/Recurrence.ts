@@ -43,9 +43,7 @@ const validateRule = (rule: RecurrenceRule): void => {
     throw new Error("Invalid recurrence weekdays");
   }
 
-  const uniqueWeekdays = new Set(rule.weekdays);
   if (
-    uniqueWeekdays.size !== rule.weekdays.length ||
     rule.weekdays.some(
       (weekday) => !Number.isInteger(weekday) || weekday < 0 || weekday > 6
     )
