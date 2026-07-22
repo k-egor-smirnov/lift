@@ -54,7 +54,7 @@ describe("ObservedRemoveSet", () => {
   });
 
   it("returns canonical maps independent of add and merge arrival order", () => {
-    const first = add(add(emptySet(), "task-z", "9@zz"), "task-a", "2@bb");
+    const first = add(add(emptySet(), "task-z", "9@ee"), "task-a", "2@bb");
     const second = add(add(emptySet(), "task-a", "1@aa"), "task-z", "3@cc");
 
     const leftFirst = mergeSet(removeObserved(first, "task-z"), second);
@@ -63,7 +63,7 @@ describe("ObservedRemoveSet", () => {
     expect(JSON.stringify(leftFirst)).toBe(JSON.stringify(rightFirst));
     expect(Object.keys(leftFirst.adds)).toEqual(["task-a", "task-z"]);
     expect(Object.keys(leftFirst.adds["task-a"])).toEqual(["1@aa", "2@bb"]);
-    expect(Object.keys(leftFirst.removedDots)).toEqual(["9@zz"]);
+    expect(Object.keys(leftFirst.removedDots)).toEqual(["9@ee"]);
   });
 
   it.each([

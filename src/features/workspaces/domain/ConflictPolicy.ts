@@ -23,23 +23,19 @@ const requireNonEmptyIdentifier = (kind: string, value: unknown): string => {
 const codeUnitCompare = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0;
 
+const CANONICAL_AUTOMERGE_OP_ID = /^(0|[1-9]\d*)@((?:[0-9a-f]{2})+)$/;
+
 const parseOpId = (opIdValue: unknown): { counter: bigint; actor: string } => {
   if (typeof opIdValue !== "string") {
     throw new Error(`Invalid Automerge op id: ${String(opIdValue)}`);
   }
 
-  const separator = opIdValue.indexOf("@");
-  const counter = opIdValue.slice(0, separator);
-  const actor = opIdValue.slice(separator + 1);
-
-  if (
-    separator < 1 ||
-    !/^(?:0|[1-9]\d*)$/.test(counter) ||
-    actor.trim().length === 0
-  ) {
+  const match = CANONICAL_AUTOMERGE_OP_ID.exec(opIdValue);
+  if (match === null) {
     throw new Error(`Invalid Automerge op id: ${opIdValue}`);
   }
 
+  const [, counter, actor] = match;
   return { counter: BigInt(counter), actor };
 };
 

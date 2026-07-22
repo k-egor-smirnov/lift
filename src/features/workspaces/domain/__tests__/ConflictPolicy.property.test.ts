@@ -6,6 +6,18 @@ import { resolveScalar } from "../ConflictPolicy";
 const PROPERTY_SEED = 20_260_722;
 const PROPERTY_RUNS = 100;
 
+interface OrSetOperation {
+  element: string;
+  counter: number;
+  actor: string;
+  removeObserved: boolean;
+}
+
+const selectUniqueOrSetOperation = ({
+  counter,
+  actor,
+}: OrSetOperation): string => `${counter}@${actor}`;
+
 const byPriorities = <T>(values: readonly T[], priorities: readonly number[]) =>
   values
     .map((value, index) => ({ value, priority: priorities[index] ?? 0, index }))
@@ -17,13 +29,27 @@ const byPriorities = <T>(values: readonly T[], priorities: readonly number[]) =>
     .map(({ value }) => value);
 
 describe("deterministic conflict properties", () => {
+  it("uses global dot identity for OR-set generator uniqueness", () => {
+    const first = {
+      element: "task-a",
+      counter: 1,
+      actor: "aa",
+      removeObserved: false,
+    };
+    const sameDotOnAnotherElement = { ...first, element: "task-b" };
+
+    expect(selectUniqueOrSetOperation(first)).toBe(
+      selectUniqueOrSetOperation(sameDotOnAnotherElement)
+    );
+  });
+
   it("serializes scalar conflicts identically for shuffled map insertion orders", () => {
     fc.assert(
       fc.property(
         fc.uniqueArray(
           fc.record({
             counter: fc.integer({ min: 0, max: 1_000_000 }),
-            actor: fc.stringMatching(/^[A-Za-z][A-Za-z0-9]{0,7}$/),
+            actor: fc.stringMatching(/^(?:[0-9a-f]{2}){1,4}$/),
             value: fc.constantFrom("INBOX", "SIMPLE", "FOCUS"),
           }),
           {
@@ -70,14 +96,13 @@ describe("deterministic conflict properties", () => {
           fc.record({
             element: fc.stringMatching(/^task-[a-z]{1,5}$/),
             counter: fc.integer({ min: 0, max: 1_000_000 }),
-            actor: fc.stringMatching(/^[a-z]{1,5}$/),
+            actor: fc.stringMatching(/^(?:[0-9a-f]{2}){1,3}$/),
             removeObserved: fc.boolean(),
           }),
           {
             minLength: 1,
             maxLength: 20,
-            selector: ({ element, counter, actor }) =>
-              `${element}:${counter}@${actor}`,
+            selector: selectUniqueOrSetOperation,
           }
         ),
         fc.array(fc.integer(), { minLength: 40, maxLength: 40 }),
@@ -108,13 +133,12 @@ describe("deterministic conflict properties", () => {
         fc.record({
           element: fc.stringMatching(/^task-[a-z]{1,4}$/),
           counter: fc.integer({ min: 0, max: 1_000 }),
-          actor: fc.stringMatching(/^[a-z]{1,4}$/),
+          actor: fc.stringMatching(/^(?:[0-9a-f]{2}){1,3}$/),
           removeObserved: fc.boolean(),
         }),
         {
           maxLength: 12,
-          selector: ({ element, counter, actor }) =>
-            `${element}:${counter}@${actor}`,
+          selector: selectUniqueOrSetOperation,
         }
       )
       .map((operations) =>

@@ -17,8 +17,8 @@ describe("scalar conflict policy", () => {
   });
 
   it("returns a singleton completion assignment as-is", () => {
-    expect(resolveCompletion({ "1@zz": "active" })).toBe("active");
-    expect(resolveCompletion({ "1@zz": "completed" })).toBe("completed");
+    expect(resolveCompletion({ "1@cc": "active" })).toBe("active");
+    expect(resolveCompletion({ "1@cc": "completed" })).toBe("completed");
   });
 
   it("returns active when every true concurrent assignment is active", () => {
@@ -30,19 +30,19 @@ describe("scalar conflict policy", () => {
   it("sorts scalar alternatives by actor code units first and counter second", () => {
     const resolution = resolveScalar({
       "10@aa": "aa-10",
-      "2@b": "b-2",
+      "2@bb": "bb-2",
       "2@aa": "aa-2",
-      "1@A": "A-1",
+      "1@0a": "0a-1",
     });
 
     expect(resolution).toEqual({
-      value: "b-2",
-      winnerOpId: "2@b",
+      value: "bb-2",
+      winnerOpId: "2@bb",
       alternatives: [
-        { opId: "1@A", value: "A-1" },
+        { opId: "1@0a", value: "0a-1" },
         { opId: "2@aa", value: "aa-2" },
         { opId: "10@aa", value: "aa-10" },
-        { opId: "2@b", value: "b-2" },
+        { opId: "2@bb", value: "bb-2" },
       ],
     });
   });
@@ -69,18 +69,22 @@ describe("scalar conflict policy", () => {
   it.each([
     "",
     "1",
-    "@actor",
+    "@aa",
     "1@",
-    "-1@actor",
-    "+1@actor",
-    "01@actor",
-    "1.0@actor",
-    " 1@actor",
+    "-1@aa",
+    "+1@aa",
+    "01@aa",
+    "1.0@aa",
+    " 1@aa",
     "1@   ",
+    "1@aa@bb",
+    "1@😀",
+    "1@ aa",
+    "1@a",
+    "1@AA",
+    "1@ag",
   ])("rejects malformed or non-canonical Automerge op ID %p", (opId) => {
-    expect(() => compareOpIds(opId, "1@valid")).toThrow(
-      "Invalid Automerge op id"
-    );
+    expect(() => compareOpIds(opId, "1@aa")).toThrow("Invalid Automerge op id");
     expect(() => resolveScalar({ [opId]: "value" })).toThrow(
       "Invalid Automerge op id"
     );
@@ -104,16 +108,16 @@ describe("lifecycle and position policies", () => {
   it("orders positions by key, actorId, then taskId using code-unit order", () => {
     const positions = [
       { key: "a", actorId: "aa", taskId: "task-b" },
-      { key: "A", actorId: "zz", taskId: "task-z" },
-      { key: "a", actorId: "b", taskId: "task-a" },
+      { key: "A", actorId: "ff", taskId: "task-z" },
+      { key: "a", actorId: "bb", taskId: "task-a" },
       { key: "a", actorId: "aa", taskId: "task-a" },
     ];
 
     expect([...positions].sort(comparePositions)).toEqual([
-      { key: "A", actorId: "zz", taskId: "task-z" },
+      { key: "A", actorId: "ff", taskId: "task-z" },
       { key: "a", actorId: "aa", taskId: "task-a" },
       { key: "a", actorId: "aa", taskId: "task-b" },
-      { key: "a", actorId: "b", taskId: "task-a" },
+      { key: "a", actorId: "bb", taskId: "task-a" },
     ]);
   });
 
