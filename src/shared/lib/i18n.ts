@@ -45,7 +45,7 @@ const resources = {
           app: "Application",
         },
         auth: {
-          title: "Supabase Authentication",
+          title: "Secure synchronization",
           description: "Sign in to sync your data across devices",
           email: "Email",
           password: "Password",
@@ -61,7 +61,7 @@ const resources = {
         },
         sync: {
           title: "Data Synchronization",
-          description: "Manage how your data syncs with Supabase",
+          description: "Manage how your encrypted data syncs",
           connectionStatus: "Connection Status",
           online: "Online",
           offline: "Offline",
@@ -238,7 +238,7 @@ const resources = {
           app: "Приложение",
         },
         auth: {
-          title: "Авторизация в Supabase",
+          title: "Безопасная синхронизация",
           description:
             "Войдите в систему для синхронизации данных между устройствами",
           email: "Email",
@@ -255,7 +255,7 @@ const resources = {
         },
         sync: {
           title: "Синхронизация данных",
-          description: "Управление синхронизацией данных с Supabase",
+          description: "Управление зашифрованной синхронизацией данных",
           connectionStatus: "Статус подключения",
           online: "Онлайн",
           offline: "Офлайн",
@@ -352,7 +352,7 @@ const resources = {
         syncSendError: "Ошибка отправки данных",
         realtimeEnableFailed: "Не удалось включить real-time обновления",
         realtimeSubscriptionError:
-          "Ошибка подписки на изменения PostgreSQL. Проверьте настройки Realtime в Supabase",
+          "Ошибка подписки на изменения. Проверьте настройки сервера",
         networkError: "Нет подключения к сети",
         unknownSyncError: "Неизвестная ошибка синхронизации",
         forcePushError: "Ошибка принудительной отправки",
@@ -420,10 +420,10 @@ const resources = {
         loadingTasks: "Загрузка задач...",
       },
       config: {
-        missingSupabaseEnv:
-          "Отсутствуют обязательные переменные окружения для Supabase. Убедитесь, что VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY установлены.",
-        invalidSupabaseUrl: "Некорректный URL Supabase",
-        invalidSupabaseKey: "Некорректный anon key для Supabase",
+        missingServerConfiguration:
+          "Отсутствуют обязательные параметры подключения к серверу.",
+        invalidServerUrl: "Некорректный URL сервера",
+        invalidServerCredential: "Некорректные учётные данные сервера",
         syncIntervalTooShort:
           "Интервал автосинхронизации не может быть меньше 1 минуты",
         retryCountInvalid: "Количество попыток должно быть от 1 до 10",

@@ -4,8 +4,7 @@ import { TaskId } from "../../shared/domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../shared/domain/value-objects/NonEmptyTitle";
 import { TaskCategory, TaskStatus } from "../../shared/domain/types";
 import { TaskRepository } from "../../shared/domain/repositories/TaskRepository";
-import { EventBus } from "../../shared/domain/events/EventBus";
-import { TodoDatabase } from "../../shared/infrastructure/database/TodoDatabase";
+import { EventBus } from "../../shared/application/ports/EventBus";
 import { DailySelectionRepository } from "../../shared/domain/repositories/DailySelectionRepository";
 import { UserSettingsRepository } from "../../shared/domain/repositories/UserSettingsRepository";
 
@@ -86,61 +85,6 @@ export const createMockEventBus = (): MockedObject<EventBus> => ({
 });
 
 /**
- * Factory for creating mock TodoDatabase
- */
-export const createMockDatabase = (): MockedObject<TodoDatabase> => {
-  const mockDb = {
-    transaction: vi.fn(),
-    tasks: {
-      add: vi.fn(),
-      put: vi.fn(),
-      get: vi.fn(),
-      delete: vi.fn(),
-      where: vi.fn(),
-      toArray: vi.fn(),
-      count: vi.fn(),
-    },
-    dailySelections: {
-      add: vi.fn(),
-      put: vi.fn(),
-      get: vi.fn(),
-      delete: vi.fn(),
-      where: vi.fn(),
-      toArray: vi.fn(),
-    },
-    taskLogs: {
-      add: vi.fn(),
-      put: vi.fn(),
-      get: vi.fn(),
-      delete: vi.fn(),
-      where: vi.fn(),
-      toArray: vi.fn(),
-      count: vi.fn(),
-      reverse: vi.fn(),
-      offset: vi.fn(),
-      limit: vi.fn(),
-    },
-    userSettings: {
-      add: vi.fn(),
-      put: vi.fn(),
-      get: vi.fn(),
-      delete: vi.fn(),
-      where: vi.fn(),
-      toArray: vi.fn(),
-    },
-  } as any;
-
-  // Mock transaction to execute callback immediately
-  mockDb.transaction.mockImplementation(
-    async (_mode: any, _tables: any, callback: any) => {
-      return await callback();
-    }
-  );
-
-  return mockDb;
-};
-
-/**
  * Factory for creating mock DailySelectionRepository
  */
 export const createMockDailySelectionRepository =
@@ -153,7 +97,6 @@ export const createMockDailySelectionRepository =
     markTaskCompleted: vi.fn(),
     getTaskCompletionStatus: vi.fn(),
     getDailySelectionsForRange: vi.fn(),
-    clearDay: vi.fn(),
     countTasksForDay: vi.fn(),
     getLastSelectionDateForTask: vi.fn(),
     removeTaskFromAllDays: vi.fn(),

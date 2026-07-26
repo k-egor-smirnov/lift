@@ -6,31 +6,27 @@ import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUs
 import { TodayViewModelDependencies } from "../view-models/TodayViewModel";
 import { useTodayViewModelStore } from "../view-models/TodayViewModelStore";
 import { useOnboardingViewModel } from "../../../onboarding/presentation/view-models/OnboardingViewModel";
-import { Task } from "../../../../shared/domain/entities/Task";
 import { TaskCategory } from "../../../../shared/domain/types";
 import { toast } from "sonner";
-import { getService, tokens } from "../../../../shared/infrastructure/di";
-import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-cases/RevertTaskCompletionUseCase";
-import { ResultUtils } from "../../../../shared/domain/Result";
 import { InlineTaskCreator } from "../../../../shared/ui/components/InlineTaskCreator";
-import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 import { Tag } from "../../../tags/presentation/view-models/TagViewModel";
+import { workspaceTaskToListItem } from "../../../tasks/presentation/models/TaskListItem";
+import type { TaskReorderIntent } from "../../../tasks/presentation/models/TaskReorderIntent";
+import type { TaskListItem } from "../../../tasks/presentation/models/TaskListItem";
 
 interface TodayViewProps {
   dependencies: TodayViewModelDependencies;
-  onEditTask?: (taskId: string, newTitle: string) => void;
   onDeleteTask?: (taskId: string) => void;
-  onDefer?: (taskId: string, deferDate: Date) => void;
-  onUndefer?: (taskId: TaskId) => Promise<void>;
-  onReorderTasks?: (tasks: Task[]) => void;
+  onEditTask?: (task: TaskListItem) => void;
+  onDefer?: (taskId: string, deferDate: string) => void;
+  onUndefer?: (taskId: string) => Promise<void>;
+  onReorderTasks?: (intent: TaskReorderIntent) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
   onCreateTask?: (title: string, category: TaskCategory) => Promise<boolean>;
   tags?: Tag[];
   taskTags?: Record<string, string[]>;
-  onCreateTag?: (name: string, color: string) => void;
-  onUpdateTaskTags?: (taskId: string, tagIds: string[]) => void;
   onDropOnToday?: (taskId: string) => void;
   onDropOnCategory?: (taskId: string, category: TaskCategory) => void;
   onDropOnTag?: (taskId: string, tagId: string) => void;
@@ -38,8 +34,8 @@ interface TodayViewProps {
 
 export const TodayView: React.FC<TodayViewProps> = ({
   dependencies,
-  onEditTask,
   onDeleteTask,
+  onEditTask,
   onDefer,
   onUndefer,
   onReorderTasks,
@@ -49,8 +45,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onCreateTask,
   tags = [],
   taskTags = {},
-  onCreateTag,
-  onUpdateTaskTags,
   onDropOnToday,
   onDropOnCategory,
   onDropOnTag,
@@ -66,11 +60,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
     loadTodayTasks,
     removeTaskFromToday,
     completeTask,
+    revertTaskCompletion,
     clearError,
     getActiveTasks,
     getCompletedTasks,
     getTodayTaskIds,
-    isToday,
     enableAutoRefresh,
   } = useTodayViewModelStore();
   const {
@@ -97,27 +91,23 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   // Note: Removed __todayViewRefresh as it's replaced by event bus auto-refresh
 
-  // Auto-refresh when it becomes a new day (daily reset handling)
+  // Re-resolve the effective workspace date periodically. This is a read-only
+  // refresh; the date boundary never clears or rewrites synchronized state.
   useEffect(() => {
-    const checkForNewDay = () => {
-      if (!isToday()) {
-        // Daily reset: load today's tasks (which will create new DailySelection if needed)
-        loadTodayTasks();
-      }
-    };
-
-    // Check every minute for day change
-    const interval = setInterval(checkForNewDay, 60000);
+    const interval = setInterval(
+      () => void loadTodayTasks(undefined, true),
+      60000
+    );
     return () => clearInterval(interval);
-  }, [isToday, loadTodayTasks]);
+  }, [loadTodayTasks]);
 
   const handleCompleteTask = async (taskId: string) => {
     try {
       // Find task to get its title for the notification
       const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(
-        (t) => t.task.id.value === taskId
+        (task) => task.taskId === taskId
       );
-      const taskTitle = taskInfo?.task.title.value || t("tasks.newTask");
+      const taskTitle = taskInfo?.title || t("tasks.newTask");
 
       const success = await completeTask(taskId);
       if (success) {
@@ -142,25 +132,20 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   const handleRevertCompletion = async (taskId: string) => {
     try {
-      const revertUseCase = getService<RevertTaskCompletionUseCase>(
-        tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN
-      );
-      const result = await revertUseCase.execute({ taskId });
+      const success = await revertTaskCompletion(taskId);
 
-      if (ResultUtils.isSuccess(result)) {
+      if (success) {
         // Find task to get its title for the notification
         const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(
-          (t) => t.task.id.value === taskId
+          (task) => task.taskId === taskId
         );
-        const taskTitle = taskInfo?.task.title.value || t("tasks.newTask");
+        const taskTitle = taskInfo?.title || t("tasks.newTask");
         toast.success(t("todayView.taskReverted", { title: taskTitle }));
-        // Reload today's tasks to reflect changes (silent refresh)
-        await loadTodayTasks(undefined, true);
         return true;
-      } else {
-        toast.error(t("toasts.completionUndoFailed"));
-        return false;
       }
+
+      toast.error(t("toasts.completionUndoFailed"));
+      return false;
     } catch (error) {
       console.error("Error reverting task completion:", error);
       toast.error(t("toasts.undoError"));
@@ -172,14 +157,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
     // In TodayView, all displayed tasks are already in today's selection
     // So the sun icon should always remove them from today
     await removeTaskFromToday(taskId);
-  };
-
-  const handleEditTask = (taskId: string, newTitle: string) => {
-    if (onEditTask) {
-      onEditTask(taskId, newTitle);
-    } else {
-      alert(`Edit task: ${taskId} to "${newTitle}"`);
-    }
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -367,11 +344,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 </span>
               </h2>
               <TaskList
-                tasks={activeTasks.map((taskInfo) => taskInfo.task)}
+                tasks={activeTasks.map(workspaceTaskToListItem)}
                 onComplete={handleCompleteTask}
                 onRevertCompletion={handleRevertCompletion}
-                onEdit={handleEditTask}
                 onDelete={handleDeleteTask}
+                onEdit={onEditTask}
                 onAddToToday={handleToggleToday}
                 onDefer={onDefer}
                 onUndefer={onUndefer}
@@ -388,8 +365,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 todayTaskIds={getTodayTaskIds()}
                 tags={tags}
                 taskTags={taskTags}
-                onCreateTag={onCreateTag}
-                onUpdateTaskTags={onUpdateTaskTags}
               />
             </section>
           )}
@@ -413,11 +388,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 </span>
               </h2>
               <TaskList
-                tasks={completedTasks.map((taskInfo) => taskInfo.task)}
+                tasks={completedTasks.map(workspaceTaskToListItem)}
                 onComplete={undefined}
                 onRevertCompletion={handleRevertCompletion}
-                onEdit={handleEditTask}
                 onDelete={handleDeleteTask}
+                onEdit={onEditTask}
                 onAddToToday={handleToggleToday}
                 onDefer={onDefer}
                 onUndefer={onUndefer}
@@ -434,8 +409,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 todayTaskIds={getTodayTaskIds()}
                 tags={tags}
                 taskTags={taskTags}
-                onCreateTag={onCreateTag}
-                onUpdateTaskTags={onUpdateTaskTags}
               />
             </section>
           )}

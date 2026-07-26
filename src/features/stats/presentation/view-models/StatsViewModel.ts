@@ -5,7 +5,6 @@ import {
   WeeklyStatistics,
   MonthlyStatistics,
 } from "../../application/services/StatisticsService";
-import { todoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 
 export type StatsPeriod = "day" | "week" | "month";
 
@@ -25,6 +24,15 @@ export interface StatsState {
   // Loading states
   isLoading: boolean;
   error: string | null;
+  initialize: (
+    statistics: Pick<
+      StatisticsService,
+      | "getDailyStatistics"
+      | "getWeeklyStatistics"
+      | "getMonthlyStatistics"
+      | "getDailyStatisticsRange"
+    >
+  ) => void;
 
   // Actions
   setPeriod: (period: StatsPeriod) => void;
@@ -34,7 +42,15 @@ export interface StatsState {
   navigatePeriod: (direction: "prev" | "next") => void;
 }
 
-const statisticsService = new StatisticsService(todoDatabase);
+type StatisticsQueries = Parameters<StatsState["initialize"]>[0];
+let statisticsService: StatisticsQueries | null = null;
+
+const requireStatistics = (): StatisticsQueries => {
+  if (statisticsService === null) {
+    throw new Error("StatsViewModel has not been initialized");
+  }
+  return statisticsService;
+};
 
 export const useStatsViewModel = create<StatsState>((set, get) => ({
   // Initial state
@@ -46,6 +62,9 @@ export const useStatsViewModel = create<StatsState>((set, get) => ({
   chartData: [],
   isLoading: false,
   error: null,
+  initialize: (statistics) => {
+    statisticsService = statistics;
+  },
 
   // Actions
   setPeriod: (period: StatsPeriod) => {
@@ -68,19 +87,19 @@ export const useStatsViewModel = create<StatsState>((set, get) => ({
       switch (selectedPeriod) {
         case "day": {
           const dailyStats =
-            await statisticsService.getDailyStatistics(selectedDate);
+            await requireStatistics().getDailyStatistics(selectedDate);
           set({ dailyStats });
           break;
         }
         case "week": {
           const weeklyStats =
-            await statisticsService.getWeeklyStatistics(selectedDate);
+            await requireStatistics().getWeeklyStatistics(selectedDate);
           set({ weeklyStats });
           break;
         }
         case "month": {
           const monthlyStats =
-            await statisticsService.getMonthlyStatistics(selectedDate);
+            await requireStatistics().getMonthlyStatistics(selectedDate);
           set({ monthlyStats });
           break;
         }
@@ -123,7 +142,7 @@ export const useStatsViewModel = create<StatsState>((set, get) => ({
           break;
       }
 
-      const chartData = await statisticsService.getDailyStatisticsRange(
+      const chartData = await requireStatistics().getDailyStatisticsRange(
         startDate,
         endDate
       );

@@ -35,6 +35,12 @@ const categoryConfig = {
   },
 };
 
+const creationCategories = [
+  TaskCategory.INBOX,
+  TaskCategory.SIMPLE,
+  TaskCategory.FOCUS,
+] as const;
+
 export const MobileTaskInput: React.FC<MobileTaskInputProps> = ({
   onCreateTask,
   defaultCategory = TaskCategory.INBOX,
@@ -77,14 +83,15 @@ export const MobileTaskInput: React.FC<MobileTaskInputProps> = ({
       {showCategoryPicker && (
         <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg animate-in slide-in-from-bottom">
           <div className="p-2 grid grid-cols-3 gap-2">
-            {Object.entries(categoryConfig).map(([cat, config]) => {
+            {creationCategories.map((cat) => {
+              const config = categoryConfig[cat];
               const Icon = config.icon;
               const isSelected = cat === category;
               return (
                 <button
                   key={cat}
                   onClick={() => {
-                    setCategory(cat as TaskCategory);
+                    setCategory(cat);
                     setShowCategoryPicker(false);
                     inputRef.current?.focus();
                   }}

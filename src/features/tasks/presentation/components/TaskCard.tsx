@@ -1,57 +1,45 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Task } from "../../../../shared/domain/entities/Task";
-import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
-import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
-import {
-  useTouchGestures,
-  isTouchDevice,
-} from "../../../../shared/infrastructure/services/useTouchGestures";
+import React, { useEffect, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 
-// Подкомпоненты
-import { TaskCardHeader } from "./task-card/TaskCardHeader";
-import { TaskTitleEditor } from "./task-card/TaskTitleEditor";
-import { TaskTitleDisplay } from "./task-card/TaskTitleDisplay";
+import type { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
+import { TaskStatus } from "../../../../shared/domain/types";
+import {
+  isTouchDevice,
+  useTouchGestures,
+} from "../../../../shared/infrastructure/services/useTouchGestures";
+import { Badge } from "../../../../shared/ui/badge";
+import type { Tag } from "../../../tags/presentation/view-models/TagViewModel";
+import type { TaskListItem } from "../models/TaskListItem";
 import { TaskActions } from "./task-card/TaskActions";
+import { TaskCardHeader } from "./task-card/TaskCardHeader";
+import { TaskDeferModal } from "./task-card/TaskDeferModal";
 import { TaskLogsDisplay } from "./task-card/TaskLogsDisplay";
 import { TaskLogsModal } from "./task-card/TaskLogsModal";
-import { TaskDeferModal } from "./task-card/TaskDeferModal";
-import { TaskEditFormData, TaskEditModal } from "./task-card/TaskEditModal";
-
-// Хуки
-import { useTaskEditing } from "./task-card/hooks/useTaskEditing";
-import { useTaskLogs } from "./task-card/hooks/useTaskLogs";
+import { TaskTitleDisplay } from "./task-card/TaskTitleDisplay";
 import { useTaskDefer } from "./task-card/hooks/useTaskDefer";
-import { useTaskNote } from "../hooks/useTaskNote";
-import { TaskViewModel } from "../view-models/TaskViewModel";
-import { Tag } from "../../../tags/presentation/view-models/TagViewModel";
-import { Badge } from "../../../../shared/ui/badge";
+import { useTaskLogs } from "./task-card/hooks/useTaskLogs";
 
 interface TaskCardProps {
-  task: Task;
+  task: TaskListItem;
   onComplete: (taskId: string) => void;
   onRevertCompletion?: (taskId: string) => void;
-  onEdit: (taskId: string, newTitle: string) => void;
   onDelete: (taskId: string) => void;
+  onEdit?: () => void;
   onAddToToday?: (taskId: string) => void;
-  onDefer?: (taskId: string, deferDate: Date) => void;
+  onDefer?: (taskId: string, deferDate: string) => void;
   showTodayButton?: boolean;
   showDeferButton?: boolean;
-  isOverdue?: boolean;
   isInTodaySelection?: boolean;
   lastLog?: LogEntry | null;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   isDraggable?: boolean;
-  currentCategory?: TaskCategory;
-  taskViewModel?: TaskViewModel;
-  tags?: Tag[];
-  selectedTagIds?: string[];
-  onCreateTag?: (name: string, color: string) => void;
-  onUpdateTaskTags?: (taskId: string, tagIds: string[]) => void;
+  currentCategory?: TaskListItem["category"];
+  tags?: readonly Tag[];
+  selectedTagIds?: readonly string[];
   animationDirection?: -1 | 1;
   isListDragActive?: boolean;
   isActiveDragItem?: boolean;
@@ -62,24 +50,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   task,
   onComplete,
   onRevertCompletion,
-  onEdit,
   onDelete,
+  onEdit,
   onAddToToday,
   onDefer,
   showTodayButton = false,
   showDeferButton = false,
-  isOverdue = false,
   isInTodaySelection = false,
   lastLog = null,
   onLoadTaskLogs,
   onCreateLog,
   isDraggable = false,
   currentCategory,
-  taskViewModel,
   tags = [],
   selectedTagIds = [],
-  onCreateTag,
-  onUpdateTaskTags,
   animationDirection = 1,
   isListDragActive = false,
   isActiveDragItem = false,
@@ -87,22 +71,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLElement | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const pointerDownCoordsRef = useRef<{ x: number; y: number } | null>(null);
-  const draggedBetweenDownAndClickRef = useRef(false);
-
-  const {
-    isEditing,
-    editTitle,
-    setEditTitle,
-    handleStartEdit,
-    handleSaveEdit,
-    handleCancelEdit,
-  } = useTaskEditing({
-    initialTitle: task.title.value,
-    onEdit,
-    taskId: task.id.value,
-  });
 
   const {
     taskLogs,
@@ -115,7 +83,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     handleCreateNewLog,
     handleNewLogKeyDown,
   } = useTaskLogs({
-    taskId: task.id.value,
+    taskId: task.taskId,
     onLoadTaskLogs,
     onCreateLog,
   });
@@ -125,73 +93,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     handleOpenDeferModal,
     handleCloseDeferModal,
     handleDeferConfirm,
-  } = useTaskDefer({
-    taskId: task.id.value,
-    onDefer,
-  });
+  } = useTaskDefer({ taskId: task.taskId, onDefer });
 
-  const { saveNote: handleSaveNote } = useTaskNote(
-    task.id.value,
-    task.note,
-    taskViewModel!
-  );
-
-  const handleSaveTaskChanges = async (data: TaskEditFormData) => {
-    if (data.title !== task.title.value) {
-      onEdit(task.id.value, data.title);
-    }
-
-    if (taskViewModel && data.category !== task.category) {
-      await taskViewModel.getState().updateTask({
-        taskId: task.id.value,
-        category: data.category,
-      });
-    }
-
-    if ((task.note || "") !== data.note) {
-      await handleSaveNote(data.note);
-    }
-
-    if (onUpdateTaskTags) {
-      onUpdateTaskTags(task.id.value, data.tagIds);
-    }
-  };
-
-  const handleCardClick = (event: React.MouseEvent<HTMLElement>) => {
-    if (isEditing || isDraggingState || draggedBetweenDownAndClickRef.current) {
-      draggedBetweenDownAndClickRef.current = false;
-      return;
-    }
-
-    const target = event.target as HTMLElement;
-    if (
-      target.closest(
-        "[data-no-card-edit],button,a,input,textarea,select,[role='button'],[contenteditable='true']"
-      )
-    ) {
-      return;
-    }
-
-    setShowEditModal(true);
-  };
-
-  const handlePointerDownCapture = (event: React.PointerEvent<HTMLElement>) => {
-    pointerDownCoordsRef.current = { x: event.clientX, y: event.clientY };
-    draggedBetweenDownAndClickRef.current = false;
-  };
-
-  const handlePointerMoveCapture = (event: React.PointerEvent<HTMLElement>) => {
-    const start = pointerDownCoordsRef.current;
-    if (!start) return;
-
-    const distance =
-      Math.abs(event.clientX - start.x) + Math.abs(event.clientY - start.y);
-    if (distance > 6) {
-      draggedBetweenDownAndClickRef.current = true;
-    }
-  };
-
-  // Drag and drop functionality
   const {
     attributes,
     listeners,
@@ -200,51 +103,31 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     transition,
     isDragging,
     isOver,
-  } = useSortable({
-    id: task.id.value,
-    disabled: !isDraggable,
-  });
+  } = useSortable({ id: task.taskId, disabled: !isDraggable });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  const isDraggingState = isDragging || isActiveDragItem;
-  const isCompleted = task.status === TaskStatus.COMPLETED;
+  const isCompleted = task.completion === "completed";
+  const status = isCompleted ? TaskStatus.COMPLETED : TaskStatus.ACTIVE;
   const isTouch = isTouchDevice();
-  const cardOpacity = isActiveDragItem ? 0.5 : isCompleted ? 0.62 : 1;
+  const isDraggingState = isDragging || isActiveDragItem;
 
-  // Touch gesture handlers
   const { attachGestures } = useTouchGestures({
     onSwipeRight: () => {
-      if (isTouch && !isCompleted) {
-        onComplete(task.id.value);
-      }
+      if (isTouch && !isCompleted) onComplete(task.taskId);
     },
     onSwipeLeft: () => {
-      if (isTouch && showTodayButton && onAddToToday) {
-        onAddToToday(task.id.value);
-      }
+      if (isTouch && showTodayButton) onAddToToday?.(task.taskId);
     },
     onLongPress: () => {
-      if (isTouch && onCreateLog) {
-        // Long press opens log modal
-        handleToggleLogHistory();
-      }
+      if (isTouch && onCreateLog) handleToggleLogHistory();
     },
   });
 
-  // Attach touch gestures
   useEffect(() => {
-    if (isTouch && cardRef.current) {
-      return attachGestures(cardRef.current);
-    }
+    if (isTouch && cardRef.current) return attachGestures(cardRef.current);
   }, [attachGestures, isTouch]);
 
   return (
     <>
-      {/* Blue line indicator for drop location */}
       {isOver && !suppressDropIndicator && (
         <div
           className="h-0.5 bg-blue-500 mx-4 mb-2 rounded-full"
@@ -256,35 +139,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         layout={isListDragActive ? false : "position"}
         ref={(node) => {
           setNodeRef(node);
-          if (cardRef.current !== node) {
-            cardRef.current = node;
-          }
+          cardRef.current = node;
         }}
-        style={style}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition,
+        }}
         {...(isDraggable ? attributes : {})}
         {...(isDraggable ? listeners : {})}
         className={`
-          bg-white rounded-lg border shadow-sm px-4 py-2 transition-shadow duration-150 hover:shadow-md
-          ${isOverdue ? "border-red-300 bg-red-50" : "border-gray-200"}
+          bg-white rounded-lg border border-gray-200 shadow-sm px-4 py-2
+          transition-shadow duration-150 hover:shadow-md
           ${isTouch ? "touch-manipulation" : ""}
           ${isDraggable ? "cursor-grab active:cursor-grabbing" : ""}
           relative group
         `}
         role="article"
-        id={`task-${task.id.value}`}
-        aria-labelledby={`task-title-${task.id.value}`}
-        aria-describedby={`task-meta-${task.id.value} ${
-          isTouch ? `touch-help-${task.id.value}` : ""
-        }`}
+        id={`task-${task.taskId}`}
+        aria-labelledby={`task-title-${task.taskId}`}
         data-testid="task-card"
         data-animation-direction={animationDirection === -1 ? "up" : "down"}
-        initial={{
-          opacity: 0,
-          y: animationDirection * 12,
-          scale: 0.98,
-        }}
+        initial={{ opacity: 0, y: animationDirection * 12, scale: 0.98 }}
         animate={{
-          opacity: cardOpacity,
+          opacity: isActiveDragItem ? 0.5 : isCompleted ? 0.62 : 1,
           y: 0,
           scale: isDraggingState ? 1.02 : 1,
           boxShadow: isDraggingState
@@ -302,58 +179,35 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           ease: "easeOut",
           layout: { duration: 0.18, ease: [0.2, 0, 0, 1] },
         }}
-        onClick={handleCardClick}
-        onPointerDownCapture={handlePointerDownCapture}
-        onPointerMoveCapture={handlePointerMoveCapture}
       >
-        {/* Touch gesture help for mobile */}
-        {isTouch && (
-          <div id={`touch-help-${task.id.value}`} className="sr-only">
-            {t("taskCard.touchHelp")}
-          </div>
-        )}
+        {isTouch && <div className="sr-only">{t("taskCard.touchHelp")}</div>}
 
-        {/* Header with category and status badges */}
         <TaskCardHeader
           category={task.category}
           currentCategory={currentCategory}
-          isOverdue={isOverdue}
         />
 
-        {/* Task title section */}
-        <div className="mb-1">
-          {isEditing ? (
-            <TaskTitleEditor
-              title={editTitle}
-              onTitleChange={setEditTitle}
-              onSave={handleSaveEdit}
-              onCancel={handleCancelEdit}
-            />
-          ) : (
-            <div className="flex items-center justify-between gap-2">
-              <TaskTitleDisplay
-                taskId={task.id.value}
-                title={task.title.value}
-                status={task.status}
-                showTodayButton={showTodayButton}
-                isInTodaySelection={isInTodaySelection}
-                onEdit={handleStartEdit}
-                onAddToToday={onAddToToday}
-              />
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <TaskTitleDisplay
+            taskId={task.taskId}
+            title={task.title}
+            status={status}
+            showTodayButton={showTodayButton}
+            isInTodaySelection={isInTodaySelection}
+            onAddToToday={onAddToToday}
+          />
 
-              <TaskActions
-                taskId={task.id.value}
-                taskTitle={task.title.value}
-                status={task.status}
-                showDeferButton={showDeferButton}
-                onComplete={onComplete}
-                onRevertCompletion={onRevertCompletion}
-                onDelete={onDelete}
-                onDefer={handleOpenDeferModal}
-                onEdit={() => setShowEditModal(true)}
-              />
-            </div>
-          )}
+          <TaskActions
+            taskId={task.taskId}
+            taskTitle={task.title}
+            status={status}
+            showDeferButton={showDeferButton}
+            onComplete={onComplete}
+            onRevertCompletion={onRevertCompletion}
+            onDelete={onDelete}
+            onEdit={onEdit}
+            onDefer={handleOpenDeferModal}
+          />
         </div>
 
         {selectedTagIds.length > 0 && (
@@ -373,7 +227,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         )}
 
-        {/* Logs section */}
         <TaskLogsDisplay
           lastLog={lastLog}
           onToggleLogHistory={handleToggleLogHistory}
@@ -381,7 +234,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         />
       </motion.article>
 
-      {/* Modals */}
       <TaskLogsModal
         isOpen={showLogModal}
         onClose={() => setShowLogModal(false)}
@@ -397,16 +249,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         isOpen={showDeferModal}
         onClose={handleCloseDeferModal}
         onDeferConfirm={handleDeferConfirm}
-      />
-
-      <TaskEditModal
-        isOpen={showEditModal}
-        task={task}
-        onClose={() => setShowEditModal(false)}
-        onSave={handleSaveTaskChanges}
-        tags={tags}
-        selectedTagIds={selectedTagIds}
-        onCreateTag={onCreateTag}
       />
     </>
   );

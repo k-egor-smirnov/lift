@@ -1,26 +1,16 @@
-import { injectable, inject } from "tsyringe";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import {
-  TodoDatabase,
-  TaskLogRecord,
-} from "../../infrastructure/database/TodoDatabase";
+import type { CurrentActor } from "../../../features/workspaces/application/ports/CurrentActor";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
 import { Result, ResultUtils } from "../../domain/Result";
-import { DebouncedSyncService } from "../services/DebouncedSyncService";
-import * as tokens from "../../infrastructure/di/tokens";
-import { ulid } from "ulid";
+import { TaskId } from "../../domain/value-objects/TaskId";
+import { auditStringRecord } from "./AuditLogData";
 
-/**
- * Request for creating a user log
- */
 export interface CreateUserLogRequest {
-  taskId?: string; // Optional - for custom logs without task association
+  taskId?: string;
   message: string;
-  metadata?: Record<string, any>;
+  metadata?: Readonly<Record<string, unknown>>;
 }
 
-/**
- * Domain errors for user log creation
- */
 export class CreateUserLogError extends Error {
   constructor(
     message: string,
@@ -31,67 +21,64 @@ export class CreateUserLogError extends Error {
   }
 }
 
-/**
- * Use case for creating user logs with validation
- */
-@injectable()
+/** Appends an immutable user-authored audit record to the workspace CRDT. */
 export class CreateUserLogUseCase {
   private static readonly MAX_MESSAGE_LENGTH = 500;
 
   constructor(
-    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
-    private readonly debouncedSyncService: DebouncedSyncService
+    private readonly workspace: CurrentWorkspace,
+    private readonly unitOfWork: WorkspaceUnitOfWork,
+    private readonly actor: CurrentActor
   ) {}
 
   async execute(
     request: CreateUserLogRequest
   ): Promise<Result<void, CreateUserLogError>> {
+    const message = request.message?.trim();
+    if (!message) {
+      return ResultUtils.error(
+        new CreateUserLogError("Log message cannot be empty", "EMPTY_MESSAGE")
+      );
+    }
+    if (message.length > CreateUserLogUseCase.MAX_MESSAGE_LENGTH) {
+      return ResultUtils.error(
+        new CreateUserLogError(
+          `Log message cannot exceed ${CreateUserLogUseCase.MAX_MESSAGE_LENGTH} characters`,
+          "MESSAGE_TOO_LONG"
+        )
+      );
+    }
+
+    let taskId: string | null = null;
+    if (request.taskId !== undefined) {
+      try {
+        taskId = TaskId.fromString(request.taskId).value;
+      } catch {
+        return ResultUtils.error(
+          new CreateUserLogError("Invalid task ID format", "INVALID_TASK_ID")
+        );
+      }
+    }
+
     try {
-      // Validate message length
-      if (!request.message || request.message.trim().length === 0) {
-        return ResultUtils.error(
-          new CreateUserLogError("Log message cannot be empty", "EMPTY_MESSAGE")
-        );
-      }
-
-      if (request.message.length > CreateUserLogUseCase.MAX_MESSAGE_LENGTH) {
-        return ResultUtils.error(
-          new CreateUserLogError(
-            `Log message cannot exceed ${CreateUserLogUseCase.MAX_MESSAGE_LENGTH} characters`,
-            "MESSAGE_TOO_LONG"
-          )
-        );
-      }
-
-      // Parse and validate task ID if provided
-      let taskId: TaskId | undefined;
-      if (request.taskId) {
-        try {
-          taskId = TaskId.fromString(request.taskId);
-        } catch (error) {
-          return ResultUtils.error(
-            new CreateUserLogError("Invalid task ID format", "INVALID_TASK_ID")
-          );
-        }
-      }
-
-      // Create log record
-      const logRecord: TaskLogRecord = {
-        id: ulid(),
-        taskId: taskId?.value,
-        type: "USER",
-        message: request.message.trim(),
-        metadata: request.metadata,
-        createdAt: new Date(),
-      };
-
-      // Save to database
-      await this.database.taskLogs.add(logRecord);
-
-      // Trigger debounced sync
-      this.debouncedSyncService.triggerSync();
-
+      const identity = this.actor.require();
+      const operationId = this.actor.nextOperationId();
+      await this.unitOfWork.commit({
+        type: "AppendAuditRecord",
+        workspaceId: this.workspace.requireId(),
+        actorId: identity.actorId,
+        operationId,
+        auditRecordId: operationId,
+        auditKind: "user_log",
+        auditTime: this.actor.auditTime(),
+        taskId,
+        effectiveDate: null,
+        data: {
+          type: "USER",
+          message,
+          ...auditStringRecord(request.metadata),
+        },
+      });
       return ResultUtils.ok(undefined);
     } catch (error) {
       return ResultUtils.error(
@@ -103,9 +90,6 @@ export class CreateUserLogUseCase {
     }
   }
 
-  /**
-   * Get the maximum allowed message length
-   */
   static getMaxMessageLength(): number {
     return CreateUserLogUseCase.MAX_MESSAGE_LENGTH;
   }

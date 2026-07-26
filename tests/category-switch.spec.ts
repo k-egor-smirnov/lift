@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { startOfflineTestApp } from "./helpers/secure-test-app";
 
 test.describe("Category screen switching", () => {
   test("shows correct tasks when switching between Inbox and Focus", async ({
     page,
   }) => {
-    await page.goto("/");
+    await startOfflineTestApp(page);
 
     await page.getByTestId("sidebar-inbox").click();
     const inboxInput = page.getByPlaceholder("Добавить задачу...");

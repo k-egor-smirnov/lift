@@ -10,19 +10,15 @@ import {
 import { OnboardingService } from "../OnboardingService";
 import { TaskRepository } from "../../../../../shared/domain/repositories/TaskRepository";
 import { DailySelectionRepository } from "../../../../../shared/domain/repositories/DailySelectionRepository";
-import { TaskLogService } from "../../../../../shared/application/services/TaskLogService";
 import { Task } from "../../../../../shared/domain/entities/Task";
 import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../../../shared/domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../../../../shared/domain/types";
-import { GetTaskLogsUseCase } from "../../../../../shared/application/use-cases/GetTaskLogsUseCase";
-import { CreateUserLogUseCase } from "../../../../../shared/application/use-cases/CreateUserLogUseCase";
 import { AddTaskToTodayUseCase } from "../../../../../shared/application/use-cases/AddTaskToTodayUseCase";
+import { GetTodayTasksUseCase } from "../../../../../shared/application/use-cases/GetTodayTasksUseCase";
 import { RemoveTaskFromTodayUseCase } from "../../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
 import { CreateSystemLogUseCase } from "../../../../../shared/application/use-cases/CreateSystemLogUseCase";
-import { UndeferTaskUseCase } from "../../../../../shared/application/use-cases/UndeferTaskUseCase";
-import { container } from "../../../../../shared/infrastructure/di";
 
 // Mock repositories
 const mockTaskRepository: Mocked<TaskRepository> = {
@@ -49,23 +45,15 @@ const mockDailySelectionRepository: Mocked<DailySelectionRepository> = {
   markTaskCompleted: vi.fn(),
   getTaskCompletionStatus: vi.fn(),
   getDailySelectionsForRange: vi.fn(),
-  clearDay: vi.fn(),
   countTasksForDay: vi.fn(),
   getLastSelectionDateForTask: vi.fn(),
   removeTaskFromAllDays: vi.fn(),
 };
 
-const mockGetTaskLogsUseCase = {
-  execute: vi.fn(),
-} as unknown as GetTaskLogsUseCase;
-const mockCreateUserLogUseCase = {
-  execute: vi.fn(),
-} as unknown as CreateUserLogUseCase;
-const mockLogService = new TaskLogService(
-  mockGetTaskLogsUseCase,
-  mockCreateUserLogUseCase
-);
 const mockAddTaskToTodayUseCase: Pick<AddTaskToTodayUseCase, "execute"> = {
+  execute: vi.fn(),
+};
+const mockGetTodayTasksUseCase: Pick<GetTodayTasksUseCase, "execute"> = {
   execute: vi.fn(),
 };
 const mockRemoveTaskFromTodayUseCase: Pick<
@@ -77,10 +65,16 @@ const mockRemoveTaskFromTodayUseCase: Pick<
 const mockCreateSystemLogUseCase: Pick<CreateSystemLogUseCase, "execute"> = {
   execute: vi.fn(),
 };
-const mockUndeferTaskUseCase: Pick<UndeferTaskUseCase, "execute"> = {
-  execute: vi.fn(),
+const dateContext = {
+  current: vi.fn(async () => {
+    const now = DateOnly.getCurrentDate();
+    const today = DateOnly.fromDate(now);
+    return now.getHours() < 9 ? today.subtractDays(1) : today;
+  }),
+  isAfterStartOfDay: vi.fn(
+    async () => DateOnly.getCurrentDate().getHours() >= 9
+  ),
 };
-
 describe("OnboardingService", () => {
   let onboardingService: OnboardingService;
 
@@ -90,36 +84,16 @@ describe("OnboardingService", () => {
     onboardingService = new OnboardingService(
       mockTaskRepository,
       mockDailySelectionRepository,
-      mockLogService,
+      mockGetTodayTasksUseCase,
       mockAddTaskToTodayUseCase,
       mockRemoveTaskFromTodayUseCase,
       mockCreateSystemLogUseCase,
-      mockUndeferTaskUseCase
+      dateContext
     );
   });
 
   afterEach(() => {
     vi.useRealTimers();
-  });
-
-  it("does not resolve hidden dependencies from the infrastructure container", () => {
-    const resolveSpy = vi.spyOn(container, "resolve");
-
-    try {
-      new OnboardingService(
-        mockTaskRepository,
-        mockDailySelectionRepository,
-        mockLogService,
-        mockAddTaskToTodayUseCase,
-        mockRemoveTaskFromTodayUseCase,
-        mockCreateSystemLogUseCase,
-        mockUndeferTaskUseCase
-      );
-
-      expect(resolveSpy).not.toHaveBeenCalled();
-    } finally {
-      resolveSpy.mockRestore();
-    }
   });
 
   describe("isInMorningWindow", () => {

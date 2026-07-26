@@ -655,9 +655,7 @@ export interface SyncOutboxRecord {
   targetId: string;
   changeHash: string;
   innerType:
-    | "dev.lift.crdt.change.v1"
-    | "dev.lift.checkpoint.v1"
-    | "dev.lift.acl.v1";
+    "dev.lift.crdt.change.v1" | "dev.lift.checkpoint.v1" | "dev.lift.acl.v1";
   authEpoch: number;
   state:
     | "pending"
@@ -934,6 +932,7 @@ expect(await repository.getTaskIdsForDay(workspaceId, "2026-07-21")).toContain(
 
 - [ ] Replace settings persistence: workspace timezone/start-of-day goes through `UpdateWorkspaceSettings`; language/debug UI preferences remain local presentation preferences in a narrow `LocalPreferenceRepository` port.
 - [ ] Replace mutable task logs and all three log use cases with `AppendAuditRecord` commands/queries. Convert `EventBus` into a pure Application port and let Task 18 provide the persistent adapter/dispatcher. Derive statistics from immutable completion/audit records in `WorkspaceProjector`; make cleanup compact only disposable projections, never CRDT audit history that is not covered by a verified checkpoint.
+- [ ] Deduplicate concurrent offline lifecycle actions by a deterministic per-task completion epoch: all devices completing the same active epoch retain separate operation candidates but project one logical completion/statistic; reopen advances the epoch, and a later re-completion counts again. Derive the canonical lifecycle from the highest contiguous epoch so a stale concurrent ancestor cannot roll back a later reopen.
 - [ ] Delete `DeferredTaskService.processDueTasks` and any interval/wakeup caller. Make `getDeferredTasks(effectiveDate)` a pure query projection.
 - [ ] The replacement service delegates only to the read model:
 
@@ -1033,6 +1032,7 @@ window.addEventListener("pagehide", () => void runtime.stop());
 ```
 
 - [ ] Register `LiftSecureDatabase`, unit of work, repositories, effective-date provider, event dispatcher and local runtime in TSyringe. Keep tokens declared in Application-facing terms; tokens must not be imported by Domain/Application classes.
+- [ ] Expose collaborative text sessions only through a trusted local projection source. In one post-commit read of the same locally validated Automerge document, derive the plain text, canonical heads and exact reachable-change closure used by `CollaborativeTextProjection`; never combine independently timed text/head queries, infer causality from notification arrival order, or accept a Matrix/server-supplied projection envelope. Add a race test proving a delayed projection row cannot be paired with newer heads to clear an unsent edit.
 - [ ] Show `WorkspaceSetupScreen` when there is no local workspace. At this gate it can create an offline-only workspace only under `import.meta.env.MODE === "test"`; normal users proceed to Matrix server setup implemented at Gate B. Once a workspace exists, the entire task UI works with no network target.
 - [ ] Delete the listed legacy files, remove `@supabase/supabase-js`, remove Supabase strings from i18n and settings, and rewrite—not skip—the tests that represented useful task behavior.
 - [ ] Run `npm run verify` and `npm run test:e2e -- tests/secure-clean-start.spec.ts`; expect pass. Record any unrelated pre-existing failing test as a bug and fix it before continuing.
@@ -1347,7 +1347,9 @@ await expect(
 const { room_id: roomId } = await client.createRoom({
   visibility: Visibility.Private,
   preset: Preset.PrivateChat,
-  room_version: "12",
+  // v11 is deliberate: v12 makes the creator's infinite power immutable,
+  // which cannot represent transferable Lift ownership.
+  room_version: "11",
   power_level_content_override: {
     users: { [ownerUserId]: 100 },
     users_default: 0,
@@ -1866,7 +1868,7 @@ expect((await targets.byProfile(secondaryProfileId))?.mode).toBe("preparing");
 
 - [ ] Implement the phases exactly:
   1. authenticate target profile and initialize its distinct verified crypto namespace;
-  2. create target room v12/E2EE and mapped power levels/membership;
+  2. create target room v11/E2EE and mapped power levels/membership;
   3. publish a target ACL root that contains the source ACL hash/epoch and explicit member mapping, then publish/read-back a verified checkpoint plus all pending accepted changes;
   4. construct a fresh Automerge document only from target events, validate ACL/checkpoint/change hashes and compare sorted heads to the local source document;
   5. atomically mark target `active` and source `read-only` only on exact equality;

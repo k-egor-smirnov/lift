@@ -4,13 +4,13 @@ import { DailySelectionRepository } from "../../../../shared/domain/repositories
 import { TaskCategory, TaskStatus } from "../../../../shared/domain/types";
 import { Task } from "../../../../shared/domain/entities/Task";
 import { UserSettingsService } from "./UserSettingsService";
-import { DailySelectionService } from "../../domain/services/DailySelectionService";
-import { TaskLogService } from "../../../../shared/application/services/TaskLogService";
+import { DailySelectionService } from "./DailySelectionService";
 import { AddTaskToTodayUseCase } from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
 import { RemoveTaskFromTodayUseCase } from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
+import { GetTodayTasksUseCase } from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
 import { CreateSystemLogUseCase } from "../../../../shared/application/use-cases/CreateSystemLogUseCase";
 import i18n from "../../../../shared/lib/i18n";
-import { UndeferTaskUseCase } from "../../../../shared/application/use-cases/UndeferTaskUseCase";
+import type { OnboardingDateContext } from "../ports/OnboardingDateContext";
 
 /**
  * Data aggregated for the daily modal
@@ -30,26 +30,23 @@ export interface DailyModalData {
  */
 export class OnboardingService {
   private readonly DEFAULT_OVERDUE_DAYS = 3;
-  private readonly DEFAULT_START_OF_DAY_TIME = "09:00";
 
   constructor(
     private readonly taskRepository: TaskRepository,
     private readonly dailySelectionRepository: DailySelectionRepository,
-    logService: TaskLogService,
+    getTodayTasksUseCase: Pick<GetTodayTasksUseCase, "execute">,
     addTaskToTodayUseCase: Pick<AddTaskToTodayUseCase, "execute">,
     removeTaskFromTodayUseCase: Pick<RemoveTaskFromTodayUseCase, "execute">,
     private readonly createSystemLogUseCase: Pick<
       CreateSystemLogUseCase,
       "execute"
     >,
-    private readonly undeferTaskUseCase: Pick<UndeferTaskUseCase, "execute">,
+    private readonly dates: OnboardingDateContext,
     private readonly userSettingsService?: UserSettingsService
   ) {
     // Initialize DailySelectionService for task management
     this.dailySelectionService = new DailySelectionService(
-      taskRepository,
-      dailySelectionRepository,
-      logService,
+      getTodayTasksUseCase,
       addTaskToTodayUseCase,
       removeTaskFromTodayUseCase,
       this.createSystemLogUseCase
@@ -62,13 +59,7 @@ export class OnboardingService {
    * Check if we're past the start-of-day time (local time)
    */
   async isInMorningWindow(): Promise<boolean> {
-    const effectiveDate = await this.getEffectiveDate();
-    const startTime = await this.getStartOfDayTime();
-    const startMinutes = this.parseTimeToMinutes(startTime);
-    const now = DateOnly.getCurrentDate();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const todayValue = DateOnly.fromDate(now).value;
-    return nowMinutes >= startMinutes && effectiveDate.value === todayValue;
+    return this.dates.isAfterStartOfDay();
   }
 
   /**
@@ -178,7 +169,7 @@ export class OnboardingService {
     return deferredTasks.filter((task) => {
       if (!task.deferredUntil) return false;
       const deferredDate = DateOnly.fromDate(task.deferredUntil);
-      return deferredDate.value === date.value;
+      return deferredDate.value <= date.value;
     });
   }
 
@@ -270,92 +261,12 @@ export class OnboardingService {
     return this.dailySelectionService;
   }
 
-  /**
-   * Handle new day transition - clear previous day's selection
-   */
-  async handleNewDayTransition(effectiveDate?: DateOnly): Promise<void> {
-    try {
-      const targetDate = effectiveDate ?? (await this.getEffectiveDate());
-      await this.dailySelectionService.clearSelectionForDate(targetDate);
-
-      // Automatically return deferred tasks that are due on the effective day
-      const dueDeferredTasks =
-        await this.getDueDeferredTasksForDate(targetDate);
-      if (dueDeferredTasks.length > 0) {
-        for (const task of dueDeferredTasks) {
-          const result = await this.undeferTaskUseCase.execute({
-            taskId: task.id.value,
-          });
-
-          if (!result.success) {
-            console.error(
-              `Failed to auto-undefer task ${task.id.value}:`,
-              result.error
-            );
-          }
-        }
-      }
-
-      await this.createSystemLogUseCase.execute({
-        taskId: "system",
-        action: "new_day_transition",
-        metadata: {
-          date: targetDate.value,
-          dueDeferredReturned: dueDeferredTasks.length,
-        },
-      });
-    } catch (error) {
-      console.error("Error handling new day transition:", error);
-      await this.createSystemLogUseCase.execute({
-        taskId: "system",
-        action: "new_day_transition_error",
-        metadata: {
-          error: error instanceof Error ? error.message : "Unknown error",
-        },
-      });
-    }
-  }
-
   private async getEffectiveDate(): Promise<DateOnly> {
-    const startTime = await this.getStartOfDayTime();
-    const startMinutes = this.parseTimeToMinutes(startTime);
-    const now = DateOnly.getCurrentDate();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const today = DateOnly.fromDate(now);
-    if (nowMinutes < startMinutes) {
-      return today.subtractDays(1);
-    }
-    return today;
+    return this.dates.current();
   }
 
   private async getPreviousSelectionDate(): Promise<DateOnly> {
     const today = await this.getEffectiveDate();
     return today.subtractDays(1);
-  }
-
-  private async getStartOfDayTime(): Promise<string> {
-    if (!this.userSettingsService) {
-      return this.DEFAULT_START_OF_DAY_TIME;
-    }
-
-    try {
-      return await this.userSettingsService.getStartOfDayTime();
-    } catch (error) {
-      console.warn(
-        "Failed to get start of day time from settings, using default:",
-        error
-      );
-      return this.DEFAULT_START_OF_DAY_TIME;
-    }
-  }
-
-  private parseTimeToMinutes(time: string): number {
-    const [hours, minutes] = time.split(":").map((part) => Number(part));
-    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-      return this.DEFAULT_START_OF_DAY_TIME.split(":")
-        .map((part) => Number(part))
-        .reduce((acc, part, index) => acc + part * (index === 0 ? 60 : 1), 0);
-    }
-    return hours * 60 + minutes;
   }
 }

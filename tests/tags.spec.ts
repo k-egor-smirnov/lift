@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { startOfflineTestApp } from "./helpers/secure-test-app";
 
 const TAG_NAME = "E2E Tag";
 
@@ -24,7 +25,7 @@ const createTagFromSidebar = async (page: Page, tagName: string) => {
 
 test.describe("Tags feature", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await startOfflineTestApp(page);
   });
 
   test("focuses create-tag input when opened from sidebar popover", async ({
@@ -40,7 +41,7 @@ test.describe("Tags feature", () => {
     const uniqueTag = `${TAG_NAME}-${Date.now()}`;
     await createTagFromSidebar(page, uniqueTag);
 
-    await page.getByRole("button", { name: uniqueTag }).click();
+    await page.getByTestId(`sidebar-tag-${uniqueTag}`).click();
     await expect(page.getByRole("heading", { name: uniqueTag })).toBeVisible();
 
     const inlineInput = page.getByPlaceholder("Добавить задачу...");
@@ -60,7 +61,7 @@ test.describe("Tags feature", () => {
     await createTagFromSidebar(page, uniqueTag);
 
     // Create INBOX task directly in tag view (should inherit the active tag)
-    await page.getByRole("button", { name: uniqueTag }).click();
+    await page.getByTestId(`sidebar-tag-${uniqueTag}`).click();
     const tagInlineInput = page.getByPlaceholder("Добавить задачу...");
     await tagInlineInput.fill("Inbox tagged task");
     await tagInlineInput.press("Enter");
@@ -74,15 +75,19 @@ test.describe("Tags feature", () => {
     const focusTaskCard = page.locator('[data-testid="task-card"]').filter({
       hasText: "Focus tagged task",
     });
-    await focusTaskCard.click();
+    await focusTaskCard.getByRole("toolbar").getByRole("button").last().click();
+    await page.getByRole("menuitem").first().click();
 
-    await page.getByRole("button", { name: uniqueTag }).click();
+    await page
+      .getByRole("dialog", { name: "Редактирование задачи" })
+      .getByRole("button", { name: uniqueTag })
+      .click();
     await page
       .getByRole("button", { name: /Сохранить|Save/i })
       .last()
       .click();
 
-    await page.getByRole("button", { name: uniqueTag }).click();
+    await page.getByTestId(`sidebar-tag-${uniqueTag}`).click();
 
     const tagTasks = page.locator('[data-testid="task-card"]');
     await expect(

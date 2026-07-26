@@ -11,10 +11,9 @@ import {
 } from "../../../../shared/application/use-cases/UpdateTaskUseCase";
 import { CompleteTaskUseCase } from "../../../../shared/application/use-cases/CompleteTaskUseCase";
 import { DeleteTaskUseCase } from "../../../../shared/application/use-cases/DeleteTaskUseCase";
-import { ChangeTaskNoteUseCase } from "../../../../shared/application/use-cases/ChangeTaskNoteUseCase";
 import { TaskRepository } from "../../../../shared/domain/repositories/TaskRepository";
-import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
 import { GetTodayTasksUseCase } from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
+import { ResultUtils } from "../../../../shared/domain/Result";
 
 /**
  * Task filter options
@@ -38,12 +37,10 @@ export interface TaskViewModelState {
 
   // Actions
   loadTasks: (options?: { silent?: boolean }) => Promise<void>;
-  createTask: (request: CreateTaskRequest) => Promise<boolean>;
+  createTask: (request: CreateTaskRequest) => Promise<string | null>;
   updateTask: (request: UpdateTaskRequest) => Promise<boolean>;
   completeTask: (taskId: string) => Promise<boolean>;
-  revertTaskCompletion: (taskId: string) => Promise<boolean>;
   deleteTask: (taskId: string) => Promise<boolean>;
-  changeTaskNote: (taskId: string, note?: string) => Promise<boolean>;
   setFilter: (filter: TaskFilter) => void;
   setOverdueDays: (days: number) => void;
   clearError: () => void;
@@ -60,13 +57,12 @@ export interface TaskViewModelState {
  * Dependencies for TaskViewModel
  */
 export interface TaskViewModelDependencies {
-  taskRepository: TaskRepository;
-  createTaskUseCase: CreateTaskUseCase;
-  updateTaskUseCase: UpdateTaskUseCase;
-  completeTaskUseCase: CompleteTaskUseCase;
-  deleteTaskUseCase: DeleteTaskUseCase;
-  changeTaskNoteUseCase: ChangeTaskNoteUseCase;
-  getTodayTasksUseCase: GetTodayTasksUseCase;
+  taskRepository: Pick<TaskRepository, "findAll">;
+  createTaskUseCase: Pick<CreateTaskUseCase, "execute">;
+  updateTaskUseCase: Pick<UpdateTaskUseCase, "execute">;
+  completeTaskUseCase: Pick<CompleteTaskUseCase, "execute">;
+  deleteTaskUseCase: Pick<DeleteTaskUseCase, "execute">;
+  getTodayTasksUseCase: Pick<GetTodayTasksUseCase, "execute">;
 }
 
 /**
@@ -81,7 +77,6 @@ export const createTaskViewModel = (
     updateTaskUseCase,
     completeTaskUseCase,
     deleteTaskUseCase,
-    changeTaskNoteUseCase,
     getTodayTasksUseCase,
   } = dependencies;
 
@@ -159,13 +154,12 @@ export const createTaskViewModel = (
           includeCompleted: true,
         });
 
-        if (result.success) {
-          return result.data.tasks.map((taskInfo) => taskInfo.task.id.value);
-        } else {
-          const errorMessage = (result as any).error.message;
-          set({ error: errorMessage });
-          return [];
+        if (ResultUtils.isSuccess(result)) {
+          return result.data.tasks.map((task) => task.taskId);
         }
+
+        set({ error: result.error.message });
+        return [];
       } catch (error) {
         const errorMessage =
           error instanceof Error
@@ -206,21 +200,21 @@ export const createTaskViewModel = (
       try {
         const result = await createTaskUseCase.execute(request);
 
-        if (result.success) {
+        if (ResultUtils.isSuccess(result)) {
           // Reload tasks to get the updated list
           await get().loadTasks({ silent: true });
 
-          return true;
-        } else {
-          set({ error: (result as any).error.message });
-          return false;
+          return result.data.taskId;
         }
+
+        set({ error: result.error.message });
+        return null;
       } catch (error) {
         set({
           error:
             error instanceof Error ? error.message : "Failed to create task",
         });
-        return false;
+        return null;
       }
     },
 
@@ -230,15 +224,15 @@ export const createTaskViewModel = (
       try {
         const result = await updateTaskUseCase.execute(request);
 
-        if (result.success) {
+        if (ResultUtils.isSuccess(result)) {
           // Reload tasks to get the updated list
           await get().loadTasks({ silent: true });
 
           return true;
-        } else {
-          set({ error: (result as any).error.message });
-          return false;
         }
+
+        set({ error: result.error.message });
+        return false;
       } catch (error) {
         set({
           error:
@@ -254,45 +248,19 @@ export const createTaskViewModel = (
       try {
         const result = await completeTaskUseCase.execute({ taskId });
 
-        if (result.success) {
+        if (ResultUtils.isSuccess(result)) {
           // Reload tasks to get the updated list
           await get().loadTasks({ silent: true });
 
           return true;
-        } else {
-          set({ error: (result as any).error.message });
-          return false;
         }
+
+        set({ error: result.error.message });
+        return false;
       } catch (error) {
         set({
           error:
             error instanceof Error ? error.message : "Failed to complete task",
-        });
-        return false;
-      }
-    },
-
-    revertTaskCompletion: async (taskId: string) => {
-      set({ error: null });
-
-      try {
-        // Find the task and revert completion
-        const task = get().tasks.find((t) => t.id.value === taskId);
-        if (!task) {
-          set({ error: "Task not found" });
-          return false;
-        }
-
-        // For now, let's reload tasks - this should be improved with a dedicated use case
-        // TODO: Implement proper revert completion use case
-        await get().loadTasks({ silent: true });
-        return true;
-      } catch (error) {
-        set({
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to revert task completion",
         });
         return false;
       }
@@ -304,48 +272,19 @@ export const createTaskViewModel = (
       try {
         const result = await deleteTaskUseCase.execute({ taskId });
 
-        if (result.success) {
+        if (ResultUtils.isSuccess(result)) {
           // Reload tasks to get the updated list
           await get().loadTasks({ silent: true });
 
           return true;
-        } else {
-          set({ error: (result as any).error.message });
-          return false;
         }
+
+        set({ error: result.error.message });
+        return false;
       } catch (error) {
         set({
           error:
             error instanceof Error ? error.message : "Failed to delete task",
-        });
-        return false;
-      }
-    },
-
-    changeTaskNote: async (taskId: string, note?: string) => {
-      set({ error: null });
-
-      try {
-        const result = await changeTaskNoteUseCase.execute({
-          taskId: TaskId.fromString(taskId),
-          note,
-        });
-
-        if (result.success) {
-          // Reload tasks to get the updated list
-          await get().loadTasks({ silent: true });
-
-          return true;
-        } else {
-          set({ error: (result as any).error.message });
-          return false;
-        }
-      } catch (error) {
-        set({
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to change task note",
         });
         return false;
       }

@@ -1,21 +1,38 @@
 import { create } from "zustand";
-import {
-  UserSettingsService,
-  UserSettings,
-} from "../../application/services/UserSettingsService";
-import { UserSettingsRepositoryImpl } from "../../../../shared/infrastructure/repositories/UserSettingsRepositoryImpl";
-import { todoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 
-/**
- * State for the user settings view model
- */
-interface UserSettingsState {
-  // Settings data
+import type { UpdateWorkspaceSettingsUseCase } from "../../../settings/application/use-cases/UpdateWorkspaceSettingsUseCase";
+import {
+  DEFAULT_USER_SETTINGS,
+  USER_SETTINGS_KEYS,
+  type UserSettings,
+  type UserSettingsService,
+} from "../../application/services/UserSettingsService";
+
+type LocalSettings = Pick<
+  UserSettingsService,
+  | "initializeDefaults"
+  | "getUserSettings"
+  | "updateUserSettings"
+  | "setInboxOverdueDays"
+  | "setKeyboardShortcutsEnabled"
+  | "resetToDefaults"
+>;
+
+export interface UserSettingsViewModelDependencies {
+  readonly localSettings: LocalSettings;
+  readonly updateWorkspaceSettings: Pick<
+    UpdateWorkspaceSettingsUseCase,
+    "execute"
+  >;
+  readonly getWorkspaceStartOfDay: () => Promise<string>;
+}
+
+export interface UserSettingsState {
   settings: UserSettings | null;
   isLoading: boolean;
   error: string | null;
-
-  // Actions
+  initialized: boolean;
+  initialize: (dependencies: UserSettingsViewModelDependencies) => void;
   loadSettings: () => Promise<void>;
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   setInboxOverdueDays: (days: number) => Promise<void>;
@@ -25,209 +42,121 @@ interface UserSettingsState {
   clearError: () => void;
 }
 
-/**
- * Create user settings service instance
- */
-const createUserSettingsService = () => {
-  const userSettingsRepository = new UserSettingsRepositoryImpl(todoDatabase);
-  return new UserSettingsService(userSettingsRepository);
+export const createUserSettingsViewModel = (
+  initialDependencies?: UserSettingsViewModelDependencies
+) => {
+  let dependencies = initialDependencies;
+  const requireDependencies = (): UserSettingsViewModelDependencies => {
+    if (dependencies === undefined) {
+      throw new Error("UserSettingsViewModel has not been initialized");
+    }
+    return dependencies;
+  };
+
+  return create<UserSettingsState>((set, get) => ({
+    settings: null,
+    isLoading: false,
+    error: null,
+    initialized: initialDependencies !== undefined,
+
+    initialize: (nextDependencies) => {
+      dependencies = nextDependencies;
+      set({ initialized: true, error: null });
+    },
+
+    loadSettings: async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const current = requireDependencies();
+        await current.localSettings.initializeDefaults();
+        const [local, startOfDayTime] = await Promise.all([
+          current.localSettings.getUserSettings(),
+          current.getWorkspaceStartOfDay(),
+        ]);
+        set({ settings: { ...local, startOfDayTime }, isLoading: false });
+      } catch (error) {
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to load settings",
+          isLoading: false,
+        });
+      }
+    },
+
+    updateSettings: async (patch) => {
+      const settings = get().settings;
+      if (settings === null) {
+        set({ error: "Settings not loaded" });
+        return;
+      }
+      set({ isLoading: true, error: null });
+      try {
+        const current = requireDependencies();
+        const { startOfDayTime, ...localPatch } = patch;
+        if (Object.keys(localPatch).length > 0) {
+          await current.localSettings.updateUserSettings(localPatch);
+        }
+        if (startOfDayTime !== undefined) {
+          const result = await current.updateWorkspaceSettings.execute({
+            startOfDay: startOfDayTime,
+          });
+          if (!result.success) throw result.error;
+        }
+        set({ settings: { ...settings, ...patch }, isLoading: false });
+      } catch (error) {
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update settings",
+          isLoading: false,
+        });
+      }
+    },
+
+    setInboxOverdueDays: async (days) => {
+      await get().updateSettings({ inboxOverdueDays: days });
+    },
+
+    setKeyboardShortcutsEnabled: async (enabled) => {
+      await get().updateSettings({ keyboardShortcutsEnabled: enabled });
+    },
+
+    setStartOfDayTime: async (time) => {
+      await get().updateSettings({ startOfDayTime: time });
+    },
+
+    resetToDefaults: async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const current = requireDependencies();
+        await current.localSettings.resetToDefaults();
+        const result = await current.updateWorkspaceSettings.execute({
+          startOfDay:
+            DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
+        });
+        if (!result.success) throw result.error;
+        const local = await current.localSettings.getUserSettings();
+        set({
+          settings: {
+            ...local,
+            startOfDayTime:
+              DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
+          },
+          isLoading: false,
+        });
+      } catch (error) {
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to reset settings",
+          isLoading: false,
+        });
+      }
+    },
+
+    clearError: () => set({ error: null }),
+  }));
 };
 
-/**
- * Zustand store for user settings functionality
- */
-export const useUserSettingsViewModel = create<UserSettingsState>(
-  (set, get) => {
-    const userSettingsService = createUserSettingsService();
-
-    return {
-      // Initial state
-      settings: null,
-      isLoading: false,
-      error: null,
-
-      // Load user settings
-      loadSettings: async () => {
-        set({ isLoading: true, error: null });
-
-        try {
-          // Initialize defaults first
-          await userSettingsService.initializeDefaults();
-
-          // Load settings
-          const settings = await userSettingsService.getUserSettings();
-          set({
-            settings,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to load settings",
-            isLoading: false,
-          });
-        }
-      },
-
-      // Update user settings
-      updateSettings: async (settingsUpdate: Partial<UserSettings>) => {
-        const currentSettings = get().settings;
-        if (!currentSettings) {
-          set({ error: "Settings not loaded" });
-          return;
-        }
-
-        set({ isLoading: true, error: null });
-
-        try {
-          await userSettingsService.updateUserSettings(settingsUpdate);
-
-          // Update local state
-          const updatedSettings = { ...currentSettings, ...settingsUpdate };
-          set({
-            settings: updatedSettings,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update settings",
-            isLoading: false,
-          });
-        }
-      },
-
-      // Set inbox overdue days
-      setInboxOverdueDays: async (days: number) => {
-        const currentSettings = get().settings;
-        if (!currentSettings) {
-          set({ error: "Settings not loaded" });
-          return;
-        }
-
-        set({ isLoading: true, error: null });
-
-        try {
-          await userSettingsService.setInboxOverdueDays(days);
-
-          // Update local state
-          const updatedSettings = {
-            ...currentSettings,
-            inboxOverdueDays: days,
-          };
-          set({
-            settings: updatedSettings,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update inbox overdue days",
-            isLoading: false,
-          });
-        }
-      },
-
-      // Set keyboard shortcuts enabled
-      setKeyboardShortcutsEnabled: async (enabled: boolean) => {
-        const currentSettings = get().settings;
-        if (!currentSettings) {
-          set({ error: "Settings not loaded" });
-          return;
-        }
-
-        set({ isLoading: true, error: null });
-
-        try {
-          await userSettingsService.setKeyboardShortcutsEnabled(enabled);
-
-          // Update local state
-          const updatedSettings = {
-            ...currentSettings,
-            keyboardShortcutsEnabled: enabled,
-          };
-          set({
-            settings: updatedSettings,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update keyboard shortcuts setting",
-            isLoading: false,
-          });
-        }
-      },
-
-      // Set start of day time
-      setStartOfDayTime: async (time: string) => {
-        const currentSettings = get().settings;
-        if (!currentSettings) {
-          set({ error: "Settings not loaded" });
-          return;
-        }
-
-        set({ isLoading: true, error: null });
-
-        try {
-          await userSettingsService.setStartOfDayTime(time);
-
-          // Update local state
-          const updatedSettings = {
-            ...currentSettings,
-            startOfDayTime: time,
-          };
-          set({
-            settings: updatedSettings,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update start of day time",
-            isLoading: false,
-          });
-        }
-      },
-
-      // Reset to defaults
-      resetToDefaults: async () => {
-        set({ isLoading: true, error: null });
-
-        try {
-          await userSettingsService.resetToDefaults();
-
-          // Reload settings
-          const settings = await userSettingsService.getUserSettings();
-          set({
-            settings,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to reset settings",
-            isLoading: false,
-          });
-        }
-      },
-
-      // Clear error
-      clearError: () => {
-        set({ error: null });
-      },
-    };
-  }
-);
+/** Initialized by the Task 10 composition root. */
+export const useUserSettingsViewModel = createUserSettingsViewModel();

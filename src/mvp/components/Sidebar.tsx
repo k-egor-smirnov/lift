@@ -6,6 +6,7 @@ import {
   Inbox,
   Clock,
   FileText,
+  BarChart3,
   Settings,
   ChevronDown,
   Plus,
@@ -33,11 +34,7 @@ import {
 } from "../../shared/ui/dialog";
 
 export type ActiveView =
-  | "today"
-  | "logs"
-  | "settings"
-  | TaskCategory
-  | `tag:${string}`;
+  "today" | "logs" | "settings" | "stats" | TaskCategory | `tag:${string}`;
 
 interface SidebarProps {
   activeView: ActiveView;
@@ -121,6 +118,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: "logs" as const,
       icon: FileText,
       name: t("navigation.logs", "Logs"),
+      count: null,
+    },
+    {
+      id: "stats" as const,
+      icon: BarChart3,
+      name: t("statistics.title", "Statistics"),
       count: null,
     },
   ];

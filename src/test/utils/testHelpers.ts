@@ -1,5 +1,4 @@
 import { vi, expect } from "vitest";
-import { container } from "../../shared/infrastructure/di";
 import { ResultUtils } from "@/shared/domain/Result";
 import { TaskId } from "../../shared/domain/value-objects/TaskId";
 
@@ -20,13 +19,6 @@ export class TestHelpers {
    */
   static restoreTimers() {
     vi.useRealTimers();
-  }
-
-  /**
-   * Clear DI container instances for clean tests
-   */
-  static clearContainer() {
-    container.clearInstances();
   }
 
   /**

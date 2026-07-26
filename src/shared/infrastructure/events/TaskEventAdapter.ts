@@ -1,7 +1,7 @@
 import { injectable, inject } from "tsyringe";
 import { DomainEvent } from "../../domain/events/DomainEvent";
 import { DomainEventType } from "../../domain/types";
-import { EventBus } from "../../domain/events/EventBus";
+import { EventBus } from "../../application/ports/EventBus";
 import { taskEventBus } from "./TaskEventBus";
 import { TaskEventType } from "../../domain/events/TaskEvent";
 import * as tokens from "../di/tokens";

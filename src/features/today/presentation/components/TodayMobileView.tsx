@@ -5,29 +5,30 @@ import { TaskList } from "../../../tasks/presentation/components/TaskList";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { TodayViewModelDependencies } from "../view-models/TodayViewModel";
 import { useTodayViewModelStore } from "../view-models/TodayViewModelStore";
-import { Task } from "../../../../shared/domain/entities/Task";
 import { useOnboardingViewModel } from "../../../onboarding/presentation/view-models/OnboardingViewModel";
 import { toast } from "sonner";
-import { getService, tokens } from "../../../../shared/infrastructure/di";
-import { ResultUtils } from "../../../../shared/domain/Result";
-import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-cases/RevertTaskCompletionUseCase";
-import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
+import { workspaceTaskToListItem } from "../../../tasks/presentation/models/TaskListItem";
+import type { TaskReorderIntent } from "../../../tasks/presentation/models/TaskReorderIntent";
+import type { TaskListItem } from "../../../tasks/presentation/models/TaskListItem";
+import type { Tag } from "../../../tags/presentation/view-models/TagViewModel";
 
 interface TodayMobileViewProps {
   dependencies: TodayViewModelDependencies;
-  onEditTask?: (taskId: string, newTitle: string) => void;
   onDeleteTask?: (taskId: string) => void;
-  onDefer?: (taskId: string, deferDate: Date) => void;
-  onUndefer?: (taskId: TaskId) => Promise<void>;
-  onReorderTasks?: (tasks: Task[]) => void;
+  onDefer?: (taskId: string, deferDate: string) => void;
+  onUndefer?: (taskId: string) => Promise<void>;
+  onReorderTasks?: (intent: TaskReorderIntent) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
+  onEditTask?: (task: TaskListItem) => void;
+  tags?: readonly Tag[];
+  taskTags?: Record<string, string[]>;
+  refreshToken?: string;
 }
 
 export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   dependencies,
-  onEditTask,
   onDeleteTask,
   onDefer,
   onUndefer,
@@ -35,6 +36,10 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   onLoadTaskLogs,
   onCreateLog,
   lastLogs = {},
+  onEditTask,
+  tags = [],
+  taskTags = {},
+  refreshToken,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -48,6 +53,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     loadTodayTasks,
     removeTaskFromToday,
     completeTask,
+    revertTaskCompletion,
     clearError,
     getActiveTasks,
     getCompletedTasks,
@@ -68,15 +74,15 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   // Load today's tasks on component mount
   useEffect(() => {
     loadTodayTasks();
-  }, [loadTodayTasks]);
+  }, [loadTodayTasks, refreshToken]);
 
   const handleCompleteTask = async (taskId: string) => {
     try {
       // Find task to get its title for the notification
       const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(
-        (t) => t.task.id.value === taskId
+        (task) => task.taskId === taskId
       );
-      const taskTitle = taskInfo?.task.title.value || t("tasks.newTask");
+      const taskTitle = taskInfo?.title || t("tasks.newTask");
 
       await completeTask(taskId);
 
@@ -98,15 +104,8 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
 
   const handleRevertCompletion = async (taskId: string) => {
     try {
-      const revertUseCase = getService<RevertTaskCompletionUseCase>(
-        tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN
-      );
-      const result = await revertUseCase.execute({ taskId });
-
-      if (ResultUtils.isSuccess(result)) {
+      if (await revertTaskCompletion(taskId)) {
         toast.success(t("toasts.completionUndone"));
-        // Reload today's tasks to reflect changes (silent refresh)
-        await loadTodayTasks(undefined, true);
       } else {
         toast.error(t("toasts.completionUndoFailed"));
       }
@@ -118,12 +117,6 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
 
   const handleToggleToday = async (taskId: string) => {
     await removeTaskFromToday(taskId);
-  };
-
-  const handleEditTask = (taskId: string, newTitle: string) => {
-    if (onEditTask) {
-      onEditTask(taskId, newTitle);
-    }
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -260,10 +253,10 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                         {t("todayView.active")} ({activeTasks.length})
                       </h3>
                       <TaskList
-                        tasks={activeTasks.map((taskInfo) => taskInfo.task)}
+                        tasks={activeTasks.map(workspaceTaskToListItem)}
                         onComplete={handleCompleteTask}
+                        onEdit={onEditTask}
                         onRevertCompletion={handleRevertCompletion}
-                        onEdit={handleEditTask}
                         onDelete={handleDeleteTask}
                         onAddToToday={handleToggleToday}
                         onDefer={onDefer}
@@ -276,6 +269,8 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                         onCreateLog={onCreateLog}
                         groupByCategory={false}
                         todayTaskIds={getTodayTaskIds()}
+                        tags={[...tags]}
+                        taskTags={taskTags}
                       />
                     </div>
                   )}
@@ -288,10 +283,10 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                         {t("todayView.completed")} ({completedTasks.length})
                       </h3>
                       <TaskList
-                        tasks={completedTasks.map((taskInfo) => taskInfo.task)}
+                        tasks={completedTasks.map(workspaceTaskToListItem)}
                         onComplete={undefined}
                         onRevertCompletion={handleRevertCompletion}
-                        onEdit={handleEditTask}
+                        onEdit={onEditTask}
                         onDelete={handleDeleteTask}
                         onAddToToday={handleToggleToday}
                         onDefer={onDefer}
@@ -304,6 +299,8 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
                         onCreateLog={onCreateLog}
                         groupByCategory={false}
                         todayTaskIds={getTodayTaskIds()}
+                        tags={[...tags]}
+                        taskTags={taskTags}
                       />
                     </div>
                   )}

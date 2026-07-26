@@ -1,189 +1,92 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-  RemoveTaskFromTodayUseCase,
-  RemoveTaskFromTodayRequest,
-} from "../RemoveTaskFromTodayUseCase";
-import { DailySelectionRepository } from "../../../domain/repositories/DailySelectionRepository";
-import { EventBus } from "../../../domain/events/EventBus";
-import { TaskId } from "../../../domain/value-objects/TaskId";
-import { DateOnly } from "../../../domain/value-objects/DateOnly";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { ResultUtils } from "../../../domain/Result";
-import { DebouncedSyncService } from "../../services/DebouncedSyncService";
-
-// Mock implementations
-const mockDailySelectionRepository: DailySelectionRepository = {
-  addTaskToDay: vi.fn(),
-  removeTaskFromDay: vi.fn(),
-  getTasksForDay: vi.fn(),
-  getTaskIdsForDay: vi.fn(),
-  isTaskSelectedForDay: vi.fn(),
-  markTaskCompleted: vi.fn(),
-  getTaskCompletionStatus: vi.fn(),
-  getDailySelectionsForRange: vi.fn(),
-  clearDay: vi.fn(),
-  countTasksForDay: vi.fn(),
-  getLastSelectionDateForTask: vi.fn(),
-  removeTaskFromAllDays: vi.fn(),
-};
-
-const mockEventBus: EventBus = {
-  publish: vi.fn(),
-  publishAll: vi.fn(),
-  subscribe: vi.fn(),
-  subscribeToAll: vi.fn(),
-  clear: vi.fn(),
-};
-
-const mockDebouncedSyncService: DebouncedSyncService = {
-  triggerSync: vi.fn(),
-  cleanup: vi.fn(),
-} as unknown as DebouncedSyncService;
+import { RemoveTaskFromTodayUseCase } from "../RemoveTaskFromTodayUseCase";
+import {
+  ACTOR_ID,
+  EFFECTIVE_DATE,
+  OPERATION_ID,
+  TASK_ID,
+  WORKSPACE_ID,
+  makeUseCaseDependencies,
+  type UseCaseTestDependencies,
+} from "./workspaceUseCaseTestUtils";
 
 describe("RemoveTaskFromTodayUseCase", () => {
+  let dependencies: UseCaseTestDependencies;
   let useCase: RemoveTaskFromTodayUseCase;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    dependencies = makeUseCaseDependencies();
     useCase = new RemoveTaskFromTodayUseCase(
-      mockDailySelectionRepository,
-      mockEventBus,
-      mockDebouncedSyncService
+      dependencies.workspace,
+      dependencies.repository,
+      dependencies.unitOfWork,
+      dependencies.actor,
+      dependencies.effectiveDateProvider
     );
   });
 
-  describe("execute", () => {
-    it("should remove task from today successfully", async () => {
-      // Arrange
-      const taskId = TaskId.generate();
-      const request: RemoveTaskFromTodayRequest = {
-        taskId: taskId.value,
-      };
-
-      vi.mocked(
-        mockDailySelectionRepository.removeTaskFromDay
-      ).mockResolvedValue(undefined);
-
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
-      expect(ResultUtils.isSuccess(result)).toBe(true);
-      expect(
-        mockDailySelectionRepository.removeTaskFromDay
-      ).toHaveBeenCalledWith(DateOnly.today(), taskId);
+  it("commits one explicitly dated RemoveFromDay command", async () => {
+    const result = await useCase.execute({
+      taskId: TASK_ID,
+      date: "2026-07-20",
     });
 
-    it("should remove task from specific date successfully", async () => {
-      // Arrange
-      const taskId = TaskId.generate();
-      const specificDate = "2024-01-15";
-      const request: RemoveTaskFromTodayRequest = {
-        taskId: taskId.value,
-        date: specificDate,
-      };
+    expect(ResultUtils.isSuccess(result)).toBe(true);
+    expect(dependencies.effectiveDateProvider.current).not.toHaveBeenCalled();
+    expect(dependencies.unitOfWork.commit).toHaveBeenCalledWith({
+      type: "RemoveFromDay",
+      workspaceId: WORKSPACE_ID,
+      actorId: ACTOR_ID,
+      operationId: OPERATION_ID,
+      taskId: TASK_ID,
+      date: "2026-07-20",
+    });
+  });
 
-      vi.mocked(
-        mockDailySelectionRepository.removeTaskFromDay
-      ).mockResolvedValue(undefined);
+  it("derives the implicit date from workspace settings", async () => {
+    const result = await useCase.execute({ taskId: TASK_ID });
 
-      // Act
-      const result = await useCase.execute(request);
+    expect(ResultUtils.isSuccess(result)).toBe(true);
+    expect(dependencies.effectiveDateProvider.current).toHaveBeenCalledWith({
+      timezone: "Europe/Moscow",
+      startOfDay: "09:00",
+    });
+    expect(dependencies.unitOfWork.commit).toHaveBeenCalledWith(
+      expect.objectContaining({ date: EFFECTIVE_DATE })
+    );
+  });
 
-      // Assert
-      expect(ResultUtils.isSuccess(result)).toBe(true);
-      expect(
-        mockDailySelectionRepository.removeTaskFromDay
-      ).toHaveBeenCalledWith(DateOnly.fromString(specificDate), taskId);
+  it("validates date and task existence before commit", async () => {
+    const invalid = await useCase.execute({ taskId: TASK_ID, date: "bad" });
+    delete dependencies.state.tasks[TASK_ID];
+    const missing = await useCase.execute({
+      taskId: TASK_ID,
+      date: "2026-07-20",
     });
 
-    it("should fail with invalid task ID", async () => {
-      // Arrange
-      const request: RemoveTaskFromTodayRequest = {
-        taskId: "INVALID_TASK_ID_FORMAT",
-      };
+    expect(ResultUtils.isFailure(invalid) && invalid.error.code).toBe(
+      "INVALID_DATE"
+    );
+    expect(ResultUtils.isFailure(missing) && missing.error.code).toBe(
+      "TASK_NOT_FOUND"
+    );
+    expect(dependencies.unitOfWork.commit).not.toHaveBeenCalled();
+  });
 
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
-      expect(ResultUtils.isFailure(result)).toBe(true);
-      if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("INVALID_TASK_ID");
-      }
-
-      expect(
-        mockDailySelectionRepository.removeTaskFromDay
-      ).not.toHaveBeenCalled();
+  it("maps commit failure", async () => {
+    vi.mocked(dependencies.unitOfWork.commit).mockRejectedValueOnce(
+      new Error("disk")
+    );
+    const result = await useCase.execute({
+      taskId: TASK_ID,
+      date: "2026-07-20",
     });
 
-    it("should fail with invalid date format", async () => {
-      // Arrange
-      const taskId = TaskId.generate();
-      const request: RemoveTaskFromTodayRequest = {
-        taskId: taskId.value,
-        date: "invalid-date",
-      };
-
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
-      expect(ResultUtils.isFailure(result)).toBe(true);
-      if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("INVALID_DATE");
-      }
-
-      expect(
-        mockDailySelectionRepository.removeTaskFromDay
-      ).not.toHaveBeenCalled();
-    });
-
-    it("should handle repository failure", async () => {
-      // Arrange
-      const taskId = TaskId.generate();
-      const request: RemoveTaskFromTodayRequest = {
-        taskId: taskId.value,
-      };
-
-      vi.mocked(
-        mockDailySelectionRepository.removeTaskFromDay
-      ).mockRejectedValue(new Error("Database error"));
-
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
-      expect(ResultUtils.isFailure(result)).toBe(true);
-      if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("REMOVE_FAILED");
-        expect(result.error.message).toContain("Database error");
-      }
-
-      expect(
-        mockDailySelectionRepository.removeTaskFromDay
-      ).toHaveBeenCalledTimes(1);
-    });
-
-    it("should handle non-existent task gracefully", async () => {
-      // Arrange
-      const taskId = TaskId.generate();
-      const request: RemoveTaskFromTodayRequest = {
-        taskId: taskId.value,
-      };
-
-      // Repository doesn't throw for non-existent entries
-      vi.mocked(
-        mockDailySelectionRepository.removeTaskFromDay
-      ).mockResolvedValue(undefined);
-
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
-      expect(ResultUtils.isSuccess(result)).toBe(true);
-      expect(
-        mockDailySelectionRepository.removeTaskFromDay
-      ).toHaveBeenCalledWith(DateOnly.today(), taskId);
-    });
+    expect(ResultUtils.isFailure(result) && result.error.code).toBe(
+      "TRANSACTION_FAILED"
+    );
+    expect(dependencies.unitOfWork.commit).toHaveBeenCalledTimes(1);
   });
 });

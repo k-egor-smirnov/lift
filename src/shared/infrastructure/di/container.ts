@@ -1,126 +1,42 @@
 import "reflect-metadata";
-import { container } from "tsyringe";
+import { container, type DependencyContainer } from "tsyringe";
 
-// Import implementations
-import { TodoDatabase } from "../database/TodoDatabase";
-import { PersistentEventBusImpl } from "../../domain/events/EventBus";
-import { TaskRepositoryImpl } from "../repositories/TaskRepositoryImpl";
-import { DailySelectionRepositoryImpl } from "../repositories/DailySelectionRepositoryImpl";
-import { TaskEventAdapter } from "../events/TaskEventAdapter";
-
-// Import use cases
-import { CreateTaskUseCase } from "../../application/use-cases/CreateTaskUseCase";
-import { UpdateTaskUseCase } from "../../application/use-cases/UpdateTaskUseCase";
-import { DeleteTaskUseCase } from "../../application/use-cases/DeleteTaskUseCase";
-import { ReorderTasksUseCase } from "../../application/use-cases/ReorderTasksUseCase";
-import { CompleteTaskUseCase } from "../../application/use-cases/CompleteTaskUseCase";
-import { RevertTaskCompletionUseCase } from "../../application/use-cases/RevertTaskCompletionUseCase";
-import { GetTodayTasksUseCase } from "../../application/use-cases/GetTodayTasksUseCase";
-import { AddTaskToTodayUseCase } from "../../application/use-cases/AddTaskToTodayUseCase";
-import { RemoveTaskFromTodayUseCase } from "../../application/use-cases/RemoveTaskFromTodayUseCase";
-import { GetTaskLogsUseCase } from "../../application/use-cases/GetTaskLogsUseCase";
-import { CreateUserLogUseCase } from "../../application/use-cases/CreateUserLogUseCase";
-import { CreateSystemLogUseCase } from "../../application/use-cases/CreateSystemLogUseCase";
-import { DeferTaskUseCase } from "../../application/use-cases/DeferTaskUseCase";
-import { UndeferTaskUseCase } from "../../application/use-cases/UndeferTaskUseCase";
-import { ChangeTaskNoteUseCase } from "../../application/use-cases/ChangeTaskNoteUseCase";
-
-// Import services
-import { DeferredTaskService } from "../../application/services/DeferredTaskService";
-
-// Import tokens
+import type { SecureRuntime } from "../../../features/workspaces/application/SecureRuntime";
+import type { EffectiveDateProvider } from "../../../features/workspaces/application/ports/EffectiveDateProvider";
+import type { WorkspaceRepository } from "../../../features/workspaces/application/ports/WorkspaceRepository";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
+import type { LiftSecureDatabase } from "../../../features/workspaces/infrastructure/database/LiftSecureDatabase";
+import type { EventBus } from "../../application/ports/EventBus";
 import * as tokens from "./tokens";
 
-/**
- * Configure the DI container with all dependencies
- */
-export function configureContainer(): void {
-  // Register database as singleton
-  container.registerSingleton(tokens.DATABASE_TOKEN, TodoDatabase);
-
-  // Register event bus as singleton
-  container.registerSingleton(tokens.EVENT_BUS_TOKEN, PersistentEventBusImpl);
-
-  // Register task event adapter as singleton
-  container.registerSingleton(
-    tokens.TASK_EVENT_ADAPTER_TOKEN,
-    TaskEventAdapter
-  );
-
-  // Register repositories as singletons
-  container.registerSingleton(tokens.TASK_REPOSITORY_TOKEN, TaskRepositoryImpl);
-  container.registerSingleton(
-    tokens.DAILY_SELECTION_REPOSITORY_TOKEN,
-    DailySelectionRepositoryImpl
-  );
-
-  // Register use cases as singletons
-  container.registerSingleton(
-    tokens.CREATE_TASK_USE_CASE_TOKEN,
-    CreateTaskUseCase
-  );
-  container.registerSingleton(
-    tokens.UPDATE_TASK_USE_CASE_TOKEN,
-    UpdateTaskUseCase
-  );
-  container.registerSingleton(
-    tokens.DELETE_TASK_USE_CASE_TOKEN,
-    DeleteTaskUseCase
-  );
-  container.registerSingleton(
-    tokens.REORDER_TASKS_USE_CASE_TOKEN,
-    ReorderTasksUseCase
-  );
-  container.registerSingleton(
-    tokens.COMPLETE_TASK_USE_CASE_TOKEN,
-    CompleteTaskUseCase
-  );
-  container.registerSingleton(
-    tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN,
-    RevertTaskCompletionUseCase
-  );
-  container.registerSingleton(
-    tokens.GET_TODAY_TASKS_USE_CASE_TOKEN,
-    GetTodayTasksUseCase
-  );
-  container.registerSingleton(
-    tokens.ADD_TASK_TO_TODAY_USE_CASE_TOKEN,
-    AddTaskToTodayUseCase
-  );
-  container.registerSingleton(
-    tokens.REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN,
-    RemoveTaskFromTodayUseCase
-  );
-  container.registerSingleton(
-    tokens.GET_TASK_LOGS_USE_CASE_TOKEN,
-    GetTaskLogsUseCase
-  );
-  container.registerSingleton(
-    tokens.CREATE_USER_LOG_USE_CASE_TOKEN,
-    CreateUserLogUseCase
-  );
-  container.registerSingleton(
-    tokens.CREATE_SYSTEM_LOG_USE_CASE_TOKEN,
-    CreateSystemLogUseCase
-  );
-  container.registerSingleton(
-    tokens.DEFER_TASK_USE_CASE_TOKEN,
-    DeferTaskUseCase
-  );
-  container.registerSingleton(
-    tokens.UNDEFER_TASK_USE_CASE_TOKEN,
-    UndeferTaskUseCase
-  );
-  container.registerSingleton(
-    tokens.CHANGE_TASK_NOTE_USE_CASE_TOKEN,
-    ChangeTaskNoteUseCase
-  );
-
-  // Register services as singletons
-  container.registerSingleton(
-    tokens.DEFERRED_TASK_SERVICE_TOKEN,
-    DeferredTaskService
-  );
+export interface SecureContainerRegistrations {
+  readonly database: LiftSecureDatabase;
+  readonly workspaceRepository: WorkspaceRepository;
+  readonly workspaceUnitOfWork: WorkspaceUnitOfWork;
+  readonly effectiveDateProvider: EffectiveDateProvider;
+  readonly eventBus: EventBus;
+  readonly runtime: SecureRuntime;
 }
 
-export { container };
+/** Creates an isolated composition scope; no dependency is resolved on import. */
+export const configureSecureContainer = (
+  registrations: SecureContainerRegistrations
+): DependencyContainer => {
+  const scope = container.createChildContainer();
+  scope.registerInstance(tokens.DATABASE_TOKEN, registrations.database);
+  scope.registerInstance(
+    tokens.WORKSPACE_REPOSITORY_TOKEN,
+    registrations.workspaceRepository
+  );
+  scope.registerInstance(
+    tokens.WORKSPACE_UNIT_OF_WORK_TOKEN,
+    registrations.workspaceUnitOfWork
+  );
+  scope.registerInstance(
+    tokens.EFFECTIVE_DATE_PROVIDER_TOKEN,
+    registrations.effectiveDateProvider
+  );
+  scope.registerInstance(tokens.EVENT_BUS_TOKEN, registrations.eventBus);
+  scope.registerInstance(tokens.SECURE_RUNTIME_TOKEN, registrations.runtime);
+  return scope;
+};

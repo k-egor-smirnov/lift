@@ -1,38 +1,29 @@
-import { injectable, inject } from "tsyringe";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import {
-  TodoDatabase,
-  TaskLogRecord,
-} from "../../infrastructure/database/TodoDatabase";
+import type {
+  AuditLogCursor,
+  AuditLogEntry,
+  AuditLogRepository,
+} from "../../../features/workspaces/application/ports/AuditLogRepository";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
 import { Result, ResultUtils } from "../../domain/Result";
-import * as tokens from "../../infrastructure/di/tokens";
+import { TaskId } from "../../domain/value-objects/TaskId";
 
-/**
- * Request for getting task logs
- */
 export interface GetTaskLogsRequest {
-  taskId?: string; // Optional - if not provided, gets all logs
-  logType?: "SYSTEM" | "USER" | "CONFLICT"; // Optional filter by log type
-  page?: number; // Optional, defaults to 1
-  pageSize?: number; // Optional, defaults to 20
-  sortOrder?: "asc" | "desc"; // Optional, defaults to 'desc' (newest first)
+  taskId?: string;
+  logType?: "SYSTEM" | "USER" | "CONFLICT";
+  page?: number;
+  pageSize?: number;
+  sortOrder?: "asc" | "desc";
 }
 
-/**
- * Log entry with formatted data
- */
 export interface LogEntry {
   id: string;
   taskId?: string;
   type: "SYSTEM" | "USER" | "CONFLICT";
   message: string;
-  metadata?: Record<string, any>;
+  metadata?: Readonly<Record<string, unknown>>;
   createdAt: Date;
 }
 
-/**
- * Response for getting task logs
- */
 export interface GetTaskLogsResponse {
   logs: LogEntry[];
   pagination: {
@@ -45,9 +36,6 @@ export interface GetTaskLogsResponse {
   };
 }
 
-/**
- * Domain errors for getting task logs
- */
 export class GetTaskLogsError extends Error {
   constructor(
     message: string,
@@ -58,94 +46,77 @@ export class GetTaskLogsError extends Error {
   }
 }
 
-/**
- * Use case for getting task logs with pagination
- */
-@injectable()
+const logType = (entry: AuditLogEntry): LogEntry["type"] => {
+  const value = entry.data.type;
+  return value === "USER" || value === "CONFLICT" ? value : "SYSTEM";
+};
+
+const toLogEntry = (entry: AuditLogEntry): LogEntry => {
+  const { message, type: _type, ...metadata } = entry.data;
+  return {
+    id: `${entry.source}:${entry.recordId}`,
+    ...(entry.taskId === null ? {} : { taskId: entry.taskId }),
+    type: logType(entry),
+    message: message ?? entry.kind,
+    ...(Object.keys(metadata).length === 0 ? {} : { metadata }),
+    createdAt: new Date(entry.auditTime),
+  };
+};
+
+/** Stable audit projection query with a compatibility page-shaped response. */
 export class GetTaskLogsUseCase {
   private static readonly DEFAULT_PAGE_SIZE = 20;
   private static readonly MAX_PAGE_SIZE = 100;
 
   constructor(
-    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
+    private readonly workspace: CurrentWorkspace,
+    private readonly repository: AuditLogRepository
   ) {}
 
   async execute(
     request: GetTaskLogsRequest = {}
   ): Promise<Result<GetTaskLogsResponse, GetTaskLogsError>> {
+    let taskId: string | undefined;
+    if (request.taskId !== undefined) {
+      try {
+        taskId = TaskId.fromString(request.taskId).value;
+      } catch {
+        return ResultUtils.error(
+          new GetTaskLogsError("Invalid task ID format", "INVALID_TASK_ID")
+        );
+      }
+    }
+    const page = Math.max(1, request.page ?? 1);
+    const pageSize = Math.min(
+      GetTaskLogsUseCase.MAX_PAGE_SIZE,
+      Math.max(1, request.pageSize ?? GetTaskLogsUseCase.DEFAULT_PAGE_SIZE)
+    );
+
     try {
-      // Parse and validate task ID if provided
-      let taskId: TaskId | undefined;
-      if (request.taskId) {
-        try {
-          taskId = TaskId.fromString(request.taskId);
-        } catch (error) {
-          return ResultUtils.error(
-            new GetTaskLogsError("Invalid task ID format", "INVALID_TASK_ID")
-          );
-        }
+      const entries: AuditLogEntry[] = [];
+      let cursor: AuditLogCursor | undefined;
+      do {
+        const result = await this.repository.query({
+          workspaceId: this.workspace.requireId(),
+          ...(taskId === undefined ? {} : { taskId }),
+          ...(cursor === undefined ? {} : { cursor }),
+          limit: 100,
+        });
+        entries.push(...result.entries);
+        cursor = result.nextCursor ?? undefined;
+      } while (cursor !== undefined);
+
+      let logs = entries.map(toLogEntry);
+      if (request.logType !== undefined) {
+        logs = logs.filter((entry) => entry.type === request.logType);
       }
-
-      // Validate and set pagination parameters
-      const page = Math.max(1, request.page || 1);
-      let requestedPageSize =
-        request.pageSize ?? GetTaskLogsUseCase.DEFAULT_PAGE_SIZE;
-      // Handle edge case where pageSize is 0 or negative
-      if (requestedPageSize <= 0) {
-        requestedPageSize = 1;
-      }
-      const pageSize = Math.min(
-        GetTaskLogsUseCase.MAX_PAGE_SIZE,
-        requestedPageSize
-      );
-      const sortOrder = request.sortOrder || "desc";
-
-      // Build query
-      let query: any;
-
-      // Filter by task ID if provided
-      if (taskId) {
-        query = this.database.taskLogs.where("taskId").equals(taskId.value);
-      } else {
-        query = this.database.taskLogs.toCollection();
-      }
-
-      // Filter by log type if provided
-      if (request.logType) {
-        if (taskId) {
-          // If we already filtered by taskId, we need to use and() for additional filtering
-          query = query.and((log: any) => log.type === request.logType);
-        } else {
-          query = this.database.taskLogs.where("type").equals(request.logType);
-        }
-      }
-
-      // Get total count for pagination
-      const totalCount = await query.count();
+      if (request.sortOrder === "asc") logs.reverse();
+      const totalCount = logs.length;
       const totalPages = Math.ceil(totalCount / pageSize);
-
-      // Apply sorting and pagination
       const offset = (page - 1) * pageSize;
 
-      let logs: TaskLogRecord[];
-      if (sortOrder === "desc") {
-        logs = await query.reverse().offset(offset).limit(pageSize).toArray();
-      } else {
-        logs = await query.offset(offset).limit(pageSize).toArray();
-      }
-
-      // Convert to response format
-      const logEntries: LogEntry[] = logs.map((log) => ({
-        id: log.id!,
-        taskId: log.taskId,
-        type: log.type,
-        message: log.message,
-        metadata: log.metadata,
-        createdAt: log.createdAt,
-      }));
-
       return ResultUtils.ok({
-        logs: logEntries,
+        logs: logs.slice(offset, offset + pageSize),
         pagination: {
           page,
           pageSize,
@@ -165,45 +136,19 @@ export class GetTaskLogsUseCase {
     }
   }
 
-  /**
-   * Get logs for a specific task with default pagination
-   */
-  async getLogsForTask(
+  getLogsForTask(
     taskId: string,
-    page: number = 1
+    page = 1
   ): Promise<Result<GetTaskLogsResponse, GetTaskLogsError>> {
-    return this.execute({
-      taskId,
-      page,
-      pageSize: GetTaskLogsUseCase.DEFAULT_PAGE_SIZE,
-      sortOrder: "desc",
-    });
+    return this.execute({ taskId, page, sortOrder: "desc" });
   }
 
-  /**
-   * Get recent logs across all tasks
-   */
   async getRecentLogs(
-    limit: number = 20
+    limit = 20
   ): Promise<Result<LogEntry[], GetTaskLogsError>> {
-    try {
-      const result = await this.execute({
-        pageSize: Math.min(limit, GetTaskLogsUseCase.MAX_PAGE_SIZE),
-        sortOrder: "desc",
-      });
-
-      if (ResultUtils.isFailure(result)) {
-        return result;
-      }
-
-      return ResultUtils.ok(result.data.logs);
-    } catch (error) {
-      return ResultUtils.error(
-        new GetTaskLogsError(
-          `Failed to get recent logs: ${error instanceof Error ? error.message : "Unknown error"}`,
-          "GET_FAILED"
-        )
-      );
-    }
+    const result = await this.execute({ pageSize: limit, sortOrder: "desc" });
+    return ResultUtils.isFailure(result)
+      ? result
+      : ResultUtils.ok(result.data.logs);
   }
 }

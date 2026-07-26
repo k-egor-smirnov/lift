@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { startOfflineTestApp } from "./helpers/secure-test-app";
 
 test.describe("Task Notes Error Verification", () => {
   test("should not have scheduleSync or publishEvents errors in console", async ({
@@ -13,7 +14,7 @@ test.describe("Task Notes Error Verification", () => {
     });
 
     // Navigate to the app
-    await page.goto("/");
+    await startOfflineTestApp(page);
 
     // Wait for the page to load completely
     await page.waitForLoadState("networkidle");

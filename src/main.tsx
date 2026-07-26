@@ -1,24 +1,35 @@
-import "reflect-metadata";
-import "./shared/lib/i18n";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App.tsx";
+
+import "./shared/lib/i18n";
 import "./App.css";
-import { syncInitializer } from "./shared/infrastructure/sync/SyncInitializer";
+import App from "./App";
+import { createSecureRuntime } from "./features/workspaces/infrastructure/composition/createSecureRuntime";
 
-// Инициализируем синхронизацию при запуске приложения
-syncInitializer.initialize().catch((error) => {
-  console.error("Failed to initialize sync on startup:", error);
-  // Приложение продолжает работать даже если синхронизация не удалась
-});
+const rootElement = document.getElementById("root");
+if (rootElement === null) throw new Error("Missing application root");
+const root = ReactDOM.createRoot(rootElement);
 
-// Обработка закрытия приложения
-window.addEventListener("beforeunload", () => {
-  syncInitializer.shutdown();
-});
+const boot = async () => {
+  try {
+    const runtime = await createSecureRuntime();
+    window.addEventListener("pagehide", () => void runtime.stop(), {
+      once: true,
+    });
+    root.render(
+      <React.StrictMode>
+        <App runtime={runtime} />
+      </React.StrictMode>
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Secure runtime failed";
+    root.render(
+      <main className="min-h-screen bg-slate-950 p-8 text-red-300">
+        Не удалось открыть локальное защищённое хранилище: {message}
+      </main>
+    );
+  }
+};
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+void boot();

@@ -1,213 +1,119 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { CreateTaskUseCase, CreateTaskRequest } from "../CreateTaskUseCase";
-import { TaskRepository } from "../../../domain/repositories/TaskRepository";
-import { EventBus } from "../../../domain/events/EventBus";
-import { TodoDatabase } from "../../../infrastructure/database/TodoDatabase";
-import { TaskCategory } from "../../../domain/types";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { ResultUtils } from "../../../domain/Result";
-import { DebouncedSyncService } from "../../services/DebouncedSyncService";
-
-// Mock implementations
-const mockTaskRepository: TaskRepository = {
-  findById: vi.fn(),
-  findAll: vi.fn(),
-  findByCategory: vi.fn(),
-  findByStatus: vi.fn(),
-  findByCategoryAndStatus: vi.fn(),
-  findOverdueTasks: vi.fn(),
-  save: vi.fn(),
-  saveMany: vi.fn(),
-  delete: vi.fn(),
-  count: vi.fn(),
-  countByCategory: vi.fn(),
-  exists: vi.fn(),
-};
-
-const mockEventBus: EventBus = {
-  publish: vi.fn(),
-  publishAll: vi.fn(),
-  subscribe: vi.fn(),
-  subscribeToAll: vi.fn(),
-  clear: vi.fn(),
-};
-
-const mockDatabase = {
-  transaction: vi.fn(
-    async (
-      _mode: string,
-      _tables: unknown,
-      callback: () => unknown | Promise<unknown>
-    ) => await callback()
-  ),
-  syncQueue: {
-    add: vi.fn(),
-  },
-  eventStore: {},
-  tasks: {},
-} as unknown as TodoDatabase;
-
-const mockDebouncedSyncService: DebouncedSyncService = {
-  triggerSync: vi.fn(),
-  cleanup: vi.fn(),
-} as unknown as DebouncedSyncService;
+import { TaskCategory } from "../../../domain/types";
+import { CreateTaskUseCase } from "../CreateTaskUseCase";
+import {
+  ACTOR_ID,
+  AUDIT_TIME,
+  DEVICE_ID,
+  EFFECTIVE_DATE,
+  OPERATION_ID,
+  WORKSPACE_ID,
+  makeUseCaseDependencies,
+  type UseCaseTestDependencies,
+} from "./workspaceUseCaseTestUtils";
 
 describe("CreateTaskUseCase", () => {
+  let dependencies: UseCaseTestDependencies;
   let useCase: CreateTaskUseCase;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-
+    dependencies = makeUseCaseDependencies(false);
     useCase = new CreateTaskUseCase(
-      mockTaskRepository,
-      mockEventBus,
-      mockDatabase,
-      mockDebouncedSyncService
+      dependencies.workspace,
+      dependencies.repository,
+      dependencies.unitOfWork,
+      dependencies.actor,
+      dependencies.effectiveDateProvider
     );
   });
 
-  describe("execute", () => {
-    it("should create a task successfully", async () => {
-      // Arrange
-      const request: CreateTaskRequest = {
-        title: "Test Task",
-        category: TaskCategory.SIMPLE,
-      };
-
-      vi.mocked(mockTaskRepository.save).mockResolvedValue(undefined);
-      vi.mocked(mockEventBus.publishAll).mockResolvedValue(undefined);
-
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
-      expect(ResultUtils.isSuccess(result)).toBe(true);
-      if (ResultUtils.isSuccess(result)) {
-        expect(result.data.taskId).toBeDefined();
-        expect(typeof result.data.taskId).toBe("string");
-      }
-
-      expect(mockTaskRepository.save).toHaveBeenCalledTimes(1);
-      expect(mockEventBus.publishAll).toHaveBeenCalledTimes(1);
-
-      // Verify the event published
-      const publishedEvents = vi.mocked(mockEventBus.publishAll).mock
-        .calls[0][0];
-      expect(publishedEvents).toHaveLength(1);
-      expect(publishedEvents[0].eventType).toBe("TASK_CREATED");
+  it("commits exactly one authored CreateTask command", async () => {
+    const result = await useCase.execute({
+      title: "  Local task  ",
+      category: TaskCategory.SIMPLE,
     });
 
-    it("should fail with empty title", async () => {
-      // Arrange
-      const request: CreateTaskRequest = {
-        title: "",
-        category: TaskCategory.SIMPLE,
-      };
+    expect(ResultUtils.isSuccess(result)).toBe(true);
+    if (!ResultUtils.isSuccess(result)) return;
+    expect(result.data.taskId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(dependencies.unitOfWork.commit).toHaveBeenCalledTimes(1);
+    expect(dependencies.unitOfWork.commit).toHaveBeenCalledWith({
+      type: "CreateTask",
+      workspaceId: WORKSPACE_ID,
+      actorId: ACTOR_ID,
+      operationId: OPERATION_ID,
+      taskId: result.data.taskId,
+      title: "Local task",
+      category: "SIMPLE",
+      effectiveDate: EFFECTIVE_DATE,
+      deviceId: DEVICE_ID,
+      auditTime: AUDIT_TIME,
+    });
+  });
 
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
-      expect(ResultUtils.isFailure(result)).toBe(true);
-      if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("INVALID_TITLE");
-        expect(result.error.message).toContain("Title cannot be empty");
-      }
-
-      expect(mockTaskRepository.save).not.toHaveBeenCalled();
-      expect(mockEventBus.publishAll).not.toHaveBeenCalled();
+  it("creates and selects a Today task in the same command", async () => {
+    const result = await useCase.execute({
+      title: "Today task",
+      category: TaskCategory.INBOX,
+      addToToday: true,
     });
 
-    it("should fail with whitespace-only title", async () => {
-      // Arrange
-      const request: CreateTaskRequest = {
-        title: "   ",
+    expect(ResultUtils.isSuccess(result)).toBe(true);
+    expect(dependencies.unitOfWork.commit).toHaveBeenCalledTimes(1);
+    expect(dependencies.unitOfWork.commit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "CreateTask",
+        effectiveDate: EFFECTIVE_DATE,
+        addToDate: EFFECTIVE_DATE,
+      })
+    );
+  });
+
+  it.each(["", "   "])(
+    "rejects invalid title %j before commit",
+    async (title) => {
+      const result = await useCase.execute({
+        title,
         category: TaskCategory.FOCUS,
-      };
+      });
 
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
       expect(ResultUtils.isFailure(result)).toBe(true);
-      if (ResultUtils.isFailure(result)) {
+      if (ResultUtils.isFailure(result))
         expect(result.error.code).toBe("INVALID_TITLE");
-      }
+      expect(dependencies.unitOfWork.commit).not.toHaveBeenCalled();
+      expect(dependencies.actor.nextOperationId).not.toHaveBeenCalled();
+    }
+  );
 
-      expect(mockTaskRepository.save).not.toHaveBeenCalled();
-      expect(mockEventBus.publishAll).not.toHaveBeenCalled();
+  it("rejects the projected DEFERRED category", async () => {
+    const result = await useCase.execute({
+      title: "Task",
+      category: TaskCategory.DEFERRED,
     });
 
-    it("should handle repository save failure", async () => {
-      // Arrange
-      const request: CreateTaskRequest = {
-        title: "Test Task",
-        category: TaskCategory.INBOX,
-      };
+    expect(ResultUtils.isFailure(result)).toBe(true);
+    if (ResultUtils.isFailure(result))
+      expect(result.error.code).toBe("INVALID_CATEGORY");
+    expect(dependencies.unitOfWork.commit).not.toHaveBeenCalled();
+  });
 
-      vi.mocked(mockTaskRepository.save).mockRejectedValue(
-        new Error("Database error")
-      );
+  it("maps a local commit failure to the Result error contract", async () => {
+    vi.mocked(dependencies.unitOfWork.commit).mockRejectedValueOnce(
+      new Error("disk full")
+    );
 
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
-      expect(ResultUtils.isFailure(result)).toBe(true);
-      if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("TRANSACTION_FAILED");
-        expect(result.error.message).toContain("Database error");
-      }
-
-      expect(mockTaskRepository.save).toHaveBeenCalledTimes(1);
-      expect(mockEventBus.publishAll).not.toHaveBeenCalled();
+    const result = await useCase.execute({
+      title: "Task",
+      category: TaskCategory.INBOX,
     });
 
-    it("should handle event bus failure", async () => {
-      // Arrange
-      const request: CreateTaskRequest = {
-        title: "Test Task",
-        category: TaskCategory.SIMPLE,
-      };
-
-      vi.mocked(mockTaskRepository.save).mockResolvedValue(undefined);
-      vi.mocked(mockEventBus.publishAll).mockRejectedValue(
-        new Error("Event bus error")
-      );
-
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
-      expect(ResultUtils.isFailure(result)).toBe(true);
-      if (ResultUtils.isFailure(result)) {
-        expect(result.error.code).toBe("TRANSACTION_FAILED");
-        expect(result.error.message).toContain("Event bus error");
-      }
-
-      expect(mockTaskRepository.save).toHaveBeenCalledTimes(1);
-      expect(mockEventBus.publishAll).toHaveBeenCalledTimes(1);
-    });
-
-    it("should create INBOX task with correct category", async () => {
-      // Arrange
-      const request: CreateTaskRequest = {
-        title: "Inbox Task",
-        category: TaskCategory.INBOX,
-      };
-
-      vi.mocked(mockTaskRepository.save).mockResolvedValue(undefined);
-      vi.mocked(mockEventBus.publishAll).mockResolvedValue(undefined);
-
-      // Act
-      const result = await useCase.execute(request);
-
-      // Assert
-      expect(ResultUtils.isSuccess(result)).toBe(true);
-
-      // Verify the task was saved with correct category
-      const savedTask = vi.mocked(mockTaskRepository.save).mock.calls[0][0];
-      expect(savedTask.category).toBe(TaskCategory.INBOX);
-      expect(savedTask.inboxEnteredAt).toBeDefined();
-    });
+    expect(ResultUtils.isFailure(result)).toBe(true);
+    if (ResultUtils.isFailure(result)) {
+      expect(result.error.code).toBe("TRANSACTION_FAILED");
+      expect(result.error.message).toContain("disk full");
+    }
+    expect(dependencies.unitOfWork.commit).toHaveBeenCalledTimes(1);
   });
 });

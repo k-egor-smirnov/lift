@@ -307,6 +307,13 @@ Roles are per Matrix user and trust is per Matrix device:
 
 Matrix room power levels provide coarse server-visible enforcement. Because all application payloads appear as `m.room.encrypted`, the client also enforces an encrypted append-only ACL chain.
 
+Workspace rooms use Matrix room version 11. Version 12 deliberately is not
+used: its creator has immutable implicit infinite power, which cannot model a
+real ownership transfer or the demotion/removal of a former Owner. With v11,
+Owner is an explicit transferable power level 100 entry. This choice is safe
+for a clean-start system and must be revisited before adopting a later room
+version with equivalent transferable-ownership semantics.
+
 Each ACL checkpoint contains:
 
 - workspace ID;

@@ -8,6 +8,7 @@ import {
   Menu,
   Clock,
   Settings,
+  BarChart3,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
@@ -24,6 +25,7 @@ const getViewTitle = (view: ActiveView, t: any, activeTagName?: string) => {
   if (view === "today") return t("navigation.today");
   if (view === "logs") return t("logs.title", "Activity Logs");
   if (view === "settings") return t("settings.title");
+  if (view === "stats") return t("statistics.title", "Statistics");
   if (view.startsWith("tag:")) return activeTagName ?? "Тэг";
 
   switch (view) {
@@ -45,6 +47,7 @@ const getViewDescription = (view: ActiveView, t: any) => {
   if (view === "logs")
     return t("logs.subtitle", "View all system and user activity");
   if (view === "settings") return t("settings.app.description");
+  if (view === "stats") return t("statistics.subtitle", "Productivity trends");
   if (view.startsWith("tag:")) {
     return "";
   }
@@ -67,6 +70,7 @@ const getViewIcon = (view: ActiveView) => {
   if (view === "today") return Sun;
   if (view === "logs") return FileText;
   if (view === "settings") return Settings;
+  if (view === "stats") return BarChart3;
   if (view.startsWith("tag:")) return FileText;
 
   switch (view) {

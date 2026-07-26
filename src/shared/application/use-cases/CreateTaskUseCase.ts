@@ -1,34 +1,30 @@
-import { injectable, inject } from "tsyringe";
-import { Task } from "../../domain/entities/Task";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
-import { TaskCategory } from "../../domain/types";
-import { TaskRepository } from "../../domain/repositories/TaskRepository";
-import { EventBus } from "../../domain/events/EventBus";
+import type { CurrentActor } from "../../../features/workspaces/application/ports/CurrentActor";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
+import type { EffectiveDateProvider } from "../../../features/workspaces/application/ports/EffectiveDateProvider";
+import type { WorkspaceRepository } from "../../../features/workspaces/application/ports/WorkspaceRepository";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
+import { isValidDateOnly } from "../../../features/workspaces/domain/EffectiveDate";
 import { Result, ResultUtils } from "../../domain/Result";
-import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
-import { BaseTaskUseCase, TaskOperationError } from "./BaseTaskUseCase";
-import { DebouncedSyncService } from "../services/DebouncedSyncService";
-import * as tokens from "../../infrastructure/di/tokens";
+import { TaskCategory } from "../../domain/types";
+import { NonEmptyTitle } from "../../domain/value-objects/NonEmptyTitle";
+import { TaskId } from "../../domain/value-objects/TaskId";
+import {
+  BaseTaskUseCase,
+  errorMessage,
+  TaskOperationError,
+} from "./BaseTaskUseCase";
 
-/**
- * Request for creating a new task
- */
 export interface CreateTaskRequest {
-  title: string;
-  category: TaskCategory;
+  readonly title: string;
+  readonly category: TaskCategory;
+  /** Atomically include the new task in the current effective day. */
+  readonly addToToday?: boolean;
 }
 
-/**
- * Response for task creation
- */
 export interface CreateTaskResponse {
-  taskId: string;
+  readonly taskId: string;
 }
 
-/**
- * Domain errors for task creation
- */
 export class TaskCreationError extends TaskOperationError {
   constructor(message: string, code: string) {
     super(message, code);
@@ -36,65 +32,91 @@ export class TaskCreationError extends TaskOperationError {
   }
 }
 
-/**
- * Use case for creating a new task
- */
-@injectable()
 export class CreateTaskUseCase extends BaseTaskUseCase {
   constructor(
-    @inject(tokens.TASK_REPOSITORY_TOKEN) taskRepository: TaskRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) database: TodoDatabase,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
-    debouncedSyncService: DebouncedSyncService
+    workspace: CurrentWorkspace,
+    repository: WorkspaceRepository,
+    unitOfWork: WorkspaceUnitOfWork,
+    actor: CurrentActor,
+    private readonly effectiveDates: EffectiveDateProvider
   ) {
-    super(taskRepository, eventBus, database, debouncedSyncService);
+    super(workspace, repository, unitOfWork, actor);
   }
 
   async execute(
     request: CreateTaskRequest
   ): Promise<Result<CreateTaskResponse, TaskCreationError>> {
-    return this.safeExecute(
-      async () => {
-        // Create task ID
-        const taskId = TaskId.generate();
+    let title: NonEmptyTitle;
+    try {
+      title = NonEmptyTitle.fromString(request.title);
+    } catch (error) {
+      return ResultUtils.error(
+        new TaskCreationError(errorMessage(error), "INVALID_TITLE")
+      );
+    }
+    if (
+      request.category !== TaskCategory.INBOX &&
+      request.category !== TaskCategory.SIMPLE &&
+      request.category !== TaskCategory.FOCUS
+    ) {
+      return ResultUtils.error(
+        new TaskCreationError("Invalid task category", "INVALID_CATEGORY")
+      );
+    }
 
-        // Create title value object
-        let title: NonEmptyTitle;
-        try {
-          title = NonEmptyTitle.fromString(request.title);
-        } catch (error) {
-          return ResultUtils.error(
-            new TaskCreationError(
-              error instanceof Error ? error.message : "Invalid title",
-              "INVALID_TITLE"
-            )
-          );
-        }
-
-        // Create task entity
-        const { task, events } = Task.create(taskId, title, request.category);
-
-        // Execute in transaction (this will trigger sync)
-        const transactionResult = await this.executeInTransaction<void>(
-          task,
-          "create",
-          events
+    try {
+      const workspaceId = this.workspace.requireId();
+      const identity = this.actor.require();
+      const workspace = await this.repository.getWorkspace(
+        workspaceId,
+        identity.actorId
+      );
+      if (workspace === undefined) {
+        return ResultUtils.error(
+          new TaskCreationError("Workspace not found", "WORKSPACE_NOT_FOUND")
         );
-
-        if (ResultUtils.isFailure(transactionResult)) {
-          return ResultUtils.error(
-            new TaskCreationError(
-              transactionResult.error.message,
-              transactionResult.error.code
-            )
-          );
-        }
-
-        return ResultUtils.ok({ taskId: task.id.value });
-      },
-      "Failed to create task",
-      "CREATION_FAILED"
-    );
+      }
+      const effectiveDate = this.effectiveDates.current(
+        workspace.state.settings
+      );
+      if (!isValidDateOnly(effectiveDate)) {
+        return ResultUtils.error(
+          new TaskCreationError("Invalid effective date", "INVALID_DATE")
+        );
+      }
+      const taskId = TaskId.generate().value;
+      const metadata = this.commandBase({ workspaceId, identity }, true);
+      if (ResultUtils.isFailure(metadata)) {
+        return ResultUtils.error(
+          new TaskCreationError(metadata.error.message, metadata.error.code)
+        );
+      }
+      const commitResult = await this.commit({
+        type: "CreateTask",
+        ...metadata.data,
+        taskId,
+        title: title.value,
+        category: request.category,
+        effectiveDate,
+        ...(request.addToToday === true ? { addToDate: effectiveDate } : {}),
+        deviceId: identity.deviceId,
+      });
+      if (ResultUtils.isFailure(commitResult)) {
+        return ResultUtils.error(
+          new TaskCreationError(
+            commitResult.error.message,
+            commitResult.error.code
+          )
+        );
+      }
+      return ResultUtils.ok({ taskId });
+    } catch (error) {
+      return ResultUtils.error(
+        new TaskCreationError(
+          `Failed to create task: ${errorMessage(error)}`,
+          "CREATION_FAILED"
+        )
+      );
+    }
   }
 }

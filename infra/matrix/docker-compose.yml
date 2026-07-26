@@ -1,0 +1,111 @@
+name: lift-matrix
+
+services:
+  primary-db:
+    image: postgres:18.4-alpine3.24
+    environment:
+      POSTGRES_DB: synapse
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD: lift-primary-postgres-dev
+      POSTGRES_INITDB_ARGS: --locale=C --encoding=UTF8
+    volumes:
+      - primary-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    restart: unless-stopped
+
+  primary-synapse:
+    image: matrixdotorg/synapse:v1.157.0
+    environment:
+      SYNAPSE_CONFIG_PATH: /config/homeserver.yaml
+    ports:
+      - "127.0.0.1:8008:8008"
+    volumes:
+      - ./primary:/config:ro
+      - primary-synapse:/data
+    depends_on:
+      primary-db:
+        condition: service_healthy
+      primary-synapse-data-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/_matrix/client/versions')"
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+
+  primary-synapse-data-init:
+    image: matrixdotorg/synapse:v1.157.0
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["chown -R 991:991 /data"]
+    volumes:
+      - primary-synapse:/data
+    restart: "no"
+
+  secondary-db:
+    profiles: [migration]
+    image: postgres:18.4-alpine3.24
+    environment:
+      POSTGRES_DB: synapse
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD: lift-secondary-postgres-dev
+      POSTGRES_INITDB_ARGS: --locale=C --encoding=UTF8
+    volumes:
+      - secondary-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    restart: unless-stopped
+
+  secondary-synapse:
+    profiles: [migration]
+    image: matrixdotorg/synapse:v1.157.0
+    environment:
+      SYNAPSE_CONFIG_PATH: /config/homeserver.yaml
+    ports:
+      - "127.0.0.1:8009:8008"
+    volumes:
+      - ./secondary:/config:ro
+      - secondary-synapse:/data
+    depends_on:
+      secondary-db:
+        condition: service_healthy
+      secondary-synapse-data-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/_matrix/client/versions')"
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+
+  secondary-synapse-data-init:
+    profiles: [migration]
+    image: matrixdotorg/synapse:v1.157.0
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["chown -R 991:991 /data"]
+    volumes:
+      - secondary-synapse:/data
+    restart: "no"
+
+volumes:
+  primary-postgres:
+  primary-synapse:
+  secondary-postgres:
+  secondary-synapse:

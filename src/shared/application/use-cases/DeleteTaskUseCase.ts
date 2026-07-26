@@ -1,31 +1,19 @@
-import { injectable, inject } from "tsyringe";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import { TaskRepository } from "../../domain/repositories/TaskRepository";
-import { DailySelectionRepository } from "../../domain/repositories/DailySelectionRepository";
-import { EventBus } from "../../domain/events/EventBus";
+import type { CurrentActor } from "../../../features/workspaces/application/ports/CurrentActor";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
+import type { WorkspaceRepository } from "../../../features/workspaces/application/ports/WorkspaceRepository";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
+import { isDeleted } from "../../../features/workspaces/domain/ConflictPolicy";
 import { Result, ResultUtils } from "../../domain/Result";
-import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
 import { BaseTaskUseCase, TaskOperationError } from "./BaseTaskUseCase";
-import { DebouncedSyncService } from "../services/DebouncedSyncService";
-import * as tokens from "../../infrastructure/di/tokens";
 
-/**
- * Request for deleting a task
- */
 export interface DeleteTaskRequest {
-  taskId: string;
+  readonly taskId: string;
 }
 
-/**
- * Response for task deletion
- */
 export interface DeleteTaskResponse {
-  taskId: string;
+  readonly taskId: string;
 }
 
-/**
- * Domain errors for task deletion
- */
 export class TaskDeletionError extends TaskOperationError {
   constructor(message: string, code: string) {
     super(message, code);
@@ -33,89 +21,46 @@ export class TaskDeletionError extends TaskOperationError {
   }
 }
 
-/**
- * Use case for deleting a task (soft delete)
- * This use case handles:
- * 1. Soft deleting the task
- * 2. Removing the task from all daily selections
- * 3. Publishing domain events
- * 4. Triggering sync
- */
-@injectable()
 export class DeleteTaskUseCase extends BaseTaskUseCase {
   constructor(
-    @inject(tokens.TASK_REPOSITORY_TOKEN) taskRepository: TaskRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) database: TodoDatabase,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
-    debouncedSyncService: DebouncedSyncService,
-    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN)
-    private readonly dailySelectionRepository: DailySelectionRepository
+    workspace: CurrentWorkspace,
+    repository: WorkspaceRepository,
+    unitOfWork: WorkspaceUnitOfWork,
+    actor: CurrentActor
   ) {
-    super(taskRepository, eventBus, database, debouncedSyncService);
+    super(workspace, repository, unitOfWork, actor);
   }
 
   async execute(
     request: DeleteTaskRequest
   ): Promise<Result<DeleteTaskResponse, TaskDeletionError>> {
-    return this.safeExecute(
-      async () => {
-        // Parse and validate task ID
-        let taskId: TaskId;
-        try {
-          taskId = TaskId.fromString(request.taskId);
-        } catch (error) {
-          return ResultUtils.error(
-            new TaskDeletionError("Invalid task ID format", "INVALID_TASK_ID")
-          );
-        }
+    const loaded = await this.findTaskById(request.taskId, {
+      includeDeleted: true,
+    });
+    if (ResultUtils.isFailure(loaded)) {
+      return ResultUtils.error(
+        new TaskDeletionError(loaded.error.message, loaded.error.code)
+      );
+    }
+    if (isDeleted(loaded.data.task.deletionDots)) {
+      return ResultUtils.ok({ taskId: loaded.data.taskId });
+    }
 
-        // Find and validate task
-        const taskResult = await this.findTaskById(request.taskId);
-        if (ResultUtils.isFailure(taskResult)) {
-          return ResultUtils.error(
-            new TaskDeletionError(
-              taskResult.error.message,
-              taskResult.error.code
-            )
-          );
-        }
-
-        const task = taskResult.data;
-
-        // Check if task is already deleted
-        if (task.isDeleted) {
-          return ResultUtils.ok({ taskId: task.id.value });
-        }
-
-        // Soft delete the task
-        const events = task.softDelete();
-
-        // Execute in transaction with additional operations
-        const transactionResult =
-          await this.executeInTransaction<DeleteTaskResponse>(
-            task,
-            "update", // Soft delete is an update operation
-            events,
-            async () => {
-              // Remove task from all daily selections
-              await this.dailySelectionRepository.removeTaskFromAllDays(taskId);
-            }
-          );
-
-        if (ResultUtils.isFailure(transactionResult)) {
-          return ResultUtils.error(
-            new TaskDeletionError(
-              transactionResult.error.message,
-              transactionResult.error.code
-            )
-          );
-        }
-
-        return ResultUtils.ok({ taskId: task.id.value });
-      },
-      "Failed to delete task",
-      "DELETION_FAILED"
-    );
+    const metadata = this.commandBase(loaded.data);
+    if (ResultUtils.isFailure(metadata)) {
+      return ResultUtils.error(
+        new TaskDeletionError(metadata.error.message, metadata.error.code)
+      );
+    }
+    const committed = await this.commit({
+      type: "DeleteTask",
+      ...metadata.data,
+      taskId: loaded.data.taskId,
+    });
+    return ResultUtils.isFailure(committed)
+      ? ResultUtils.error(
+          new TaskDeletionError(committed.error.message, committed.error.code)
+        )
+      : ResultUtils.ok({ taskId: loaded.data.taskId });
   }
 }

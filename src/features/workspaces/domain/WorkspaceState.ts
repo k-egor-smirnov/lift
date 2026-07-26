@@ -15,9 +15,11 @@ export interface TaskCrdtState {
   category: "INBOX" | "SIMPLE" | "FOCUS";
   position: { key: string; actorId: string };
   created: { deviceId: string; auditTime: string };
+  inboxEnteredOn: DateOnlyString | null;
   deferredUntil: DateOnlyString | null;
   originalCategory: "INBOX" | "SIMPLE" | "FOCUS" | null;
   completion: "active" | "completed";
+  completionEpoch: number;
   tags: ObservedRemoveSet;
   deletionDots: Record<Dot, true>;
 }
@@ -42,8 +44,21 @@ export interface CompletionRecordState {
   taskId: string;
   effectiveDate: DateOnlyString;
   kind: "completed" | "reopened";
+  fromCompletionEpoch: number;
+  completionEpoch: number;
+  categoryAtCompletion: TaskCrdtState["category"] | null;
   actorId: string;
   auditTime: string;
+}
+
+export interface AuditRecordState {
+  id: string;
+  kind: string;
+  taskId: string | null;
+  effectiveDate: DateOnlyString | null;
+  actorId: string;
+  auditTime: string;
+  data: Record<string, string>;
 }
 
 export interface WorkspaceState {
@@ -58,21 +73,14 @@ export interface WorkspaceState {
     { templateId: string; occurrenceDate: DateOnlyString; taskId: string }
   >;
   completionRecords: Record<string, CompletionRecordState>;
-  auditRecords: Record<
-    string,
-    {
-      id: string;
-      kind: string;
-      actorId: string;
-      auditTime: string;
-      data: Record<string, string>;
-    }
-  >;
+  auditRecords: Record<string, AuditRecordState>;
 }
 
 const START_OF_DAY_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
-const isValidTimezone = (timezone: unknown): timezone is string => {
+export const isValidWorkspaceTimezone = (
+  timezone: unknown
+): timezone is string => {
   if (typeof timezone !== "string" || timezone.trim().length === 0) {
     return false;
   }
@@ -85,7 +93,9 @@ const isValidTimezone = (timezone: unknown): timezone is string => {
   }
 };
 
-const isValidStartOfDay = (startOfDay: unknown): startOfDay is string =>
+export const isValidWorkspaceStartOfDay = (
+  startOfDay: unknown
+): startOfDay is string =>
   typeof startOfDay === "string" && START_OF_DAY_PATTERN.test(startOfDay);
 
 /** Creates a fresh version-one document with no wall-clock conflict fields. */
@@ -96,11 +106,11 @@ export const createEmptyWorkspace = (
 ): WorkspaceState => {
   const id = WorkspaceId(workspaceId);
 
-  if (!isValidTimezone(timezone)) {
+  if (!isValidWorkspaceTimezone(timezone)) {
     throw new Error("Invalid timezone");
   }
 
-  if (!isValidStartOfDay(startOfDay)) {
+  if (!isValidWorkspaceStartOfDay(startOfDay)) {
     throw new Error("Invalid startOfDay");
   }
 

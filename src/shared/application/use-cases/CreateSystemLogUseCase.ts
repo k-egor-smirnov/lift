@@ -1,18 +1,10 @@
-import { injectable, inject } from "tsyringe";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import {
-  TodoDatabase,
-  TaskLogRecord,
-} from "../../infrastructure/database/TodoDatabase";
+import type { CurrentActor } from "../../../features/workspaces/application/ports/CurrentActor";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
 import { Result, ResultUtils } from "../../domain/Result";
-import { DebouncedSyncService } from "../services/DebouncedSyncService";
-import * as tokens from "../../infrastructure/di/tokens";
-import i18n from "../../lib/i18n";
-import { ulid } from "ulid";
+import { TaskId } from "../../domain/value-objects/TaskId";
+import { auditStringRecord } from "./AuditLogData";
 
-/**
- * System log types for automatic generation
- */
 export type SystemLogAction =
   | "created"
   | "category_changed"
@@ -23,24 +15,15 @@ export type SystemLogAction =
   | "conflict_resolved"
   | "added_to_today"
   | "removed_from_today"
-  | "daily_selection_cleared"
-  | "daily_modal_check"
-  | "new_day_transition"
-  | "new_day_transition_error";
+  | "daily_modal_check";
 
-/**
- * Request for creating a system log
- */
 export interface CreateSystemLogRequest {
   taskId: string;
   action: SystemLogAction;
-  metadata?: Record<string, any>;
-  message?: string; // Optional custom message, will be auto-generated if not provided
+  metadata?: Readonly<Record<string, unknown>>;
+  message?: string;
 }
 
-/**
- * Domain errors for system log creation
- */
 export class CreateSystemLogError extends Error {
   constructor(
     message: string,
@@ -51,52 +34,47 @@ export class CreateSystemLogError extends Error {
   }
 }
 
-/**
- * Use case for creating system logs automatically
- */
-@injectable()
+/** Appends auxiliary immutable audit data; semantic commands log themselves. */
 export class CreateSystemLogUseCase {
   constructor(
-    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
-    private readonly debouncedSyncService: DebouncedSyncService
+    private readonly workspace: CurrentWorkspace,
+    private readonly unitOfWork: WorkspaceUnitOfWork,
+    private readonly actor: CurrentActor
   ) {}
 
   async execute(
     request: CreateSystemLogRequest
   ): Promise<Result<void, CreateSystemLogError>> {
-    try {
-      // Parse and validate task ID
-      let taskId: TaskId;
+    let taskId: string | null = null;
+    if (request.taskId !== "system") {
       try {
-        taskId = TaskId.fromString(request.taskId);
-      } catch (error) {
+        taskId = TaskId.fromString(request.taskId).value;
+      } catch {
         return ResultUtils.error(
           new CreateSystemLogError("Invalid task ID format", "INVALID_TASK_ID")
         );
       }
+    }
 
-      // Generate message if not provided
-      const message =
-        request.message ||
-        this.generateSystemMessage(request.action, request.metadata);
-
-      // Create log record
-      const logRecord: TaskLogRecord = {
-        id: ulid(),
-        taskId: taskId.value,
-        type: "SYSTEM",
-        message,
-        metadata: request.metadata,
-        createdAt: new Date(),
-      };
-
-      // Save to database
-      await this.database.taskLogs.add(logRecord);
-
-      // Trigger debounced sync after successful creation
-      this.debouncedSyncService.triggerSync();
-
+    try {
+      const identity = this.actor.require();
+      const operationId = this.actor.nextOperationId();
+      await this.unitOfWork.commit({
+        type: "AppendAuditRecord",
+        workspaceId: this.workspace.requireId(),
+        actorId: identity.actorId,
+        operationId,
+        auditRecordId: operationId,
+        auditKind: request.action,
+        auditTime: this.actor.auditTime(),
+        taskId,
+        effectiveDate: null,
+        data: {
+          type: "SYSTEM",
+          message: request.message ?? request.action,
+          ...auditStringRecord(request.metadata),
+        },
+      });
       return ResultUtils.ok(undefined);
     } catch (error) {
       return ResultUtils.error(
@@ -105,58 +83,6 @@ export class CreateSystemLogUseCase {
           "CREATION_FAILED"
         )
       );
-    }
-  }
-
-  /**
-   * Generate automatic system messages based on action type
-   */
-  private generateSystemMessage(
-    action: SystemLogAction,
-    metadata?: Record<string, any>
-  ): string {
-    switch (action) {
-      case "created":
-        return `Task created in ${metadata?.category || "unknown"} category`;
-
-      case "category_changed":
-        return `Category changed from ${metadata?.fromCategory || "unknown"} to ${metadata?.toCategory || "unknown"}`;
-
-      case "completed":
-        return `Task completed in ${metadata?.categoryAtCompletion || "unknown"} category`;
-
-      case "reverted":
-        return "Task completion reverted";
-
-      case "title_changed":
-        return `Title changed from "${metadata?.fromTitle || "unknown"}" to "${metadata?.toTitle || "unknown"}"`;
-
-      case "overdue":
-        return `Task marked as overdue (${metadata?.daysOverdue || "unknown"} days in Inbox)`;
-
-      case "conflict_resolved":
-        return `Sync conflict resolved using ${metadata?.strategy || "unknown"} strategy`;
-
-      case "added_to_today":
-        return i18n.t("logs.actions.added_to_today");
-
-      case "removed_from_today":
-        return i18n.t("logs.actions.removed_from_today");
-
-      case "daily_selection_cleared":
-        return i18n.t("logs.actions.daily_selection_cleared");
-
-      case "daily_modal_check":
-        return i18n.t("logs.actions.daily_modal_check");
-
-      case "new_day_transition":
-        return i18n.t("logs.actions.new_day_transition");
-
-      case "new_day_transition_error":
-        return i18n.t("logs.actions.new_day_transition_error");
-
-      default:
-        return `System action: ${action}`;
     }
   }
 }

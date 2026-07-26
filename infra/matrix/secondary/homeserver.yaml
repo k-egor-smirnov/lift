@@ -1,0 +1,55 @@
+server_name: secondary.localhost
+public_baseurl: http://127.0.0.1:8009/
+pid_file: /data/homeserver.pid
+
+listeners:
+  - port: 8008
+    type: http
+    tls: false
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      - names: [client]
+        compress: false
+
+database:
+  name: psycopg2
+  args:
+    user: synapse
+    password: lift-secondary-postgres-dev
+    dbname: synapse
+    host: secondary-db
+    cp_min: 5
+    cp_max: 10
+
+log_config: /config/log.config
+media_store_path: /data/media_store
+signing_key_path: /config/signing.key
+registration_shared_secret: lift-secondary-registration-dev-only
+macaroon_secret_key: lift-secondary-macaroon-dev-only
+form_secret: lift-secondary-form-dev-only
+
+report_stats: false
+# Local development only. Public deployments should replace dummy UIA with
+# their chosen registration policy (token, email, SSO, captcha, or disabled).
+enable_registration: true
+enable_registration_without_verification: true
+allow_guest_access: false
+allow_public_rooms_without_auth: false
+allow_public_rooms_over_federation: false
+enable_room_list_search: false
+trusted_key_servers: []
+suppress_key_server_warning: true
+
+# Local development only: browser E2E creates disposable Matrix devices and
+# deliberately repeats login. Production deployments must define conservative
+# limits appropriate for their threat model.
+rc_login:
+  address:
+    per_second: 100
+    burst_count: 100
+  account:
+    per_second: 100
+    burst_count: 100
+  failed_attempts:
+    per_second: 100
+    burst_count: 100

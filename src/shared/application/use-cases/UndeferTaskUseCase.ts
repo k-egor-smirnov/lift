@@ -1,133 +1,73 @@
-import { injectable, inject } from "tsyringe";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import { TaskRepository } from "../../domain/repositories/TaskRepository";
-import { EventBus } from "../../domain/events/EventBus";
+import type { CurrentActor } from "../../../features/workspaces/application/ports/CurrentActor";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
+import type { WorkspaceRepository } from "../../../features/workspaces/application/ports/WorkspaceRepository";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
 import { Result, ResultUtils } from "../../domain/Result";
-import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
-import { hashTask } from "../../infrastructure/utils/hashUtils";
 import { TaskCategory } from "../../domain/types";
-import { DebouncedSyncService } from "../services/DebouncedSyncService";
-import * as tokens from "../../infrastructure/di/tokens";
+import { BaseTaskUseCase, TaskOperationError } from "./BaseTaskUseCase";
 
-/**
- * Request for undeferring a task
- */
 export interface UndeferTaskRequest {
-  taskId: string;
+  readonly taskId: string;
 }
 
-/**
- * Response for undeferring a task
- */
 export interface UndeferTaskResponse {
-  taskId: string;
-  restoredCategory: TaskCategory;
+  readonly taskId: string;
+  readonly restoredCategory: TaskCategory;
 }
 
-/**
- * Domain errors for task undeferral
- */
-export class TaskUndeferralError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string
-  ) {
-    super(message);
+export class TaskUndeferralError extends TaskOperationError {
+  constructor(message: string, code: string) {
+    super(message, code);
     this.name = "TaskUndeferralError";
   }
 }
 
-/**
- * Use case for undeferring a task
- */
-@injectable()
-export class UndeferTaskUseCase {
+export class UndeferTaskUseCase extends BaseTaskUseCase {
   constructor(
-    @inject(tokens.TASK_REPOSITORY_TOKEN)
-    private readonly taskRepository: TaskRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
-    private readonly debouncedSyncService: DebouncedSyncService
-  ) {}
+    workspace: CurrentWorkspace,
+    repository: WorkspaceRepository,
+    unitOfWork: WorkspaceUnitOfWork,
+    actor: CurrentActor
+  ) {
+    super(workspace, repository, unitOfWork, actor);
+  }
 
   async execute(
     request: UndeferTaskRequest
   ): Promise<Result<UndeferTaskResponse, TaskUndeferralError>> {
-    try {
-      // Parse and validate task ID
-      let taskId: TaskId;
-      try {
-        taskId = TaskId.fromString(request.taskId);
-      } catch (error) {
-        return ResultUtils.error(
-          new TaskUndeferralError("Invalid task ID format", "INVALID_TASK_ID")
-        );
-      }
-
-      // Find the task
-      const task = await this.taskRepository.findById(taskId);
-      if (!task) {
-        return ResultUtils.error(
-          new TaskUndeferralError("Task not found", "TASK_NOT_FOUND")
-        );
-      }
-
-      // Check if task is deferred
-      if (!task.isDeferred) {
-        return ResultUtils.error(
-          new TaskUndeferralError("Task is not deferred", "TASK_NOT_DEFERRED")
-        );
-      }
-
-      // Store the restored category before undeferring
-      const restoredCategory = task.originalCategory || TaskCategory.INBOX;
-
-      // Undefer the task (domain logic handles validation and events)
-      const events = task.undefer();
-
-      // Execute transactional operation including task, syncQueue, and eventStore
-      await this.database.transaction(
-        "rw",
-        [
-          this.database.tasks,
-          this.database.syncQueue,
-          this.database.eventStore,
-        ],
-        async () => {
-          // 1. Save the updated task
-          await this.taskRepository.save(task);
-
-          // 2. Add sync queue entry
-          await this.database.syncQueue.add({
-            entityType: "task",
-            entityId: task.id.value,
-            operation: "update",
-            payloadHash: hashTask(task),
-            attemptCount: 0,
-            createdAt: new Date(),
-            nextAttemptAt: Date.now(),
-          });
-
-          // 3. Publish domain events
-          await this.eventBus.publishAll(events);
-        }
-      );
-
-      // 4. Trigger debounced sync after successful transaction
-      this.debouncedSyncService.triggerSync();
-
-      return ResultUtils.ok({
-        taskId: task.id.value,
-        restoredCategory,
-      });
-    } catch (error) {
+    const loaded = await this.findTaskById(request.taskId);
+    if (ResultUtils.isFailure(loaded)) {
       return ResultUtils.error(
-        new TaskUndeferralError(
-          `Failed to undefer task: ${error instanceof Error ? error.message : "Unknown error"}`,
-          "UNDEFERRAL_FAILED"
-        )
+        new TaskUndeferralError(loaded.error.message, loaded.error.code)
       );
     }
+    if (loaded.data.task.deferredUntil === null) {
+      return ResultUtils.error(
+        new TaskUndeferralError("Task is not deferred", "TASK_NOT_DEFERRED")
+      );
+    }
+    const restoredCategory =
+      loaded.data.task.originalCategory ?? loaded.data.task.category;
+
+    const metadata = this.commandBase(loaded.data);
+    if (ResultUtils.isFailure(metadata)) {
+      return ResultUtils.error(
+        new TaskUndeferralError(metadata.error.message, metadata.error.code)
+      );
+    }
+    const committed = await this.commit({
+      type: "DeferTask",
+      ...metadata.data,
+      taskId: loaded.data.taskId,
+      deferredUntil: null,
+    });
+    return ResultUtils.isFailure(committed)
+      ? ResultUtils.error(
+          new TaskUndeferralError(committed.error.message, committed.error.code)
+        )
+      : ResultUtils.ok({
+          taskId: loaded.data.taskId,
+          restoredCategory: restoredCategory as TaskCategory,
+        });
   }
 }
