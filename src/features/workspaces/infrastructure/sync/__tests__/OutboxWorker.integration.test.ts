@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { EncryptedTransport } from "../../../application/ports/EncryptedTransport";
 import { ProcessOutboxUseCase } from "../../../application/use-cases/ProcessOutboxUseCase";
 import { DexieSyncOutbox } from "../../database/DexieSyncOutbox";
 import { LiftSecureDatabase } from "../../database/LiftSecureDatabase";
+import { OutboxWorker } from "../OutboxWorker";
 import { PayloadFragmenter } from "../PayloadFragmenter";
 import { retryDelay } from "../RetryPolicy";
 
@@ -75,6 +76,118 @@ const seed = async (database: LiftSecureDatabase): Promise<string> => {
 };
 
 describe("durable outbox worker", () => {
+  it("waits for an in-flight send before completing the migration drain barrier", async () => {
+    const database = await openDatabase();
+    await seed(database);
+    let releaseSend!: () => void;
+    const sendGate = new Promise<void>((resolve) => {
+      releaseSend = resolve;
+    });
+    let enteredSend!: () => void;
+    const sending = new Promise<void>((resolve) => {
+      enteredSend = resolve;
+    });
+    const worker = new OutboxWorker(
+      new ProcessOutboxUseCase(
+        new DexieSyncOutbox(database),
+        {
+          send: async () => {
+            enteredSend();
+            await sendGate;
+            return { eventId: "$drained" };
+          },
+        },
+        new PayloadFragmenter(),
+        { now: () => 0 },
+        () => 1
+      )
+    );
+    worker.start();
+    await sending;
+
+    let drained = false;
+    const barrier = worker.pauseAndDrain().then(() => {
+      drained = true;
+    });
+    await Promise.resolve();
+    expect(drained).toBe(false);
+
+    releaseSend();
+    await barrier;
+    expect(await database.syncOutbox.toArray()).toEqual([
+      expect.objectContaining({
+        state: "acknowledged",
+        matrixEventIds: ["$drained"],
+      }),
+    ]);
+  });
+
+  it("never sends another account's workspace after the selected identity changes", async () => {
+    const database = await openDatabase();
+    const rowId = await seed(database);
+    let selectedWorkspaceId: string | null = "ws_2";
+    const sent: string[] = [];
+    const process = new ProcessOutboxUseCase(
+      new DexieSyncOutbox(
+        database,
+        () => 0,
+        () => selectedWorkspaceId
+      ),
+      {
+        send: async ({ transactionId }) => {
+          sent.push(transactionId);
+          return { eventId: "$scoped" };
+        },
+      },
+      new PayloadFragmenter(),
+      { now: () => 0 },
+      () => 1
+    );
+
+    await expect(process.runOnce()).resolves.toBe(false);
+    expect(sent).toEqual([]);
+    expect(await database.syncOutbox.get(rowId)).toMatchObject({
+      state: "pending",
+    });
+
+    selectedWorkspaceId = "ws_1";
+    await expect(process.runOnce()).resolves.toBe(true);
+    expect(sent).toEqual([`lift.c1.${changeHash}.1.0`]);
+  });
+
+  it("delivers durable pending changes after a session pause and resume", async () => {
+    const database = await openDatabase();
+    const rowId = await seed(database);
+    const sent: string[] = [];
+    const process = new ProcessOutboxUseCase(
+      new DexieSyncOutbox(database),
+      {
+        send: async ({ transactionId }) => {
+          sent.push(transactionId);
+          return { eventId: "$after-resume" };
+        },
+      },
+      new PayloadFragmenter(),
+      { now: () => 0 },
+      () => 1
+    );
+    const worker = new OutboxWorker(process);
+
+    worker.pause();
+    expect(sent).toEqual([]);
+
+    worker.start();
+    await vi.waitFor(async () => {
+      expect(await database.syncOutbox.get(rowId)).toMatchObject({
+        state: "acknowledged",
+        matrixEventIds: ["$after-resume"],
+      });
+    });
+    worker.stop();
+
+    expect(sent).toEqual([`lift.c1.${changeHash}.1.0`]);
+  });
+
   it("reuses the deterministic transaction ID after a lost ACK", async () => {
     const database = await openDatabase();
     const rowId = await seed(database);

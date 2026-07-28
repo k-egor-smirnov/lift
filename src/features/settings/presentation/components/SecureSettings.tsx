@@ -14,6 +14,8 @@ import { MatrixSetupViewModel } from "../../../workspaces/presentation/view-mode
 import { MatrixSetupWizard } from "../../../workspaces/presentation/components/MatrixSetupWizard";
 import { MATRIX_AUTHENTICATION_CAPABILITIES } from "../../../workspaces/application/security/MatrixAuthenticationCapabilities";
 import { createCheckpointSettingsViewModel } from "../view-models/CheckpointSettingsViewModel";
+import { createServerMigrationViewModel } from "../../../workspaces/presentation/view-models/ServerMigrationViewModel";
+import { ServerMigrationDialog } from "../../../workspaces/presentation/components/ServerMigrationDialog";
 
 interface SecureSettingsProps {
   readonly runtime: SecureRuntime;
@@ -41,6 +43,11 @@ export const SecureSettings = ({ runtime }: SecureSettingsProps) => {
   );
   const checkpointStore = useMemo(
     () => createCheckpointSettingsViewModel(runtime.useCases),
+    [runtime]
+  );
+  const migrationStore = useMemo(
+    () =>
+      createServerMigrationViewModel(runtime.useCases.migrateWorkspaceServer),
     [runtime]
   );
   const checkpoint = checkpointStore();
@@ -179,6 +186,14 @@ export const SecureSettings = ({ runtime }: SecureSettingsProps) => {
           </div>
         )}
       </section>
+      {matrix.phase === "ready" && acl !== null && (
+        <ServerMigrationDialog
+          store={migrationStore}
+          profiles={runtime.matrixProfiles}
+          currentProfileId={matrix.profileId}
+          sourceUserIds={Object.keys(acl.members)}
+        />
+      )}
       <section className="rounded-xl border bg-white p-5 shadow-sm">
         <div className="mb-4">
           <h2 className="font-semibold">Участники и доступ</h2>

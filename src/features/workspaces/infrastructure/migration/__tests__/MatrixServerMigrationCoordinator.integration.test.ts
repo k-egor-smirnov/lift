@@ -78,6 +78,9 @@ const seed = async () => {
       id: "local-primary",
       name: "Primary",
       baseUrl: "http://127.0.0.1:8008",
+      sessionUserId: sourceUserId,
+      sessionDeviceId: "SOURCE",
+      sessionUpdatedAt: 1,
     },
     {
       id: "local-secondary",
@@ -135,6 +138,16 @@ const gateway = async (
       checkpoint,
       checkpointEventIds: ["$target-checkpoint"],
       freshHeads: [...heads],
+      sourceSession: {
+        profileId: "local-primary",
+        userId: sourceUserId,
+        deviceId: "SOURCE",
+      },
+      targetSession: {
+        profileId: "local-secondary",
+        userId: targetUserId,
+        deviceId: "TARGET",
+      },
     }),
     publishCertificate: async ({ certificate }) => ({
       hash: certificate.hash,
@@ -156,9 +169,27 @@ const input = {
 describe("MatrixServerMigrationCoordinator", () => {
   it("switches targets only after exact target reconstruction and dual certificate read-back", async () => {
     const { database, snapshot, heads, sourceAclHash } = await seed();
+    const activationObservations: Array<{
+      readonly sourceMode: string | undefined;
+      readonly targetMode: string | undefined;
+      readonly activeProfileId: string | undefined;
+    }> = [];
+    const migrationGateway = await gateway(snapshot, heads, {
+      activateTargetSession: async () => {
+        activationObservations.push({
+          sourceMode: (await database.syncTargets.get("source-target"))?.mode,
+          targetMode: (await database.syncTargets.get("target-target"))?.mode,
+          activeProfileId: (
+            await database.serverProfiles
+              .filter(({ sessionUserId }) => sessionUserId !== undefined)
+              .first()
+          )?.id,
+        });
+      },
+    });
     const coordinator = new MatrixServerMigrationCoordinator(
       database,
-      await gateway(snapshot, heads),
+      migrationGateway,
       "bb".repeat(16),
       () => 10
     );
@@ -179,6 +210,23 @@ describe("MatrixServerMigrationCoordinator", () => {
       mode: "active",
       state: "active",
     });
+    expect(activationObservations).toEqual([
+      {
+        sourceMode: "read-only",
+        targetMode: "active",
+        activeProfileId: "local-secondary",
+      },
+    ]);
+    const clearedSourceProfile =
+      await database.serverProfiles.get("local-primary");
+    expect(clearedSourceProfile?.sessionUserId).toBeUndefined();
+    expect(clearedSourceProfile?.sessionDeviceId).toBeUndefined();
+    expect(clearedSourceProfile?.sessionUpdatedAt).toBeUndefined();
+    expect(await database.serverProfiles.get("local-secondary")).toMatchObject({
+      sessionUserId: targetUserId,
+      sessionDeviceId: "TARGET",
+      sessionUpdatedAt: 10,
+    });
     expect(
       await database.aclCheckpoints
         .where("workspaceId")
@@ -196,6 +244,13 @@ describe("MatrixServerMigrationCoordinator", () => {
     ).toMatchObject({
       sourceEventId: "$source-certificate",
       targetEventId: "$target-certificate",
+      sourceAclChain: [
+        {
+          authEpoch: 1,
+          hash: sourceAclHash,
+          previousHash: null,
+        },
+      ],
     });
   });
 
@@ -230,6 +285,42 @@ describe("MatrixServerMigrationCoordinator", () => {
     expect(restoreCalls).toEqual(["restore"]);
   });
 
+  it("keeps the atomically promoted target durable when client activation is interrupted", async () => {
+    const { database, snapshot, heads } = await seed();
+    const restoreCalls: string[] = [];
+    const coordinator = new MatrixServerMigrationCoordinator(
+      database,
+      await gateway(snapshot, heads, {
+        activateTargetSession: async () => {
+          throw new Error("simulated crash during client handoff");
+        },
+        restoreSourceSession: async () => {
+          restoreCalls.push("restore");
+        },
+      }),
+      "bb".repeat(16),
+      () => 10
+    );
+
+    await expect(coordinator.migrate(input)).rejects.toThrow(
+      "simulated crash during client handoff"
+    );
+    expect(restoreCalls).toEqual([]);
+    expect(await database.syncTargets.get("source-target")).toMatchObject({
+      mode: "read-only",
+      state: "active",
+    });
+    expect(await database.syncTargets.get("target-target")).toMatchObject({
+      mode: "active",
+      state: "active",
+    });
+    expect(await database.serverProfiles.get("local-secondary")).toMatchObject({
+      sessionUserId: targetUserId,
+      sessionDeviceId: "TARGET",
+      sessionUpdatedAt: 10,
+    });
+  });
+
   it("rejects a target with different heads without switching the source", async () => {
     const { database, snapshot, heads } = await seed();
     const different = Automerge.change(
@@ -252,6 +343,8 @@ describe("MatrixServerMigrationCoordinator", () => {
             sourceRoomId: "!source:primary.localhost",
             sourceAclHash: "ab".repeat(32),
             sourceAclEpoch: 1,
+            sourceRevokedUsers: [],
+            sourceRevokedDevices: [],
             sourceSnapshot: snapshot,
             sourceHeads: heads,
             memberMappings: input.memberMappings,
@@ -293,5 +386,55 @@ describe("MatrixServerMigrationCoordinator", () => {
       coordinator.migrate({ ...input, memberMappings: [] })
     ).rejects.toThrow("explicit target mapping");
     expect(prepareCalls).toEqual([]);
+  });
+
+  it("refuses to migrate while any source outbox row is unresolved, including paused authorization failures", async () => {
+    const { database, snapshot, heads } = await seed();
+    await database.syncOutbox.add({
+      id: "paused-source-change",
+      workspaceId,
+      targetId: "source-target",
+      changeHash: "ef".repeat(32),
+      innerType: "dev.lift.crdt.change.v1",
+      authEpoch: 1,
+      state: "paused-auth",
+      attemptCount: 1,
+      nextAttemptAt: 0,
+      lastError: "authorization-failed",
+      matrixTxnId: "paused-source-change",
+      matrixEventIds: [],
+      nextFragmentIndex: 0,
+    });
+    const coordinator = new MatrixServerMigrationCoordinator(
+      database,
+      await gateway(snapshot, heads),
+      "bb".repeat(16)
+    );
+
+    await expect(coordinator.migrate(input)).rejects.toThrow(
+      "Unresolved source outbox"
+    );
+  });
+
+  it("refuses to migrate while a source-room inbox event is not durably resolved", async () => {
+    const { database, snapshot, heads } = await seed();
+    await database.syncInbox.add({
+      eventId: "$pending-source-event",
+      workspaceId: null,
+      roomId: "!source:primary.localhost",
+      wireEvent: "{}",
+      state: "waiting-keys",
+      receivedAt: 1,
+      lastError: "missing-room-key",
+    });
+    const coordinator = new MatrixServerMigrationCoordinator(
+      database,
+      await gateway(snapshot, heads),
+      "bb".repeat(16)
+    );
+
+    await expect(coordinator.migrate(input)).rejects.toThrow(
+      "Unresolved source inbox"
+    );
   });
 });

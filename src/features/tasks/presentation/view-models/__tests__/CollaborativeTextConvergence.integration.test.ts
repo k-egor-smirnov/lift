@@ -38,6 +38,18 @@ const createDatabase = (): LiftSecureDatabase => {
   return database;
 };
 
+const activateRemoteRoom = (database: LiftSecureDatabase): Promise<string> =>
+  database.syncTargets.add({
+    id: "remote-test-target",
+    workspaceId: WORKSPACE_ID,
+    serverProfileId: "remote-test-profile",
+    roomId: "!workspace:example.test",
+    mode: "active",
+    state: "active",
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+
 const cleanup = async (): Promise<void> => {
   for (const database of databases) database.close();
   databases.clear();
@@ -170,6 +182,9 @@ describe("collaborative text convergence", () => {
         })
       )
     );
+    await Promise.all(
+      [databaseA, databaseB].map((database) => activateRemoteRoom(database))
+    );
 
     const uowA = unitOfWork(databaseA);
     const uowB = unitOfWork(databaseB);
@@ -283,6 +298,9 @@ describe("collaborative text convergence", () => {
           savedAt: NOW,
         })
       )
+    );
+    await Promise.all(
+      [databaseA, databaseB].map((database) => activateRemoteRoom(database))
     );
 
     const uowA = unitOfWork(databaseA);

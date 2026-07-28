@@ -27,6 +27,7 @@ import type { RemoveWorkspaceMemberUseCase } from "./use-cases/RemoveWorkspaceMe
 import type { RevokeWorkspaceDeviceUseCase } from "./use-cases/RevokeWorkspaceDeviceUseCase";
 import type { CreateCheckpointUseCase } from "./use-cases/CreateCheckpointUseCase";
 import type { RestoreCheckpointUseCase } from "./use-cases/RestoreCheckpointUseCase";
+import type { MigrateWorkspaceServerUseCase } from "./use-cases/MigrateWorkspaceServerUseCase";
 
 export interface SecureRuntimeMatrixProfile {
   readonly id: string;
@@ -78,6 +79,7 @@ export interface SecureRuntimeUseCases {
   readonly revokeWorkspaceDevice: RevokeWorkspaceDeviceUseCase;
   readonly createCheckpoint: CreateCheckpointUseCase;
   readonly restoreCheckpoint: RestoreCheckpointUseCase;
+  readonly migrateWorkspaceServer: MigrateWorkspaceServerUseCase;
 }
 
 /** Application-facing facade. Infrastructure stays behind the composition root. */

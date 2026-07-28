@@ -390,6 +390,19 @@ export class DexieWorkspaceUnitOfWork implements WorkspaceUnitOfWork {
         this.database.quarantine,
       ],
       async (): Promise<ApplyRemoteResult> => {
+        const activeTarget = await this.database.syncTargets
+          .where("workspaceId")
+          .equals(remote.workspaceId)
+          .filter(
+            ({ roomId, mode, state }) =>
+              roomId === remote.roomId &&
+              mode === "active" &&
+              state === "active"
+          )
+          .first();
+        if (activeTarget === undefined) {
+          throw new Error("Remote event room is not the active sync target");
+        }
         await this.assertEventIdentity(remote);
         const existing = await this.database.workspaceChanges.get([
           remote.workspaceId,

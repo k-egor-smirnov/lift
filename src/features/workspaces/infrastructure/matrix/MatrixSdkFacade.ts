@@ -85,6 +85,13 @@ export interface MatrixWorkspaceClient {
     readonly eventId: string;
     readonly content: Readonly<Record<string, unknown>>;
   }>;
+  readWorkspaceAccess?(
+    roomId: string,
+    userIds: readonly string[]
+  ): Promise<{
+    readonly userPowerLevels: Readonly<Record<string, number>>;
+    readonly memberships: Readonly<Record<string, string>>;
+  }>;
   applyWorkspaceAccess?(
     roomId: string,
     userPowerLevels: Readonly<Record<string, number>>,

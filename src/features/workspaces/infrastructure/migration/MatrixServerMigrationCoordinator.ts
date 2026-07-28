@@ -34,6 +34,8 @@ export interface PrepareMatrixMigrationTargetInput {
   readonly sourceRoomId: string;
   readonly sourceAclHash: string;
   readonly sourceAclEpoch: number;
+  readonly sourceRevokedUsers: readonly string[];
+  readonly sourceRevokedDevices: readonly string[];
   readonly sourceSnapshot: Uint8Array;
   readonly sourceHeads: readonly string[];
   readonly memberMappings: readonly MigrationMemberMapping[];
@@ -48,6 +50,14 @@ export interface PreparedMatrixMigrationTarget {
   readonly checkpoint: EncodedCheckpointV1;
   readonly checkpointEventIds: readonly string[];
   readonly freshHeads: readonly string[];
+  readonly sourceSession: MatrixMigrationSessionIdentity;
+  readonly targetSession: MatrixMigrationSessionIdentity;
+}
+
+export interface MatrixMigrationSessionIdentity {
+  readonly profileId: string;
+  readonly userId: string;
+  readonly deviceId: string;
 }
 
 export interface MatrixMigrationCertificateReceipt {
@@ -105,6 +115,7 @@ export class MatrixServerMigrationCoordinator {
       sourceAcl.members,
       input.memberMappings
     );
+    let switched = false;
     try {
       const prepared = await this.gateway.prepareTarget({
         workspaceId: input.workspaceId,
@@ -113,11 +124,19 @@ export class MatrixServerMigrationCoordinator {
         sourceRoomId: source.target.roomId,
         sourceAclHash: source.acl.hash,
         sourceAclEpoch: source.acl.authEpoch,
+        sourceRevokedUsers: [...sourceAcl.revokedUsers],
+        sourceRevokedDevices: [...sourceAcl.revokedDevices],
         sourceSnapshot: source.snapshot.bytes.slice(),
         sourceHeads: [...source.snapshot.heads],
         memberMappings: input.memberMappings.map((mapping) => ({ ...mapping })),
         targetMembers,
       });
+      if (
+        prepared.sourceSession.profileId !== source.target.serverProfileId ||
+        prepared.targetSession.profileId !== input.targetProfileId
+      ) {
+        throw new Error("Migration session profile binding mismatch");
+      }
       await this.persistPreparingTarget(input, source.target.id, prepared);
       const targetAcl = await this.verifyPreparedTarget(
         input,
@@ -150,7 +169,6 @@ export class MatrixServerMigrationCoordinator {
         throw new Error("Migration certificate read-back mismatch");
       }
 
-      await this.gateway.activateTargetSession();
       await this.commitSwitch({
         input,
         source,
@@ -159,6 +177,8 @@ export class MatrixServerMigrationCoordinator {
         certificate,
         receipt,
       });
+      switched = true;
+      await this.gateway.activateTargetSession();
       return {
         workspaceId: input.workspaceId,
         sourceTargetId: source.target.id,
@@ -170,7 +190,9 @@ export class MatrixServerMigrationCoordinator {
         targetHeads: [...prepared.freshHeads].sort(),
       };
     } catch (error) {
-      await this.gateway.restoreSourceSession().catch(() => undefined);
+      if (!switched) {
+        await this.gateway.restoreSourceSession().catch(() => undefined);
+      }
       throw error;
     }
   }
@@ -183,30 +205,36 @@ export class MatrixServerMigrationCoordinator {
         this.database.aclCheckpoints,
         this.database.syncTargets,
         this.database.syncOutbox,
+        this.database.syncInbox,
         this.database.serverProfiles,
       ],
       async () => {
-        const [snapshot, target, targetProfile, pending] = await Promise.all([
-          this.database.workspaceSnapshots.get(input.workspaceId),
-          this.database.syncTargets
-            .where("workspaceId")
-            .equals(input.workspaceId)
-            .filter(
-              ({ mode, state }) => mode === "active" && state === "active"
-            )
-            .first(),
-          this.database.serverProfiles.get(input.targetProfileId),
-          this.database.syncOutbox
-            .where("[workspaceId+state]")
-            .between(
-              [input.workspaceId, "pending"],
-              [input.workspaceId, "sending"],
-              true,
-              true
-            )
-            .count(),
-        ]);
-        const acl = await this.latestAcl(input.workspaceId);
+        const [snapshot, target, targetProfile, outboxRows, inboxRows] =
+          await Promise.all([
+            this.database.workspaceSnapshots.get(input.workspaceId),
+            this.database.syncTargets
+              .where("workspaceId")
+              .equals(input.workspaceId)
+              .filter(
+                ({ mode, state }) => mode === "active" && state === "active"
+              )
+              .first(),
+            this.database.serverProfiles.get(input.targetProfileId),
+            this.database.syncOutbox
+              .filter(({ workspaceId }) => workspaceId === input.workspaceId)
+              .toArray(),
+            this.database.syncInbox.toArray(),
+          ]);
+        const aclChain = await this.database.aclCheckpoints
+          .where("[workspaceId+authEpoch]")
+          .between(
+            [input.workspaceId, Dexie.minKey],
+            [input.workspaceId, Dexie.maxKey],
+            true,
+            true
+          )
+          .toArray();
+        const acl = aclChain.at(-1);
         if (snapshot === undefined)
           throw new Error("Workspace snapshot is unavailable");
         if (target === undefined)
@@ -216,9 +244,29 @@ export class MatrixServerMigrationCoordinator {
         if (targetProfile === undefined)
           throw new Error("Target server profile is unavailable");
         if (acl === undefined) throw new Error("Source ACL is unavailable");
-        if (pending > 0)
-          throw new Error("Pending source changes must be synchronized first");
-        return { snapshot, target, acl };
+        if (
+          outboxRows.some(
+            ({ targetId, state }) =>
+              targetId === target.id && state !== "acknowledged"
+          )
+        ) {
+          throw new Error(
+            "Unresolved source outbox must be synchronized or repaired first"
+          );
+        }
+        if (
+          inboxRows.some(
+            ({ roomId, state }) =>
+              roomId === target.roomId &&
+              state !== "handled" &&
+              state !== "quarantined"
+          )
+        ) {
+          throw new Error(
+            "Unresolved source inbox must be processed or quarantined first"
+          );
+        }
+        return { snapshot, target, acl, aclChain };
       }
     );
   }
@@ -306,27 +354,46 @@ export class MatrixServerMigrationCoordinator {
         this.database.workspaceSnapshots,
         this.database.syncTargets,
         this.database.syncOutbox,
+        this.database.syncInbox,
         this.database.aclCheckpoints,
         this.database.verifiedCheckpoints,
         this.database.migrationCertificates,
+        this.database.serverProfiles,
       ],
       async () => {
-        const [snapshot, sourceTarget, targetTarget, acl, pending] =
-          await Promise.all([
-            this.database.workspaceSnapshots.get(input.input.workspaceId),
-            this.database.syncTargets.get(input.source.target.id),
-            this.database.syncTargets.get(input.prepared.targetId),
-            this.latestAcl(input.input.workspaceId),
-            this.database.syncOutbox
-              .where("[workspaceId+state]")
-              .between(
-                [input.input.workspaceId, "pending"],
-                [input.input.workspaceId, "sending"],
-                true,
-                true
-              )
-              .count(),
-          ]);
+        const [
+          snapshot,
+          sourceTarget,
+          targetTarget,
+          acl,
+          outboxRows,
+          inboxRows,
+          sourceProfile,
+          targetProfile,
+        ] = await Promise.all([
+          this.database.workspaceSnapshots.get(input.input.workspaceId),
+          this.database.syncTargets.get(input.source.target.id),
+          this.database.syncTargets.get(input.prepared.targetId),
+          this.latestAcl(input.input.workspaceId),
+          this.database.syncOutbox
+            .filter(
+              ({ workspaceId }) => workspaceId === input.input.workspaceId
+            )
+            .toArray(),
+          this.database.syncInbox.toArray(),
+          this.database.serverProfiles.get(input.source.target.serverProfileId),
+          this.database.serverProfiles.get(input.input.targetProfileId),
+        ]);
+        const unresolvedOutbox = outboxRows.some(
+          ({ targetId, state }) =>
+            targetId === input.source.target.id && state !== "acknowledged"
+        );
+        const unresolvedInbox = inboxRows.some(
+          ({ roomId, state }) =>
+            roomId === input.source.target.roomId &&
+            state !== "handled" &&
+            state !== "quarantined"
+        );
         if (
           snapshot === undefined ||
           !equal(snapshot.heads, input.source.snapshot.heads) ||
@@ -334,8 +401,11 @@ export class MatrixServerMigrationCoordinator {
           sourceTarget.state !== "active" ||
           targetTarget?.mode !== "preparing" ||
           targetTarget.state !== "paused" ||
+          sourceProfile === undefined ||
+          targetProfile === undefined ||
           acl?.hash !== input.source.acl.hash ||
-          pending > 0
+          unresolvedOutbox ||
+          unresolvedInbox
         ) {
           throw new Error("Migration source changed before target activation");
         }
@@ -376,8 +446,31 @@ export class MatrixServerMigrationCoordinator {
           bytes: input.certificate.bytes.slice(),
           sourceEventId: input.receipt.sourceEventId,
           targetEventId: input.receipt.targetEventId,
+          sourceAclChain: input.source.aclChain.map((checkpoint) => ({
+            authEpoch: checkpoint.authEpoch,
+            hash: checkpoint.hash,
+            previousHash: checkpoint.previousHash,
+            bytes: checkpoint.bytes.slice(),
+            createdAt: checkpoint.createdAt,
+          })),
           verifiedAt: timestamp,
         });
+        await this.database.serverProfiles.update(sourceProfile.id, {
+          sessionUserId: undefined,
+          sessionDeviceId: undefined,
+          sessionUpdatedAt: undefined,
+        });
+        const promoted = await this.database.serverProfiles.update(
+          targetProfile.id,
+          {
+            sessionUserId: input.prepared.targetSession.userId,
+            sessionDeviceId: input.prepared.targetSession.deviceId,
+            sessionUpdatedAt: timestamp,
+          }
+        );
+        if (promoted !== 1) {
+          throw new Error("Target Matrix session promotion failed");
+        }
         await this.database.syncTargets.update(input.source.target.id, {
           mode: "read-only",
           state: "active",

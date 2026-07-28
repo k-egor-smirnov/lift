@@ -1,5 +1,6 @@
 import * as Automerge from "@automerge/automerge";
 import Dexie from "dexie";
+import { z } from "zod";
 
 import type { ClaimedInboxItem } from "../../application/ports/SyncInbox";
 import type { WorkspaceUnitOfWork } from "../../application/ports/WorkspaceUnitOfWork";
@@ -9,7 +10,8 @@ import {
   RetryableInboxProcessingError,
   type TrustedInboxProcessor,
 } from "../../application/use-cases/ProcessInboxUseCase";
-import { can } from "../../domain/WorkspaceRole";
+import { createServerMigrationCertificate } from "../../domain/ServerMigration";
+import { can, WorkspaceRole } from "../../domain/WorkspaceRole";
 import { workspaceDeviceRef } from "../../domain/WorkspaceAcl";
 import { CanonicalAclCodec } from "../acl/CanonicalAclCodec";
 import type { MatrixAclBootstrapper } from "../acl/MatrixAclBootstrapper";
@@ -45,6 +47,44 @@ const equal = (left: readonly string[], right: readonly string[]): boolean => {
   const b = [...right].sort();
   return a.length === b.length && a.every((value, index) => value === b[index]);
 };
+
+const equalBytes = (left: Uint8Array, right: Uint8Array): boolean =>
+  left.byteLength === right.byteLength &&
+  left.every((value, index) => value === right[index]);
+
+const hash = z.string().regex(/^[0-9a-f]{64}$/);
+const encodedBytes = z.string().regex(/^[A-Za-z0-9_-]+$/);
+const migrationEnvelope = z.strictObject({
+  schemaVersion: z.literal(1),
+  hash,
+  bytes: encodedBytes,
+});
+const migrationCertificate = z.strictObject({
+  type: z.literal("dev.lift.server_migration.v1"),
+  schemaVersion: z.literal(1),
+  workspaceId: z.string().min(1),
+  source: z.strictObject({
+    profileId: z.string().min(1),
+    roomId: z.string().min(1),
+    aclEpoch: z.number().int().positive(),
+    aclHash: hash,
+  }),
+  target: z.strictObject({
+    profileId: z.string().min(1),
+    roomId: z.string().min(1),
+    aclEpoch: z.literal(1),
+    aclHash: hash,
+  }),
+  heads: z.array(hash).min(1),
+  memberMappings: z
+    .array(
+      z.strictObject({
+        sourceUserId: z.string().min(1),
+        targetUserId: z.string().min(1),
+      })
+    )
+    .min(1),
+});
 
 const reject = (code: string): never => {
   throw new RejectedInboxEventError(code);
@@ -96,6 +136,10 @@ export class MatrixInboxProcessor implements TrustedInboxProcessor {
       const receiver =
         this.checkpointReceiver ?? reject("checkpoint-receiver-unavailable");
       await receiver.accept(event);
+      return;
+    }
+    if (event.clearType === "dev.lift.server_migration.v1") {
+      await this.acceptMigrationCertificate(event);
       return;
     }
     if (event.clearType !== "dev.lift.crdt.change.v1") {
@@ -215,6 +259,132 @@ export class MatrixInboxProcessor implements TrustedInboxProcessor {
     } catch (error) {
       throw new RetryableInboxProcessingError(applyFailureCode(error));
     }
+  }
+
+  private async acceptMigrationCertificate(
+    event: Awaited<ReturnType<MatrixWorkspaceClient["decryptWorkspaceEvent"]>>
+  ): Promise<void> {
+    if (
+      !event.deviceCrossSigned ||
+      !event.applicationSignatureVerified ||
+      event.shield === "red" ||
+      event.shield === "missing" ||
+      event.senderDeviceId === null
+    ) {
+      reject("migration-certificate-unverified-device");
+    }
+    const senderDeviceId =
+      event.senderDeviceId ?? reject("migration-certificate-unverified-device");
+    const parsedEnvelope = migrationEnvelope.safeParse(event.content);
+    const envelope = parsedEnvelope.success
+      ? parsedEnvelope.data
+      : reject("migration-certificate-invalid-schema");
+    const bytes = (() => {
+      try {
+        return decode(envelope.bytes);
+      } catch {
+        return reject("migration-certificate-invalid-schema");
+      }
+    })();
+    if ((await sha256(bytes)) !== envelope.hash)
+      reject("migration-certificate-hash-mismatch");
+    const parsedCertificate = (() => {
+      try {
+        return migrationCertificate.safeParse(
+          JSON.parse(new TextDecoder().decode(bytes))
+        );
+      } catch {
+        return { success: false } as const;
+      }
+    })();
+    const certificate = parsedCertificate.success
+      ? parsedCertificate.data
+      : reject("migration-certificate-invalid-schema");
+    const canonical = await (async () => {
+      try {
+        return await createServerMigrationCertificate({
+          workspaceId: certificate.workspaceId,
+          sourceProfileId: certificate.source.profileId,
+          sourceRoomId: certificate.source.roomId,
+          sourceAclEpoch: certificate.source.aclEpoch,
+          sourceAclHash: certificate.source.aclHash,
+          targetProfileId: certificate.target.profileId,
+          targetRoomId: certificate.target.roomId,
+          targetAclHash: certificate.target.aclHash,
+          heads: certificate.heads,
+          memberMappings: certificate.memberMappings,
+        });
+      } catch {
+        return reject("migration-certificate-invalid-schema");
+      }
+    })();
+    if (
+      canonical.hash !== envelope.hash ||
+      !equalBytes(canonical.bytes, bytes)
+    ) {
+      reject("migration-certificate-noncanonical");
+    }
+    const target = await this.database.syncTargets
+      .filter(
+        ({ roomId, mode, state }) =>
+          roomId === event.roomId && mode === "active" && state === "active"
+      )
+      .first();
+    const validTarget = target ?? reject("migration-certificate-wrong-room");
+    const [aclRecord, snapshot] = await Promise.all([
+      this.database.aclCheckpoints.get([certificate.workspaceId, 1]),
+      this.database.workspaceSnapshots.get(certificate.workspaceId),
+    ]);
+    const acl =
+      aclRecord === undefined
+        ? reject("migration-certificate-missing-acl")
+        : this.codec.decode(aclRecord.bytes);
+    const mappedSourceUsers = certificate.memberMappings.map(
+      ({ sourceUserId }) => sourceUserId
+    );
+    const mappedTargetUsers = certificate.memberMappings.map(
+      ({ targetUserId }) => targetUserId
+    );
+    if (
+      validTarget.workspaceId !== certificate.workspaceId ||
+      validTarget.serverProfileId !== certificate.target.profileId ||
+      event.roomId !== certificate.target.roomId ||
+      aclRecord?.hash !== certificate.target.aclHash ||
+      snapshot === undefined ||
+      !equal(snapshot.heads, certificate.heads) ||
+      !equal(acl.acceptedHeads, certificate.heads) ||
+      new Set(mappedSourceUsers).size !== mappedSourceUsers.length ||
+      new Set(mappedTargetUsers).size !== mappedTargetUsers.length ||
+      !equal(mappedTargetUsers, Object.keys(acl.members)) ||
+      acl.members[event.senderUserId] !== WorkspaceRole.Owner ||
+      acl.revokedUsers.includes(event.senderUserId) ||
+      acl.revokedDevices.includes(
+        workspaceDeviceRef(event.senderUserId, senderDeviceId)
+      )
+    ) {
+      reject("migration-certificate-binding");
+    }
+    const receivedAt = Date.now();
+    await this.database.transaction(
+      "rw",
+      [this.database.syncInbox, this.database.matrixEventIndex],
+      async () => {
+        await this.database.syncInbox.update(event.eventId, {
+          workspaceId: certificate.workspaceId,
+          state: "handled",
+          lastError: null,
+        });
+        await this.database.matrixEventIndex.put({
+          eventId: event.eventId,
+          workspaceId: certificate.workspaceId,
+          changeHash: canonical.hash,
+          roomId: event.roomId,
+          senderUserId: event.senderUserId,
+          senderDeviceId,
+          receivedAt,
+        });
+      }
+    );
   }
 
   private async acceptPayload(

@@ -9,6 +9,7 @@ import type {
 } from "../../../application/ports/WorkspaceUnitOfWork";
 import { RejectedInboxEventError } from "../../../application/use-cases/ProcessInboxUseCase";
 import type { WorkspaceCommand } from "../../../application/commands/WorkspaceCommand";
+import { createServerMigrationCertificate } from "../../../domain/ServerMigration";
 import { ChangeHash, WorkspaceId } from "../../../domain/WorkspaceIdentity";
 import { WorkspaceRole } from "../../../domain/WorkspaceRole";
 import { createEmptyWorkspace } from "../../../domain/WorkspaceState";
@@ -193,6 +194,218 @@ const setupHistoricalChange = async (includeChangeInSnapshot: boolean) => {
 };
 
 describe("MatrixInboxProcessor historical ACL epochs", () => {
+  it("accepts a trusted migration certificate bound to the active target frontier", async () => {
+    const database = new LiftSecureDatabase(
+      `LiftSecureDatabase-test-${crypto.randomUUID()}`
+    );
+    databases.push(database);
+    await database.open();
+    const document = AutomergeWorkspaceDocument.create(
+      createEmptyWorkspace("ws_migrated", "UTC", "04:00"),
+      "aa".repeat(16)
+    );
+    const heads = [...document.heads()].sort();
+    const aclCodec = new CanonicalAclCodec();
+    const aclBytes = aclCodec.encode({
+      workspaceId: "ws_migrated",
+      authEpoch: 1,
+      previousHash: null,
+      members: { "@owner:secondary.test": WorkspaceRole.Owner },
+      revokedUsers: [],
+      revokedDevices: [],
+      acceptedHeads: heads,
+      sender: {
+        userId: "@owner:secondary.test",
+        deviceId: "TARGET",
+        ed25519Key: "target-ed25519",
+        curve25519Key: "target-curve25519",
+      },
+    });
+    const targetAclHash = await aclCodec.hash(aclBytes);
+    await database.workspaceSnapshots.add({
+      workspaceId: "ws_migrated",
+      schemaVersion: 1,
+      bytes: document.save(),
+      heads,
+      savedAt: 1,
+    });
+    await database.aclCheckpoints.add({
+      workspaceId: "ws_migrated",
+      authEpoch: 1,
+      hash: targetAclHash,
+      previousHash: null,
+      bytes: aclBytes,
+      createdAt: 1,
+    });
+    await database.syncTargets.add({
+      id: "matrix:ws_migrated:secondary",
+      workspaceId: "ws_migrated",
+      serverProfileId: "secondary",
+      roomId: "!target:secondary.test",
+      mode: "active",
+      state: "active",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await database.syncInbox.add({
+      eventId: "$certificate",
+      workspaceId: null,
+      roomId: "!target:secondary.test",
+      wireEvent: "{}",
+      state: "ready",
+      receivedAt: 1,
+      lastError: null,
+    });
+    const certificate = await createServerMigrationCertificate({
+      workspaceId: "ws_migrated",
+      sourceProfileId: "primary",
+      sourceRoomId: "!source:primary.test",
+      sourceAclEpoch: 3,
+      sourceAclHash: "ab".repeat(32),
+      targetProfileId: "secondary",
+      targetRoomId: "!target:secondary.test",
+      targetAclHash,
+      heads,
+      memberMappings: [
+        {
+          sourceUserId: "@owner:primary.test",
+          targetUserId: "@owner:secondary.test",
+        },
+      ],
+    });
+    const event: DecryptedMatrixWorkspaceEvent = {
+      eventId: "$certificate",
+      roomId: "!target:secondary.test",
+      clearType: "dev.lift.server_migration.v1",
+      content: {
+        schemaVersion: 1,
+        hash: certificate.hash,
+        bytes: base64Url(certificate.bytes),
+      },
+      senderUserId: "@owner:secondary.test",
+      senderDeviceId: "TARGET",
+      senderCurve25519Key: "target-curve25519",
+      claimedEd25519Key: "target-ed25519",
+      deviceCrossSigned: true,
+      shield: "none",
+      applicationSignatureVerified: true,
+      verified: true,
+    };
+    const processor = new MatrixInboxProcessor(
+      database,
+      matrixClient(event),
+      undefined as unknown as MatrixAclBootstrapper,
+      new RecordingUnitOfWork(),
+      "bb".repeat(16)
+    );
+
+    await processor.process({
+      eventId: "$certificate",
+      roomId: "!target:secondary.test",
+      workspaceId: null,
+      wireEvent: "{}",
+    });
+
+    expect(await database.syncInbox.get("$certificate")).toMatchObject({
+      workspaceId: "ws_migrated",
+      state: "handled",
+      lastError: null,
+    });
+    expect(await database.matrixEventIndex.get("$certificate")).toMatchObject({
+      workspaceId: "ws_migrated",
+      changeHash: certificate.hash,
+      roomId: "!target:secondary.test",
+    });
+
+    const unboundCertificate = await createServerMigrationCertificate({
+      workspaceId: "ws_migrated",
+      sourceProfileId: "primary",
+      sourceRoomId: "!source:primary.test",
+      sourceAclEpoch: 3,
+      sourceAclHash: "ab".repeat(32),
+      targetProfileId: "secondary",
+      targetRoomId: "!target:secondary.test",
+      targetAclHash,
+      heads,
+      memberMappings: [
+        {
+          sourceUserId: "@owner:primary.test",
+          targetUserId: "@intruder:secondary.test",
+        },
+      ],
+    });
+    const unboundEvent = {
+      ...event,
+      eventId: "$unbound-certificate",
+      content: {
+        schemaVersion: 1,
+        hash: unboundCertificate.hash,
+        bytes: base64Url(unboundCertificate.bytes),
+      },
+    };
+    const unboundProcessor = new MatrixInboxProcessor(
+      database,
+      matrixClient(unboundEvent),
+      undefined as unknown as MatrixAclBootstrapper,
+      new RecordingUnitOfWork(),
+      "bb".repeat(16)
+    );
+
+    await expect(
+      unboundProcessor.process({
+        eventId: "$unbound-certificate",
+        roomId: "!target:secondary.test",
+        workspaceId: null,
+        wireEvent: "{}",
+      })
+    ).rejects.toMatchObject({
+      code: "migration-certificate-binding",
+    } satisfies Partial<RejectedInboxEventError>);
+
+    const invalidIdentity = JSON.parse(
+      new TextDecoder().decode(certificate.bytes)
+    ) as { workspaceId: string };
+    invalidIdentity.workspaceId = "\0";
+    const invalidIdentityBytes = new TextEncoder().encode(
+      JSON.stringify(invalidIdentity)
+    );
+    const invalidIdentityDigest = await crypto.subtle.digest(
+      "SHA-256",
+      invalidIdentityBytes
+    );
+    const invalidIdentityHash = Array.from(
+      new Uint8Array(invalidIdentityDigest),
+      (value) => value.toString(16).padStart(2, "0")
+    ).join("");
+    const invalidIdentityEvent = {
+      ...event,
+      eventId: "$invalid-identity-certificate",
+      content: {
+        schemaVersion: 1,
+        hash: invalidIdentityHash,
+        bytes: base64Url(invalidIdentityBytes),
+      },
+    };
+    const invalidIdentityProcessor = new MatrixInboxProcessor(
+      database,
+      matrixClient(invalidIdentityEvent),
+      undefined as unknown as MatrixAclBootstrapper,
+      new RecordingUnitOfWork(),
+      "bb".repeat(16)
+    );
+
+    await expect(
+      invalidIdentityProcessor.process({
+        eventId: "$invalid-identity-certificate",
+        roomId: "!target:secondary.test",
+        workspaceId: null,
+        wireEvent: "{}",
+      })
+    ).rejects.toMatchObject({
+      code: "migration-certificate-invalid-schema",
+    } satisfies Partial<RejectedInboxEventError>);
+  });
+
   it("delegates encrypted checkpoint events to the checkpoint receiver", async () => {
     const database = new LiftSecureDatabase(
       `LiftSecureDatabase-test-${crypto.randomUUID()}`

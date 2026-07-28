@@ -751,6 +751,8 @@ test("an existing TODO workspace survives Settings logout, blocks destructive fi
   );
   await pageA.getByLabel("Ключ восстановления").fill(recoveryKey);
   await pageA.getByRole("button", { name: "Восстановить ключи" }).click();
+  await expect(pageA.getByTestId("sidebar-settings")).toBeVisible();
+  await pageA.getByTestId("sidebar-settings").click();
   await expect(
     pageA.getByRole("button", { name: "Выйти из Matrix" })
   ).toBeVisible();
@@ -767,6 +769,74 @@ test("an existing TODO workspace survives Settings logout, blocks destructive fi
 
   await contextA.close();
   await contextB.close();
+});
+
+test("switching Matrix accounts never exposes or uploads the previous account's TODO workspace", async ({
+  browser,
+}) => {
+  const suffix = randomBytes(5).toString("hex");
+  const alice = `alice_switch_${suffix}`;
+  const bob = `bob_switch_${suffix}`;
+  const alicePassword = `Lift-alice-switch-${suffix}-strong`;
+  const bobPassword = `Lift-bob-switch-${suffix}-strong`;
+  const aliceTitle = `alice-private-${suffix}`;
+  const bobTitle = `bob-private-${suffix}`;
+  const bobAfterSwitchTitle = `bob-after-switch-${suffix}`;
+  await Promise.all([
+    registerUser(alice, alicePassword),
+    registerUser(bob, bobPassword),
+  ]);
+
+  const aliceContext = await browser.newContext();
+  const bobContext = await browser.newContext();
+  const alicePage = await aliceContext.newPage();
+  const bobPage = await bobContext.newPage();
+  const aliceRecoveryKey = await setupFirstDevice(
+    alicePage,
+    alice,
+    alicePassword
+  );
+  const bobRecoveryKey = await setupFirstDevice(bobPage, bob, bobPassword);
+  await openInbox(alicePage);
+  await createInboxTask(alicePage, aliceTitle);
+  await openInbox(bobPage);
+  await createInboxTask(bobPage, bobTitle);
+
+  await alicePage.getByTestId("sidebar-settings").click();
+  await alicePage.getByRole("button", { name: "Выйти из Matrix" }).click();
+  await enterCredentials(alicePage, bob, bobPassword);
+  await alicePage
+    .getByRole("button", { name: "Восстановить", exact: true })
+    .click();
+  await alicePage.getByLabel("Ключ восстановления").fill(bobRecoveryKey);
+  await alicePage.getByRole("button", { name: "Восстановить ключи" }).click();
+  await expect(alicePage.getByTestId("sidebar-inbox")).toBeVisible();
+  await openInbox(alicePage);
+  await expect(alicePage.getByText(bobTitle, { exact: true })).toBeVisible();
+  await expect(alicePage.getByText(aliceTitle, { exact: true })).toHaveCount(0);
+  await createInboxTask(alicePage, bobAfterSwitchTitle);
+  await expect(
+    bobPage.getByText(bobAfterSwitchTitle, { exact: true })
+  ).toBeVisible();
+
+  await alicePage.getByTestId("sidebar-settings").click();
+  await alicePage.getByRole("button", { name: "Выйти из Matrix" }).click();
+  await enterCredentials(alicePage, alice, alicePassword);
+  await alicePage
+    .getByRole("button", { name: "Восстановить", exact: true })
+    .click();
+  await alicePage.getByLabel("Ключ восстановления").fill(aliceRecoveryKey);
+  await alicePage.getByRole("button", { name: "Восстановить ключи" }).click();
+  await expect(alicePage.getByTestId("sidebar-inbox")).toBeVisible();
+  await openInbox(alicePage);
+  await expect(alicePage.getByText(aliceTitle, { exact: true })).toBeVisible();
+  await expect(alicePage.getByText(bobTitle, { exact: true })).toHaveCount(0);
+  await expect(
+    alicePage.getByText(bobAfterSwitchTitle, { exact: true })
+  ).toHaveCount(0);
+
+  await aliceContext.close();
+  await bobContext.close();
 });
 
 test("registration, recovery-key confirmation errors and session resume are handled in the UI", async ({

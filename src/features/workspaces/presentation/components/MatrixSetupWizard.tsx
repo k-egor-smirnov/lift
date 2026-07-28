@@ -20,6 +20,8 @@ const errorLabel = (code: string | null): string | null => {
       return "Проверочная группа не совпала. Ключ нужно сохранить полностью.";
     case "RECOVERY_KEY_INVALID":
       return "Ключ восстановления не подошёл. Данные на сервере не изменены.";
+    case "MATRIX_RECOVERY_FAILED":
+      return "Ключ принят, но Matrix не завершил восстановление ключей. Проверьте соединение и повторите попытку.";
     case "MATRIX_ACCOUNT_RECOVERY_REQUIRED":
       return "Этот аккаунт уже защищён. Используйте «Восстановить», чтобы не заменить существующие ключи.";
     case "MATRIX_FINALIZE_FAILED":

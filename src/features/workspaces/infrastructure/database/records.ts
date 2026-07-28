@@ -85,6 +85,13 @@ export interface MigrationCertificateRecord {
   bytes: Uint8Array;
   sourceEventId: string;
   targetEventId: string;
+  sourceAclChain?: Array<{
+    authEpoch: number;
+    hash: string;
+    previousHash: string | null;
+    bytes: Uint8Array;
+    createdAt: number;
+  }>;
   verifiedAt: number;
 }
 

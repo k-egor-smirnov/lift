@@ -2,6 +2,7 @@ import { ServerProfile } from "../../../domain/ServerProfile";
 import { vi } from "vitest";
 import { MatrixEventStoreFactory } from "../MatrixEventStoreFactory";
 import { MatrixSessionManager } from "../MatrixSessionManager";
+import { MatrixRecoveryKeyMismatchError } from "../MatrixRecoveryErrors";
 import type {
   MatrixAuthenticatedClient,
   MatrixSdkFacade,
@@ -167,7 +168,7 @@ describe("MatrixSessionManager", () => {
           },
           bootstrapSecretStorage: async () => undefined,
           recoverKeys: async () => {
-            throw new Error("secret-access wrong-key");
+            throw new MatrixRecoveryKeyMismatchError();
           },
           recoveryConfirmed: async () => undefined,
           stop: async () => undefined,

@@ -34,7 +34,12 @@ import type {
 } from "./MatrixSdkFacade";
 import { MatrixInviteAutoJoiner } from "./MatrixInviteAutoJoiner";
 import { isDeviceSignedByOwner } from "./MatrixDeviceTrust";
-import { readRemoteWorkspaceEvent } from "./MatrixRemoteReadback";
+import {
+  readRemoteWorkspaceAccess,
+  readRemoteWorkspaceEvent,
+  readRemoteWorkspaceState,
+} from "./MatrixRemoteReadback";
+import { MatrixRecoveryKeyMismatchError } from "./MatrixRecoveryErrors";
 
 type BrowserSdk = typeof import("matrix-js-sdk/lib/browser-index.js");
 
@@ -406,7 +411,13 @@ class BrowserAuthenticatedClient
   ): Promise<void> {
     const { decodeRecoveryKey } =
       await import("matrix-js-sdk/lib/crypto-api/recovery-key.js");
-    const decoded = decodeRecoveryKey(recoveryKey);
+    const decoded = (() => {
+      try {
+        return decodeRecoveryKey(recoveryKey);
+      } catch {
+        throw new MatrixRecoveryKeyMismatchError();
+      }
+    })();
     const storedKey = await this.client.secretStorage.getKey();
     if (storedKey === null)
       throw new Error("Matrix secret storage is not configured");
@@ -414,11 +425,21 @@ class BrowserAuthenticatedClient
     if (
       !(await this.client.secretStorage.checkKey(decoded, keyInfo as never))
     ) {
-      throw new Error("Recovery key does not match secret storage");
+      throw new MatrixRecoveryKeyMismatchError();
     }
     this.secretKeys.set(keyId, decoded);
     try {
       const cryptoApi = this.requireCrypto();
+      const userId = this.client.getUserId();
+      if (userId === null) throw new Error("Matrix user ID is unavailable");
+      // A newly logged-in device can reach PREPARED before Rust crypto has
+      // fetched its own public cross-signing identity. Importing private keys
+      // before that query races with the identity store and fails despite a
+      // correct recovery key.
+      await cryptoApi.getUserDeviceInfo([userId], true);
+      if (!(await cryptoApi.userHasCrossSigningKeys(userId, true))) {
+        throw new Error("Matrix cross-signing identity is unavailable");
+      }
       await cryptoApi.bootstrapCrossSigning({
         authUploadDeviceSigningKeys: safeUia(username, password),
       });
@@ -571,16 +592,17 @@ class BrowserAuthenticatedClient
     readonly eventId: string;
     readonly content: Readonly<Record<string, unknown>>;
   }> {
-    const event = this.client
-      .getRoom(roomId)
-      ?.currentState.getStateEvents(eventType, "");
-    const eventId = event?.getId();
-    if (event === null || event === undefined || eventId === undefined)
-      throw new Error(`Matrix state ${eventType} is unavailable`);
-    return {
-      eventId,
-      content: event.getContent() as Readonly<Record<string, unknown>>,
-    };
+    return readRemoteWorkspaceState(this.client, roomId, eventType);
+  }
+
+  async readWorkspaceAccess(
+    roomId: string,
+    userIds: readonly string[]
+  ): Promise<{
+    readonly userPowerLevels: Readonly<Record<string, number>>;
+    readonly memberships: Readonly<Record<string, string>>;
+  }> {
+    return readRemoteWorkspaceAccess(this.client, roomId, userIds);
   }
 
   async applyWorkspaceAccess(

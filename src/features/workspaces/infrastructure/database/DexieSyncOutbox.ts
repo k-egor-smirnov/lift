@@ -10,10 +10,14 @@ import type { LiftSecureDatabase } from "./LiftSecureDatabase";
 export class DexieSyncOutbox implements SyncOutbox {
   constructor(
     private readonly database: LiftSecureDatabase,
-    private readonly now: () => number = () => Date.now()
+    private readonly now: () => number = () => Date.now(),
+    private readonly currentWorkspace?: () => string | null
   ) {}
 
   async claimNext(now: number): Promise<ClaimedOutboxItem | null> {
+    const workspaceId = this.currentWorkspace?.();
+    if (this.currentWorkspace !== undefined && workspaceId === null)
+      return null;
     return this.database.transaction(
       "rw",
       [
@@ -34,11 +38,16 @@ export class DexieSyncOutbox implements SyncOutbox {
           .where("[state+nextAttemptAt]")
           .between(["sending", Dexie.minKey], ["sending", now], true, true)
           .toArray();
-        const row = [...candidates, ...interrupted].sort((left, right) =>
-          left.nextAttemptAt === right.nextAttemptAt
-            ? left.id.localeCompare(right.id)
-            : left.nextAttemptAt - right.nextAttemptAt
-        )[0];
+        const row = [...candidates, ...interrupted]
+          .filter(
+            (candidate) =>
+              workspaceId === undefined || candidate.workspaceId === workspaceId
+          )
+          .sort((left, right) =>
+            left.nextAttemptAt === right.nextAttemptAt
+              ? left.id.localeCompare(right.id)
+              : left.nextAttemptAt - right.nextAttemptAt
+          )[0];
         if (row === undefined) return null;
         if (row.innerType === "dev.lift.acl.v1") {
           await this.database.syncOutbox.update(row.id, {
@@ -150,6 +159,12 @@ export class DexieSyncOutbox implements SyncOutbox {
   }
 
   async isCurrent(item: ClaimedOutboxItem): Promise<boolean> {
+    if (
+      this.currentWorkspace !== undefined &&
+      this.currentWorkspace() !== item.workspaceId
+    ) {
+      return false;
+    }
     return this.database.transaction(
       "rw",
       [

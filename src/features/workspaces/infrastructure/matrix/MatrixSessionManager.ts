@@ -20,6 +20,7 @@ import type {
   MatrixWorkspaceClient,
 } from "./MatrixSdkFacade";
 import type { SecretStorageKeyCache } from "./SecretStorageKeyCache";
+import { MatrixRecoveryKeyMismatchError } from "./MatrixRecoveryErrors";
 
 const initialSnapshot = (): MatrixSessionSnapshot => ({
   phase: "signed-out",
@@ -334,12 +335,15 @@ export class MatrixSessionManager implements MatrixSession {
         credentials.username,
         credentials.password
       );
-    } catch {
+    } catch (error) {
       this.secretKeys.clear();
       this.set({
         ...this.value,
         phase: "recovery-key-required",
-        errorCode: "RECOVERY_KEY_INVALID",
+        errorCode:
+          error instanceof MatrixRecoveryKeyMismatchError
+            ? "RECOVERY_KEY_INVALID"
+            : "MATRIX_RECOVERY_FAILED",
       });
       return;
     }

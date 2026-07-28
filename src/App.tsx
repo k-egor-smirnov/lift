@@ -22,6 +22,12 @@ function App({ runtime }: AppProps) {
   );
 
   useEffect(() => {
+    return runtime.matrixSession.subscribe(() => {
+      setWorkspaceId(runtime.workspaceId());
+    });
+  }, [runtime]);
+
+  useEffect(() => {
     if (workspaceId !== null) return;
     const interval = window.setInterval(() => {
       const acceptedWorkspaceId = runtime.workspaceId();

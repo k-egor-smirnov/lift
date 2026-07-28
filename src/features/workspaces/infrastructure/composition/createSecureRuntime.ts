@@ -84,6 +84,11 @@ import { DexieDomainEventStore } from "../database/DexieDomainEventStore";
 import { DurableDomainEventDispatcher } from "../../application/services/DurableDomainEventDispatcher";
 import { DurableDomainEventWorker } from "../sync/DurableDomainEventWorker";
 import { AuthorizedWorkspaceUnitOfWork } from "../../application/services/AuthorizedWorkspaceUnitOfWork";
+import { MigrateWorkspaceServerUseCase } from "../../application/use-cases/MigrateWorkspaceServerUseCase";
+import { MatrixServerMigrationCoordinator } from "../migration/MatrixServerMigrationCoordinator";
+import { VerifiedMatrixServerMigrationGateway } from "../migration/VerifiedMatrixServerMigrationGateway";
+import { MatrixWorkspaceIdentityResolver } from "../matrix/MatrixWorkspaceIdentityResolver";
+import { InMemoryMatrixSessionMetadataStore } from "../matrix/InMemoryMatrixSessionMetadataStore";
 
 const automergeActorId = (): string =>
   Array.from(crypto.getRandomValues(new Uint8Array(16)), (value) =>
@@ -130,20 +135,10 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
   const workspace = new MutableCurrentWorkspace();
   const actor = new BrowserCurrentActor();
   const existing = await database.workspaceSnapshots.toCollection().first();
-  workspace.set(existing?.workspaceId ?? null);
-  const existingActiveTarget =
-    existing === undefined
-      ? undefined
-      : await database.syncTargets
-          .where("workspaceId")
-          .equals(existing.workspaceId)
-          .filter(
-            (target) => target.mode === "active" && target.state === "active"
-          )
-          .first();
-  let setupComplete =
-    existing !== undefined &&
-    (import.meta.env.MODE === "test" || existingActiveTarget !== undefined);
+  // A snapshot alone is not an account binding. Selection is deferred until
+  // the Matrix identity has been restored and authorized against the ACL.
+  workspace.set(null);
+  let setupComplete = false;
 
   const effectiveDates = new SystemEffectiveDateProvider({
     now: () => new Date(),
@@ -168,21 +163,30 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     }
   }
   const secretKeys = new SecretStorageKeyCache();
+  const localKeyVault = new LocalKeyVault(database);
+  const sessionMetadata = new DexieMatrixSessionMetadataStore(database);
+  const workspaceIdentityResolver = new MatrixWorkspaceIdentityResolver(
+    database
+  );
   const matrixSession = new MatrixSessionManager(
     profileRepository,
     new BrowserMatrixSdkFacade(secretKeys),
     new BrowserMatrixClientLease(),
-    new LocalKeyVault(database),
+    localKeyVault,
     new MatrixEventStoreFactory(),
     secretKeys,
-    new DexieMatrixSessionMetadataStore(database)
+    sessionMetadata
   );
   const accessControl = new AclControlPlane(database, () =>
     matrixSession.requireAuthenticatedClient()
   );
   const outboxWorker = new OutboxWorker(
     new ProcessOutboxUseCase(
-      new DexieSyncOutbox(database),
+      new DexieSyncOutbox(
+        database,
+        () => Date.now(),
+        () => workspace.getId()
+      ),
       new MatrixEncryptedTransport(matrixSession),
       new PayloadFragmenter(),
       { now: () => Date.now() },
@@ -196,7 +200,7 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     })
   );
   domainEventWorker.start();
-  const wakeOutboxOnline = () => outboxWorker.start();
+  const wakeOutboxOnline = () => outboxWorker.wake();
   window.addEventListener("online", wakeOutboxOnline);
   const persistedUnitOfWork = new DexieWorkspaceUnitOfWork(
     database,
@@ -222,10 +226,12 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     persistedUnitOfWork,
     accessControl
   );
+  let onWorkspaceAccepted = (): void => undefined;
   const acceptWorkspace = async (workspaceId: string) => {
     await persistedUnitOfWork.rebuildProjections(workspaceId, actor.actorId);
     workspace.set(workspaceId);
     setupComplete = true;
+    onWorkspaceAccepted();
   };
   const checkpointPublisher = new MatrixCheckpointPublisher(
     database,
@@ -261,6 +267,17 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
   let inboxWorker: InboxWorker | null = null;
   let membershipGuard: MatrixMembershipGuard | null = null;
   let inboxLifecycle = "idle";
+  let migrationInProgress = false;
+  onWorkspaceAccepted = () => {
+    if (
+      matrixSession.snapshot().phase === "ready" &&
+      inboxLifecycle === "running" &&
+      !migrationInProgress
+    ) {
+      outboxWorker.start();
+      checkpointScheduler.start();
+    }
+  };
   const startInbox = async (): Promise<void> => {
     inboxLifecycle = "starting";
     try {
@@ -311,26 +328,74 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
       membershipGuard?.stop();
       membershipGuard = null;
       inboxLifecycle = `error-${error instanceof Error ? error.name.toLowerCase() : "unknown"}`;
+      throw error;
     }
   };
+  let sessionGeneration = 0;
   const stopMatrixSubscription = matrixSession.subscribe((snapshot) => {
+    const generation = ++sessionGeneration;
+    checkpointScheduler.stop();
+    outboxWorker.pause();
+    inboxWorker?.stop();
+    inboxWorker = null;
+    membershipGuard?.stop();
+    membershipGuard = null;
+    if (migrationInProgress) {
+      // The workspace ID is unchanged by a server migration. Session handoff
+      // must not remount the application or discard the current Settings view.
+      inboxLifecycle = "migration";
+      return;
+    }
     if (snapshot.phase === "ready") {
-      // Security-control events (membership, device trust and ACL) must be
-      // consumed before any offline outbox row may leave this device.
-      void startInbox().then(() => {
-        outboxWorker.start();
-        checkpointScheduler.start();
+      // Hide the previous account synchronously. The replacement workspace is
+      // selected only after a verified profile/user/device-to-ACL match.
+      workspace.set(null);
+      setupComplete = false;
+      void (async () => {
+        if (
+          snapshot.profileId === null ||
+          snapshot.userId === null ||
+          snapshot.deviceId === null
+        ) {
+          throw new Error("Ready Matrix session has incomplete identity");
+        }
+        const selected = await workspaceIdentityResolver.resolve({
+          profileId: snapshot.profileId,
+          userId: snapshot.userId,
+          deviceId: snapshot.deviceId,
+        });
+        if (generation !== sessionGeneration) return;
+        if (selected !== null) await acceptWorkspace(selected);
+        // Security-control events (membership, device trust and ACL) must be
+        // consumed before any offline outbox row may leave this device.
+        await startInbox();
+        if (generation !== sessionGeneration) return;
+        if (workspace.getId() !== null) {
+          outboxWorker.start();
+          checkpointScheduler.start();
+        }
+      })().catch((error) => {
+        if (generation !== sessionGeneration) return;
+        workspace.set(null);
+        setupComplete = false;
+        inboxLifecycle = `error-${error instanceof Error ? error.name.toLowerCase() : "unknown"}`;
       });
     } else {
-      checkpointScheduler.stop();
-      inboxWorker?.stop();
-      inboxWorker = null;
-      membershipGuard?.stop();
-      membershipGuard = null;
+      // A deliberate logout keeps the last workspace usable offline. As soon
+      // as any new authentication attempt starts, selection is cleared before
+      // credentials for another account can access or enqueue its data.
+      if (snapshot.phase !== "signed-out") {
+        workspace.set(null);
+        setupComplete = false;
+      }
       inboxLifecycle = "stopped";
     }
   });
-  await matrixSession.resume();
+  const resumed = await matrixSession.resume();
+  if (!resumed && matrixSession.snapshot().phase === "signed-out") {
+    const offline = await workspaceIdentityResolver.listOfflineWorkspaceIds();
+    if (offline.length === 1) await acceptWorkspace(offline[0]!);
+  }
   const createWorkspaceUseCase = new CreateWorkspaceUseCase(
     matrixSession,
     {
@@ -471,6 +536,76 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     revokeWorkspaceDevice: new RevokeWorkspaceDeviceUseCase(accessControl),
     createCheckpoint: new CreateCheckpointUseCase(workspace, checkpointStore),
     restoreCheckpoint: new RestoreCheckpointUseCase(workspace, checkpointStore),
+    migrateWorkspaceServer: new MigrateWorkspaceServerUseCase(workspace, {
+      migrate: async ({
+        workspaceId,
+        targetProfileId,
+        username,
+        password,
+        recoveryKey,
+        memberMappings,
+      }) => {
+        migrationInProgress = true;
+        checkpointScheduler.stop();
+        const workerToDrain = inboxWorker;
+        await Promise.all([
+          outboxWorker.pauseAndDrain(),
+          workerToDrain?.pauseAndDrain() ?? Promise.resolve(),
+        ]);
+        if (inboxWorker === workerToDrain) inboxWorker = null;
+        membershipGuard?.stop();
+        membershipGuard = null;
+        inboxLifecycle = "migration";
+        const targetSecretKeys = new SecretStorageKeyCache();
+        const targetSessionMetadata = new InMemoryMatrixSessionMetadataStore();
+        const targetSession = new MatrixSessionManager(
+          profileRepository,
+          new BrowserMatrixSdkFacade(targetSecretKeys),
+          new BrowserMatrixClientLease(),
+          localKeyVault,
+          new MatrixEventStoreFactory(),
+          targetSecretKeys,
+          targetSessionMetadata
+        );
+        const gateway = new VerifiedMatrixServerMigrationGateway(
+          matrixSession,
+          targetSession,
+          sessionMetadata,
+          {
+            profileId: targetProfileId,
+            username,
+            password,
+            recoveryKey,
+          }
+        );
+        try {
+          const result = await new MatrixServerMigrationCoordinator(
+            database,
+            gateway,
+            actor.actorId
+          ).migrate({
+            workspaceId,
+            targetProfileId,
+            memberMappings,
+          });
+          return {
+            sourceTargetId: result.sourceTargetId,
+            targetTargetId: result.targetTargetId,
+            checkpointHash: result.checkpointHash,
+            certificateHash: result.certificateHash,
+            targetHeads: result.targetHeads,
+          };
+        } finally {
+          await targetSession.stop().catch(() => undefined);
+          migrationInProgress = false;
+          if (matrixSession.snapshot().phase === "ready") {
+            await startInbox();
+            outboxWorker.start();
+            checkpointScheduler.start();
+          }
+        }
+      },
+    }),
   };
 
   const currentEffectiveDate = async (): Promise<string> => {
@@ -570,6 +705,14 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
         startOfDay,
       });
       setupComplete = true;
+      if (
+        matrixSession.snapshot().phase === "ready" &&
+        inboxLifecycle === "running" &&
+        !migrationInProgress
+      ) {
+        outboxWorker.start();
+        checkpointScheduler.start();
+      }
       return workspaceId;
     },
     effectiveDate: currentEffectiveDate,

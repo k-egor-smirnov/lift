@@ -7,6 +7,7 @@ export class InboxWorker {
   private unsubscribe: (() => void) | null = null;
   private stopped = false;
   private keyRetryTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly inFlightIngestions = new Set<Promise<void>>();
 
   constructor(
     private readonly inbox: SyncInbox,
@@ -18,7 +19,7 @@ export class InboxWorker {
   async start(): Promise<void> {
     if (this.stopped || this.unsubscribe !== null) return;
     this.unsubscribe = this.matrix.subscribeWorkspaceEvents((event) =>
-      this.ingest(event)
+      this.trackIngestion(event)
     );
     this.keyRetryTimer ??= setInterval(() => {
       void this.retryMissingKeys();
@@ -44,6 +45,12 @@ export class InboxWorker {
     }
   }
 
+  async pauseAndDrain(): Promise<void> {
+    this.stop();
+    await Promise.all([...this.inFlightIngestions]);
+    await this.running;
+  }
+
   private async retryMissingKeys(): Promise<void> {
     if (this.stopped) return;
     if ((await this.inbox.retryWaitingForKeys()) > 0) await this.wake();
@@ -65,6 +72,20 @@ export class InboxWorker {
   }): Promise<void> {
     await this.inbox.persist(event, this.now());
     await this.wake();
+  }
+
+  private trackIngestion(event: {
+    readonly eventId: string;
+    readonly roomId: string;
+    readonly wireEvent: string;
+  }): Promise<void> {
+    const ingestion = this.ingest(event);
+    this.inFlightIngestions.add(ingestion);
+    void ingestion.then(
+      () => this.inFlightIngestions.delete(ingestion),
+      () => this.inFlightIngestions.delete(ingestion)
+    );
+    return ingestion;
   }
 
   private async drain(): Promise<void> {

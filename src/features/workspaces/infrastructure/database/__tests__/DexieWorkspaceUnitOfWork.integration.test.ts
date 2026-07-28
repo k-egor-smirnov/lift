@@ -38,6 +38,21 @@ const createDatabase = (): LiftSecureDatabase => {
   return database;
 };
 
+const activateRemoteRoom = (
+  database: LiftSecureDatabase,
+  workspaceId = WORKSPACE_ID
+): Promise<string> =>
+  database.syncTargets.add({
+    id: `${workspaceId}:remote-test-target`,
+    workspaceId,
+    serverProfileId: "remote-test-profile",
+    roomId: "!workspace:example.test",
+    mode: "active",
+    state: "active",
+    createdAt: PERSISTED_AT,
+    updatedAt: PERSISTED_AT,
+  });
+
 const cleanup = async (): Promise<void> => {
   for (const database of openDatabases) {
     database.close();
@@ -423,6 +438,7 @@ describe("DexieWorkspaceUnitOfWork", () => {
     const { base, parent, child } = remoteChain();
     const database = createDatabase();
     await database.open();
+    await activateRemoteRoom(database);
     await database.workspaceSnapshots.add({
       workspaceId: WORKSPACE_ID,
       schemaVersion: 1,
@@ -520,10 +536,52 @@ describe("DexieWorkspaceUnitOfWork", () => {
     ).toBeUndefined();
   });
 
+  it("rejects a late remote change from the read-only source room after migration", async () => {
+    const { base, parent } = remoteChain();
+    const database = createDatabase();
+    await database.open();
+    await database.workspaceSnapshots.add({
+      workspaceId: WORKSPACE_ID,
+      schemaVersion: 1,
+      bytes: base.save(),
+      heads: [...base.heads()],
+      savedAt: PERSISTED_AT,
+    });
+    await database.syncTargets.bulkAdd([
+      {
+        id: "old-source",
+        workspaceId: WORKSPACE_ID,
+        serverProfileId: "primary",
+        roomId: "!workspace:example.test",
+        mode: "read-only",
+        state: "active",
+        createdAt: PERSISTED_AT,
+        updatedAt: PERSISTED_AT,
+      },
+      {
+        id: "new-target",
+        workspaceId: WORKSPACE_ID,
+        serverProfileId: "secondary",
+        roomId: "!new:example.test",
+        mode: "active",
+        state: "active",
+        createdAt: PERSISTED_AT,
+        updatedAt: PERSISTED_AT,
+      },
+    ]);
+
+    await expect(
+      createUnitOfWork(database).applyRemote(remoteInput(parent, "$late-old"))
+    ).rejects.toThrow("Remote event room is not the active sync target");
+    expect(await database.workspaceChanges.count()).toBe(0);
+    expect(await database.syncInbox.count()).toBe(0);
+  });
+
   it("rejects invalid remote metadata without altering any persisted table", async () => {
     const { base, parent } = remoteChain();
     const database = createDatabase();
     await database.open();
+    await activateRemoteRoom(database);
     await database.workspaceSnapshots.add({
       workspaceId: WORKSPACE_ID,
       schemaVersion: 1,
@@ -570,6 +628,7 @@ describe("DexieWorkspaceUnitOfWork", () => {
     const forged = forgedGenesisActorChange(base.save());
     const database = createDatabase();
     await database.open();
+    await activateRemoteRoom(database);
     await database.workspaceSnapshots.add({
       workspaceId: WORKSPACE_ID,
       schemaVersion: 1,
@@ -635,6 +694,7 @@ describe("DexieWorkspaceUnitOfWork", () => {
     const { base, parent, invalidChild } = invalidPendingChain();
     const database = createDatabase();
     await database.open();
+    await activateRemoteRoom(database);
     await database.workspaceSnapshots.add({
       workspaceId: WORKSPACE_ID,
       schemaVersion: 1,
@@ -1288,6 +1348,7 @@ describe("DexieWorkspaceUnitOfWork", () => {
     const { base, parent } = remoteChain();
     const third = createDatabase();
     await third.open();
+    await activateRemoteRoom(third);
     await third.workspaceSnapshots.add({
       workspaceId: WORKSPACE_ID,
       schemaVersion: 1,
@@ -1324,6 +1385,7 @@ describe("DexieWorkspaceUnitOfWork", () => {
     const first = createDatabase();
     const second = createDatabase();
     await Promise.all([first.open(), second.open()]);
+    await activateRemoteRoom(second);
     await first.syncTargets.add({
       id: "target-device-b",
       workspaceId: WORKSPACE_ID,
@@ -1433,6 +1495,7 @@ describe("DexieWorkspaceUnitOfWork", () => {
     const deviceA = createDatabase();
     const deviceB = createDatabase();
     await Promise.all([deviceA.open(), deviceB.open()]);
+    await activateRemoteRoom(deviceB);
     await deviceA.syncTargets.add({
       id: "target-device-b",
       workspaceId: WORKSPACE_ID,
@@ -1665,6 +1728,7 @@ describe("DexieWorkspaceUnitOfWork", () => {
     const deviceA = createDatabase();
     const deviceB = createDatabase();
     await Promise.all([deviceA.open(), deviceB.open()]);
+    await activateRemoteRoom(deviceB);
     const baseState = createEmptyWorkspace(WORKSPACE_ID, "UTC", "00:00");
     baseState.tasks.moving = {
       id: "moving",
