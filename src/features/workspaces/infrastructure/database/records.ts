@@ -68,10 +68,24 @@ export interface SyncTargetRecord {
   workspaceId: string;
   serverProfileId: string;
   roomId: string;
-  mode: "candidate" | "active" | "read-only";
+  mode: "candidate" | "preparing" | "active" | "read-only";
   state: "active" | "paused" | "retired";
   createdAt: number;
   updatedAt: number;
+}
+
+export interface MigrationCertificateRecord {
+  hash: string;
+  workspaceId: string;
+  sourceTargetId: string;
+  targetTargetId: string;
+  sourceAclHash: string;
+  targetAclHash: string;
+  heads: string[];
+  bytes: Uint8Array;
+  sourceEventId: string;
+  targetEventId: string;
+  verifiedAt: number;
 }
 
 export interface AclCheckpointRecord {

@@ -10,6 +10,7 @@ import type {
   DomainEventRecord,
   HandledDomainEventRecord,
   LocalSecretRecord,
+  MigrationCertificateRecord,
   MatrixEventIndexRecord,
   PayloadFragmentRecord,
   QuarantineRecord,
@@ -56,6 +57,7 @@ export class LiftSecureDatabase extends Dexie {
   aclCheckpoints!: Table<AclCheckpointRecord, [string, number]>;
   verifiedCheckpoints!: Table<VerifiedCheckpointRecord, string>;
   checkpointPublications!: Table<CheckpointPublicationRecord, string>;
+  migrationCertificates!: Table<MigrationCertificateRecord, string>;
   quarantine!: Table<QuarantineRecord, string>;
   taskProjections!: Table<TaskProjectionRecord, [string, string]>;
   dailySelectionProjections!: Table<
@@ -93,6 +95,8 @@ export class LiftSecureDatabase extends Dexie {
       verifiedCheckpoints:
         "&hash, [workspaceId+authEpoch], workspaceId, verifiedAt",
       checkpointPublications: "&id, hash, workspaceId, targetId",
+      migrationCertificates:
+        "&hash, workspaceId, sourceTargetId, targetTargetId, verifiedAt",
       quarantine: "&id, eventId, workspaceId, reason, createdAt",
       taskProjections:
         "&[workspaceId+taskId], [workspaceId+category], [workspaceId+completion], [workspaceId+positionKey]",

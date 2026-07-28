@@ -43,11 +43,7 @@ export class DexieServerProfileRepository implements ServerProfileRepository {
         const attached = await this.database.syncTargets
           .where("serverProfileId")
           .equals(id)
-          .and(
-            (target) =>
-              target.state !== "retired" &&
-              (target.mode === "active" || target.mode === "read-only")
-          )
+          .and((target) => target.state !== "retired")
           .first();
         if (attached !== undefined) throw new ServerProfileInUseError(id);
         await this.database.serverProfiles.delete(id);
@@ -63,11 +59,10 @@ export class DexieServerProfileRepository implements ServerProfileRepository {
       .equals(workspaceId)
       .and(
         (candidate) =>
-          candidate.state === "active" &&
-          (candidate.mode === "active" || candidate.mode === "read-only")
+          candidate.state === "active" && candidate.mode === "active"
       )
       .first();
-    if (target === undefined || target.mode === "candidate") return undefined;
+    if (target === undefined || target.mode !== "active") return undefined;
     return {
       id: target.id,
       workspaceId: target.workspaceId,

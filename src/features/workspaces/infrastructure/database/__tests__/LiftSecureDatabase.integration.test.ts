@@ -6,6 +6,7 @@ import type {
   CheckpointPublicationRecord,
   LocalSecretRecord,
   MatrixEventIndexRecord,
+  MigrationCertificateRecord,
   PayloadFragmentRecord,
   QuarantineRecord,
   ServerProfileRecord,
@@ -31,6 +32,8 @@ const TABLE_SCHEMAS = {
   handledDomainEvents: "&[eventId+handlerId], eventId, handlerId",
   localSecrets: "&id, serverProfileId",
   matrixEventIndex: "&eventId, [workspaceId+changeHash], roomId",
+  migrationCertificates:
+    "&hash, workspaceId, sourceTargetId, targetTargetId, verifiedAt",
   payloadFragments:
     "&[direction+transferId+index], [direction+transferId], workspaceId, changeHash",
   quarantine: "&id, eventId, workspaceId, reason, createdAt",
@@ -58,7 +61,8 @@ type ForbiddenTransportField = Extract<
   | keyof PayloadFragmentRecord
   | keyof ServerProfileRecord
   | keyof VerifiedCheckpointRecord
-  | keyof CheckpointPublicationRecord,
+  | keyof CheckpointPublicationRecord
+  | keyof MigrationCertificateRecord,
   "title" | "note" | "tag" | "tags" | "domainPlaintext"
 >;
 
@@ -406,7 +410,7 @@ describe("LiftSecureDatabase", () => {
     };
 
     expectTypeOf<SyncTargetRecord["mode"]>().toEqualTypeOf<
-      "candidate" | "active" | "read-only"
+      "candidate" | "preparing" | "active" | "read-only"
     >();
     expectTypeOf<TaskProjectionRecord["category"]>().toEqualTypeOf<
       "INBOX" | "SIMPLE" | "FOCUS" | "DEFERRED"
