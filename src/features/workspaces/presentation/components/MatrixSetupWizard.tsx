@@ -20,6 +20,10 @@ const errorLabel = (code: string | null): string | null => {
       return "Проверочная группа не совпала. Ключ нужно сохранить полностью.";
     case "RECOVERY_KEY_INVALID":
       return "Ключ восстановления не подошёл. Данные на сервере не изменены.";
+    case "MATRIX_ACCOUNT_RECOVERY_REQUIRED":
+      return "Этот аккаунт уже защищён. Используйте «Восстановить», чтобы не заменить существующие ключи.";
+    case "MATRIX_FINALIZE_FAILED":
+      return "Не удалось завершить вход. Проверьте соединение и повторите попытку либо выйдите и войдите заново.";
     case "MATRIX_SETUP_FAILED":
       return "Не удалось безопасно подготовить Matrix-устройство.";
     case "MATRIX_LOGIN_FAILED":
@@ -98,6 +102,13 @@ export const MatrixSetupWizard: React.FC<MatrixSetupWizardProps> = ({
         >
           Ключ сохранён
         </button>
+        <button
+          type="button"
+          onClick={() => void viewModel.cancelSetup()}
+          className="block text-sm text-muted-foreground"
+        >
+          Выйти и войти заново
+        </button>
       </section>
     );
   }
@@ -126,6 +137,14 @@ export const MatrixSetupWizard: React.FC<MatrixSetupWizardProps> = ({
           onClick={() => void viewModel.recoverWithKey(recoveryInput)}
         >
           Восстановить ключи
+        </button>
+        <button
+          type="button"
+          disabled={snapshot.phase === "recovering-keys"}
+          onClick={() => void viewModel.cancelSetup()}
+          className="block text-sm text-muted-foreground"
+        >
+          Выйти и войти заново
         </button>
       </section>
     );

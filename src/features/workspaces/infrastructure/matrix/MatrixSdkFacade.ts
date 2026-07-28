@@ -24,6 +24,7 @@ export interface MatrixAuthenticatedClient {
   ): Promise<void>;
   setSignedDeviceIsolation(): Promise<void>;
   startAndWaitPrepared(): Promise<void>;
+  hasExistingSecureSetup(): Promise<boolean>;
   joinInvitedWorkspaceRooms?(): Promise<void>;
   bootstrapCrossSigning(username: string, password: string): Promise<void>;
   createRecoveryKey(): Promise<{

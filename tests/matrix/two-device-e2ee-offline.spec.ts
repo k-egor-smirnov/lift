@@ -25,7 +25,7 @@ const enterCredentials = async (
   password: string
 ) => {
   await page.getByLabel("Matrix-пользователь").fill(username);
-  await page.getByLabel("Matrix-пароль").fill(password);
+  await page.getByLabel("Matrix-пароль", { exact: true }).fill(password);
 };
 
 const setupFirstDevice = async (
@@ -118,7 +118,7 @@ const recoverSecondDevice = async (
 ) => {
   await page.goto("/");
   await enterCredentials(page, username, password);
-  await page.getByRole("button", { name: "Восстановить устройство" }).click();
+  await page.getByRole("button", { name: "Восстановить", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Восстановление Matrix-устройства" })
   ).toBeVisible();
@@ -202,6 +202,23 @@ const syncDiagnostic = (page: Page) =>
     });
   });
 
+const outboxChangeHashes = (page: Page) =>
+  page.evaluate(async () => {
+    const request = indexedDB.open("LiftSecureDatabase");
+    return new Promise<string[]>((resolve, reject) => {
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const rows = request.result
+          .transaction("syncOutbox", "readonly")
+          .objectStore("syncOutbox")
+          .getAll();
+        rows.onerror = () => reject(rows.error);
+        rows.onsuccess = () =>
+          resolve(rows.result.map((row) => String(row.changeHash)).sort());
+      };
+    });
+  });
+
 test("two independent E2EE devices converge after realtime, offline writes and restart", async ({
   browser,
 }) => {
@@ -214,6 +231,18 @@ test("two independent E2EE devices converge after realtime, offline writes and r
   const contextB = await browser.newContext();
   const pageA = await contextA.newPage();
   const pageB = await contextB.newPage();
+  const plaintextWorkspaceRequests: string[] = [];
+  for (const page of [pageA, pageB]) {
+    page.on("request", (request) => {
+      if (
+        /\/send\/dev\.lift\.(?:crdt|acl)\./.test(
+          decodeURIComponent(request.url())
+        )
+      ) {
+        plaintextWorkspaceRequests.push(request.url());
+      }
+    });
+  }
 
   const recoveryKey = await setupFirstDevice(pageA, username, password);
   await openInbox(pageA);
@@ -232,6 +261,95 @@ test("two independent E2EE devices converge after realtime, offline writes and r
   await expect(
     pageA.getByText(`realtime-b-${suffix}`, { exact: true })
   ).toBeVisible();
+
+  const hashesBeforeLostAck = new Set(await outboxChangeHashes(pageA));
+  let droppedAcknowledgement = false;
+  await pageA.route(
+    "**/_matrix/client/**/send/m.room.encrypted/**",
+    async (route) => {
+      await route.fetch();
+      droppedAcknowledgement = true;
+      await route.abort("failed");
+    },
+    { times: 1 }
+  );
+  const lostAckTitle = `lost-ack-${suffix}`;
+  await createInboxTask(pageA, lostAckTitle);
+  await expect.poll(() => droppedAcknowledgement).toBe(true);
+  await expect(pageB.getByText(lostAckTitle, { exact: true })).toBeVisible();
+  const lostAckHash = (await outboxChangeHashes(pageA)).find(
+    (hash) => !hashesBeforeLostAck.has(hash)
+  );
+  expect(lostAckHash).toBeTruthy();
+  await expect
+    .poll(() =>
+      pageA.evaluate(async (changeHash) => {
+        const request = indexedDB.open("LiftSecureDatabase");
+        return new Promise<unknown>((resolve, reject) => {
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => {
+            const rows = request.result
+              .transaction("syncOutbox", "readonly")
+              .objectStore("syncOutbox")
+              .index("changeHash")
+              .getAll(changeHash);
+            rows.onerror = () => reject(rows.error);
+            rows.onsuccess = () =>
+              resolve(
+                rows.result.map((row) => ({
+                  state: row.state,
+                  eventIds: row.matrixEventIds,
+                }))
+              );
+          };
+        });
+      }, lostAckHash!)
+    )
+    .toEqual([{ state: "acknowledged", eventIds: expect.any(Array) }]);
+  await expect
+    .poll(() =>
+      pageB.evaluate(
+        async ({ changeHash, title }) => {
+          const request = indexedDB.open("LiftSecureDatabase");
+          return new Promise<{ events: number; tasks: number }>(
+            (resolve, reject) => {
+              request.onerror = () => reject(request.error);
+              request.onsuccess = () => {
+                const transaction = request.result.transaction(
+                  ["matrixEventIndex", "taskProjections"],
+                  "readonly"
+                );
+                const events = transaction
+                  .objectStore("matrixEventIndex")
+                  .index("[workspaceId+changeHash]")
+                  .openCursor();
+                const tasks = transaction
+                  .objectStore("taskProjections")
+                  .getAll();
+                let matchingEvents = 0;
+                events.onerror = () => reject(events.error);
+                events.onsuccess = () => {
+                  const cursor = events.result;
+                  if (cursor === null) return;
+                  if (cursor.value.changeHash === changeHash)
+                    matchingEvents += 1;
+                  cursor.continue();
+                };
+                transaction.onerror = () => reject(transaction.error);
+                transaction.oncomplete = () =>
+                  resolve({
+                    events: matchingEvents,
+                    tasks: tasks.result.filter((row) => row.title === title)
+                      .length,
+                  });
+              };
+            }
+          );
+        },
+        { changeHash: lostAckHash!, title: lostAckTitle }
+      )
+    )
+    .toEqual({ events: 1, tasks: 1 });
 
   await contextA.setOffline(true);
   await contextB.setOffline(true);
@@ -295,6 +413,7 @@ test("two independent E2EE devices converge after realtime, offline writes and r
     `seed-${suffix}`,
     `realtime-a-${suffix}`,
     `realtime-b-${suffix}`,
+    lostAckTitle,
     `offline-a-${suffix}`,
     `offline-b-${suffix}`,
   ].sort();
@@ -328,7 +447,153 @@ test("two independent E2EE devices converge after realtime, offline writes and r
       })
     )
     .toBe(0);
+  expect(plaintextWorkspaceRequests).toEqual([]);
 
   await contextA.close();
   await contextB.close();
+});
+
+test("an existing TODO workspace survives Settings logout, blocks destructive first-device login and recovers", async ({
+  browser,
+}) => {
+  const suffix = randomBytes(5).toString("hex");
+  const username = `auth_${suffix}`;
+  const password = `Lift-auth-${suffix}-strong`;
+  const seedTitle = `auth-seed-${suffix}`;
+  const whileSignedOutTitle = `while-signed-out-${suffix}`;
+  const afterReloginTitle = `after-relogin-${suffix}`;
+  await registerUser(username, password);
+
+  const contextA = await browser.newContext();
+  const contextB = await browser.newContext();
+  const pageA = await contextA.newPage();
+  const pageB = await contextB.newPage();
+
+  const recoveryKey = await setupFirstDevice(pageA, username, password);
+  await openInbox(pageA);
+  await createInboxTask(pageA, seedTitle);
+  await recoverSecondDevice(pageB, username, password, recoveryKey);
+  await openInbox(pageB);
+  await expect(pageB.getByText(seedTitle, { exact: true })).toBeVisible();
+
+  await pageA.getByTestId("sidebar-settings").click();
+  await expect(
+    pageA.getByRole("heading", { name: "Сквозное шифрование" })
+  ).toBeVisible();
+  await pageA.getByRole("button", { name: "Выйти из Matrix" }).click();
+  await expect(pageA.getByLabel("Настройка Matrix")).toBeVisible();
+  await expect(pageA.getByText("signed-out", { exact: true })).toBeVisible();
+
+  await openInbox(pageA);
+  await expect(pageA.getByText(seedTitle, { exact: true })).toBeVisible();
+  await createInboxTask(pageB, whileSignedOutTitle);
+
+  await pageA.getByTestId("sidebar-settings").click();
+  await enterCredentials(pageA, username, `${password}-wrong`);
+  await pageA
+    .getByRole("button", { name: "Восстановить", exact: true })
+    .click();
+  await expect(
+    pageA.locator('[role="alert"][data-error-code="MATRIX_LOGIN_FAILED"]')
+  ).toContainText("Не удалось войти");
+
+  await enterCredentials(pageA, username, password);
+  await pageA.getByRole("button", { name: "Первое устройство" }).click();
+  await expect(
+    pageA.locator(
+      '[role="alert"][data-error-code="MATRIX_ACCOUNT_RECOVERY_REQUIRED"]'
+    )
+  ).toContainText("Этот аккаунт уже защищён");
+  await expect(
+    pageA.getByRole("region", { name: "Подтверждение ключа восстановления" })
+  ).toHaveCount(0);
+
+  await enterCredentials(pageA, username, password);
+  await pageA
+    .getByRole("button", { name: "Восстановить", exact: true })
+    .click();
+  await expect(
+    pageA.getByRole("region", { name: "Восстановление Matrix-устройства" })
+  ).toBeVisible();
+  await pageA
+    .getByLabel("Ключ восстановления")
+    .fill("EsTc invalid recovery key");
+  await pageA.getByRole("button", { name: "Восстановить ключи" }).click();
+  await expect(pageA.getByRole("alert")).toContainText(
+    "Ключ восстановления не подошёл"
+  );
+  await pageA.getByLabel("Ключ восстановления").fill(recoveryKey);
+  await pageA.getByRole("button", { name: "Восстановить ключи" }).click();
+  await expect(
+    pageA.getByRole("button", { name: "Выйти из Matrix" })
+  ).toBeVisible();
+  await expect(pageA.getByText("ready", { exact: true })).toBeVisible();
+
+  await openInbox(pageA);
+  await expect(
+    pageA.getByText(whileSignedOutTitle, { exact: true })
+  ).toBeVisible();
+  await createInboxTask(pageA, afterReloginTitle);
+  await expect(
+    pageB.getByText(afterReloginTitle, { exact: true })
+  ).toBeVisible();
+
+  await contextA.close();
+  await contextB.close();
+});
+
+test("registration, recovery-key confirmation errors and session resume are handled in the UI", async ({
+  page,
+}) => {
+  const suffix = randomBytes(5).toString("hex");
+  const username = `register_${suffix}`;
+  const password = `Lift-register-${suffix}-strong`;
+
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Регистрация" }).click();
+  await page.getByLabel("Matrix-пользователь").fill(username);
+  await page.getByLabel("Matrix-пароль", { exact: true }).fill(password);
+  await page.getByLabel("Повторите Matrix-пароль").fill(`${password}-wrong`);
+  await expect(
+    page.getByRole("button", { name: "Создать защищённый аккаунт" })
+  ).toBeDisabled();
+  await expect(page.getByRole("alert")).toContainText("Пароли не совпадают");
+  await page.getByLabel("Повторите Matrix-пароль").fill(password);
+  await page
+    .getByRole("button", { name: "Создать защищённый аккаунт" })
+    .click();
+
+  await expect(
+    page.getByRole("region", { name: "Подтверждение ключа восстановления" })
+  ).toBeVisible();
+  const recoveryKey = (await page.locator("code").textContent())?.trim();
+  expect(recoveryKey).toBeTruthy();
+  const groupLabel = await page
+    .getByLabel("Проверочная группа")
+    .evaluate((element) => element.parentElement?.textContent ?? "");
+  const groupNumber = Number(groupLabel.match(/№\s*(\d+)/)?.[1]);
+  const expectedGroup = recoveryKey!.split(/\s+/)[groupNumber - 1];
+  expect(expectedGroup).toBeTruthy();
+
+  await page.getByLabel("Проверочная группа").fill("wrong-group");
+  await page.getByRole("button", { name: "Ключ сохранён" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Проверочная группа не совпала"
+  );
+  await page.getByLabel("Проверочная группа").fill(expectedGroup!);
+  await page.getByRole("button", { name: "Ключ сохранён" }).click();
+  await expect(
+    page.getByText(
+      "Matrix E2EE-устройство готово и ключ восстановления подтверждён."
+    )
+  ).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Создать защищённое пространство" })
+    .click();
+  await expect(page.getByTestId("sidebar-today")).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("sidebar-today")).toBeVisible();
+  await page.getByTestId("sidebar-settings").click();
+  await expect(page.getByText("ready", { exact: true })).toBeVisible();
 });

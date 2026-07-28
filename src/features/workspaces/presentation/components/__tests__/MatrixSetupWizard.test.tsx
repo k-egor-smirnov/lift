@@ -74,7 +74,7 @@ describe("MatrixSetupWizard", () => {
     const listeners = new Set<(value: MatrixSessionSnapshot) => void>();
     const viewModel = new MatrixSetupViewModel({
       snapshot: () => snapshot,
-      subscribe: (listener) => {
+      subscribe: (listener: (value: MatrixSessionSnapshot) => void) => {
         listeners.add(listener);
         listener(snapshot);
         return () => listeners.delete(listener);
@@ -131,5 +131,95 @@ describe("MatrixSetupWizard", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Не удалось безопасно подготовить Matrix-устройство."
     );
+  });
+
+  it("allows leaving an unfinished recovery confirmation to retry login", async () => {
+    let snapshot: MatrixSessionSnapshot = {
+      phase: "recovery-confirmation",
+      profileId: "primary",
+      userId: "@alice:primary.localhost",
+      deviceId: "DEVICE_A",
+      errorCode: "MATRIX_FINALIZE_FAILED",
+      recoveryKeyForDisplay: "alpha beta gamma",
+      confirmationGroup: 2,
+    };
+    const listeners = new Set<(value: MatrixSessionSnapshot) => void>();
+    const logout = vi.fn(async () => {
+      snapshot = {
+        phase: "signed-out",
+        profileId: null,
+        userId: null,
+        deviceId: null,
+        errorCode: null,
+        recoveryKeyForDisplay: null,
+        confirmationGroup: null,
+      };
+      listeners.forEach((listener) => listener(snapshot));
+    });
+    const viewModel = new MatrixSetupViewModel({
+      snapshot: () => snapshot,
+      subscribe: (listener: (value: MatrixSessionSnapshot) => void) => {
+        listeners.add(listener);
+        listener(snapshot);
+        return () => listeners.delete(listener);
+      },
+      logout,
+    } as unknown as MatrixSession);
+
+    render(
+      <MatrixSetupWizard
+        viewModel={viewModel}
+        profiles={[
+          { id: "primary", name: "Primary", baseUrl: "http://127.0.0.1:8008" },
+        ]}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выйти и войти заново" })
+    );
+
+    await waitFor(() => expect(logout).toHaveBeenCalledOnce());
+    expect(screen.getByLabelText("Настройка Matrix")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Первое устройство" })
+    ).toBeVisible();
+  });
+
+  it("reads the current session when the wizard mounts after logout", () => {
+    let snapshot: MatrixSessionSnapshot = {
+      phase: "ready",
+      profileId: "primary",
+      userId: "@alice:primary.localhost",
+      deviceId: "DEVICE_A",
+      errorCode: null,
+      recoveryKeyForDisplay: null,
+      confirmationGroup: null,
+    };
+    const session = {
+      snapshot: () => snapshot,
+      subscribe: () => () => undefined,
+    } as unknown as MatrixSession;
+    const viewModel = new MatrixSetupViewModel(session);
+    snapshot = {
+      phase: "signed-out",
+      profileId: null,
+      userId: null,
+      deviceId: null,
+      errorCode: null,
+      recoveryKeyForDisplay: null,
+      confirmationGroup: null,
+    };
+
+    render(
+      <MatrixSetupWizard
+        viewModel={viewModel}
+        profiles={[
+          { id: "primary", name: "Primary", baseUrl: "http://127.0.0.1:8008" },
+        ]}
+      />
+    );
+
+    expect(screen.getByLabelText("Настройка Matrix")).toBeVisible();
   });
 });

@@ -1,4 +1,5 @@
 import { ServerProfile } from "../../../domain/ServerProfile";
+import { vi } from "vitest";
 import { MatrixEventStoreFactory } from "../MatrixEventStoreFactory";
 import { MatrixSessionManager } from "../MatrixSessionManager";
 import type {
@@ -19,6 +20,7 @@ describe("MatrixSessionManager", () => {
         calls.push("start-client");
         calls.push("prepared");
       },
+      hasExistingSecureSetup: async () => false,
       bootstrapCrossSigning: async () => void calls.push("cross-signing"),
       createRecoveryKey: async () => ({
         encodedPrivateKey: "alpha beta gamma",
@@ -158,6 +160,7 @@ describe("MatrixSessionManager", () => {
           initRustCrypto: async () => undefined,
           setSignedDeviceIsolation: async () => undefined,
           startAndWaitPrepared: async () => undefined,
+          hasExistingSecureSetup: async () => true,
           bootstrapCrossSigning: async () => undefined,
           createRecoveryKey: async () => {
             throw new Error("not used");
@@ -203,6 +206,164 @@ describe("MatrixSessionManager", () => {
     expect(JSON.stringify(session.snapshot())).not.toMatch(
       /secret-access|wrong-secret-key|private-password/
     );
+    expect(session.canCreateWorkspace()).toBe(false);
+  });
+
+  it("refuses first-device bootstrap when the account already has an E2EE identity", async () => {
+    const bootstrapCrossSigning = vi.fn(async () => undefined);
+    const client = {
+      eventStoreStartup: async () => undefined,
+      initRustCrypto: async () => undefined,
+      setSignedDeviceIsolation: async () => undefined,
+      startAndWaitPrepared: async () => undefined,
+      hasExistingSecureSetup: async () => true,
+      bootstrapCrossSigning,
+      createRecoveryKey: async () => ({
+        encodedPrivateKey: "must not be generated",
+        generated: {},
+      }),
+      bootstrapSecretStorage: async () => undefined,
+      recoverKeys: async () => undefined,
+      recoveryConfirmed: async () => undefined,
+      stop: async () => undefined,
+    } as MatrixAuthenticatedClient & {
+      hasExistingSecureSetup(): Promise<boolean>;
+    };
+    const session = new MatrixSessionManager(
+      {
+        get: async () =>
+          ServerProfile.create({
+            id: "primary",
+            name: "Primary",
+            baseUrl: "http://127.0.0.1:8008",
+          }),
+      } as never,
+      {
+        register: async () => {
+          throw new Error("not used");
+        },
+        login: async () => ({
+          accessToken: "secret-access",
+          userId: "@alice:primary.localhost",
+          deviceId: "DEVICE_B",
+        }),
+        refresh: async () => {
+          throw new Error("not used");
+        },
+        createAuthenticated: async () => client,
+      },
+      { acquire: async (name) => ({ name, release: () => undefined }) },
+      {
+        storeSessionTokens: async () => undefined,
+        getOrCreateCryptoStoreKey: async () => new Uint8Array(32),
+        loadAccessToken: async () => undefined,
+        loadRefreshToken: async () => undefined,
+        clearSessionTokens: async () => undefined,
+      },
+      new MatrixEventStoreFactory(
+        indexedDB,
+        undefined,
+        async () => class FakeStore {} as never
+      ),
+      new SecretStorageKeyCache(),
+      {
+        persist: async () => undefined,
+        latest: async () => null,
+        clear: async () => undefined,
+      }
+    );
+
+    await session.beginFirstDevice({
+      profileId: "primary",
+      username: "alice",
+      password: "private-password",
+    });
+
+    expect(session.snapshot()).toMatchObject({
+      phase: "error",
+      errorCode: "MATRIX_ACCOUNT_RECOVERY_REQUIRED",
+    });
+    expect(bootstrapCrossSigning).not.toHaveBeenCalled();
+  });
+
+  it("keeps recovery confirmation retryable when finalization fails", async () => {
+    const client: MatrixAuthenticatedClient = {
+      eventStoreStartup: async () => undefined,
+      initRustCrypto: async () => undefined,
+      setSignedDeviceIsolation: async () => undefined,
+      startAndWaitPrepared: async () => undefined,
+      hasExistingSecureSetup: async () => false,
+      bootstrapCrossSigning: async () => undefined,
+      createRecoveryKey: async () => ({
+        encodedPrivateKey: "alpha beta gamma",
+        generated: {},
+      }),
+      bootstrapSecretStorage: async () => undefined,
+      recoverKeys: async () => undefined,
+      recoveryConfirmed: async () => undefined,
+      joinInvitedWorkspaceRooms: async () => {
+        throw new Error("private server failure");
+      },
+      stop: async () => undefined,
+    };
+    const session = new MatrixSessionManager(
+      {
+        get: async () =>
+          ServerProfile.create({
+            id: "primary",
+            name: "Primary",
+            baseUrl: "http://127.0.0.1:8008",
+          }),
+      } as never,
+      {
+        register: async () => ({
+          accessToken: "secret-access",
+          userId: "@alice:primary.localhost",
+          deviceId: "DEVICE_A",
+        }),
+        login: async () => {
+          throw new Error("not used");
+        },
+        refresh: async () => {
+          throw new Error("not used");
+        },
+        createAuthenticated: async () => client,
+      },
+      { acquire: async (name) => ({ name, release: () => undefined }) },
+      {
+        storeSessionTokens: async () => undefined,
+        getOrCreateCryptoStoreKey: async () => new Uint8Array(32),
+        loadAccessToken: async () => undefined,
+        loadRefreshToken: async () => undefined,
+        clearSessionTokens: async () => undefined,
+      },
+      new MatrixEventStoreFactory(
+        indexedDB,
+        undefined,
+        async () => class FakeStore {} as never
+      ),
+      new SecretStorageKeyCache(),
+      {
+        persist: async () => undefined,
+        latest: async () => null,
+        clear: async () => undefined,
+      },
+      () => 1
+    );
+    await session.registerFirstDevice({
+      profileId: "primary",
+      username: "alice",
+      password: "private-password",
+    });
+
+    await expect(session.confirmRecoveryGroup("beta")).resolves.toBeUndefined();
+
+    expect(session.snapshot()).toMatchObject({
+      phase: "recovery-confirmation",
+      errorCode: "MATRIX_FINALIZE_FAILED",
+      recoveryKeyForDisplay: "alpha beta gamma",
+      confirmationGroup: 2,
+    });
     expect(session.canCreateWorkspace()).toBe(false);
   });
 });

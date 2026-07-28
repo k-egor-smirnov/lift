@@ -225,6 +225,14 @@ export class MatrixSessionManager implements MatrixSession {
   ): Promise<void> {
     try {
       const { client, session } = await this.initialize(credentials, register);
+      if (
+        !register &&
+        (await stage("MATRIX_SECURE_STATE_FAILED", () =>
+          client.hasExistingSecureSetup()
+        ))
+      ) {
+        throw new MatrixSetupStageError("MATRIX_ACCOUNT_RECOVERY_REQUIRED");
+      }
       await client.bootstrapCrossSigning(
         credentials.username,
         credentials.password
@@ -291,16 +299,23 @@ export class MatrixSessionManager implements MatrixSession {
       this.set({ ...this.value, errorCode: "RECOVERY_CONFIRMATION_MISMATCH" });
       return;
     }
-    await this.client?.recoveryConfirmed();
-    await this.client?.joinInvitedWorkspaceRooms?.();
-    this.expectedRecoveryGroup = null;
-    this.set({
-      ...this.value,
-      phase: "ready",
-      errorCode: null,
-      recoveryKeyForDisplay: null,
-      confirmationGroup: null,
-    });
+    try {
+      await this.client?.recoveryConfirmed();
+      await this.client?.joinInvitedWorkspaceRooms?.();
+      this.expectedRecoveryGroup = null;
+      this.set({
+        ...this.value,
+        phase: "ready",
+        errorCode: null,
+        recoveryKeyForDisplay: null,
+        confirmationGroup: null,
+      });
+    } catch {
+      this.set({
+        ...this.value,
+        errorCode: "MATRIX_FINALIZE_FAILED",
+      });
+    }
   }
 
   async recoverWithKey(recoveryKey: string): Promise<void> {
@@ -319,15 +334,24 @@ export class MatrixSessionManager implements MatrixSession {
         credentials.username,
         credentials.password
       );
-      await this.client.joinInvitedWorkspaceRooms?.();
-      this.pendingCredentials = null;
-      this.set({ ...this.value, phase: "ready", errorCode: null });
     } catch {
       this.secretKeys.clear();
       this.set({
         ...this.value,
         phase: "recovery-key-required",
         errorCode: "RECOVERY_KEY_INVALID",
+      });
+      return;
+    }
+    try {
+      await this.client.joinInvitedWorkspaceRooms?.();
+      this.pendingCredentials = null;
+      this.set({ ...this.value, phase: "ready", errorCode: null });
+    } catch {
+      this.set({
+        ...this.value,
+        phase: "recovery-key-required",
+        errorCode: "MATRIX_FINALIZE_FAILED",
       });
     }
   }
@@ -440,6 +464,13 @@ export class MatrixSessionManager implements MatrixSession {
       session
     );
     await this.metadata.persist(profile.id, session.userId, session.deviceId);
+    this.set({
+      ...initialSnapshot(),
+      phase: "initializing-crypto",
+      profileId: profile.id,
+      userId: session.userId,
+      deviceId: session.deviceId,
+    });
 
     return this.startAuthenticated(profile, session);
   }
@@ -508,12 +539,20 @@ export class MatrixSessionManager implements MatrixSession {
   }
 
   private async fail(errorCode: string): Promise<void> {
+    const { profileId, userId, deviceId } = this.value;
     this.pendingCredentials = null;
     this.expectedRecoveryGroup = null;
+    await this.client?.logout?.().catch(() => undefined);
     await this.client?.stop().catch(() => undefined);
     this.client = null;
     this.lease?.release();
     this.lease = null;
+    if (profileId !== null && userId !== null && deviceId !== null) {
+      await this.vault
+        .clearSessionTokens(profileId, userId, deviceId)
+        .catch(() => undefined);
+      await this.metadata.clear(profileId).catch(() => undefined);
+    }
     this.secretKeys.clear();
     this.stopVerificationSubscription?.();
     this.stopVerificationSubscription = null;

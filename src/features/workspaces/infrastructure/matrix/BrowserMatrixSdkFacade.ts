@@ -93,6 +93,55 @@ class BrowserAuthenticatedClient
     if (state === "PREPARED" || state === "SYNCING") this.clearOnlineRetry();
   };
 
+  private async ensureWorkspaceRoomEncryption(roomId: string): Promise<void> {
+    const matrixCrypto = this.requireCrypto();
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      const room = this.client.getRoom(roomId);
+      const encryptionEvent = room?.currentState.getStateEvents(
+        "m.room.encryption",
+        ""
+      );
+      if (
+        room !== null &&
+        room !== undefined &&
+        encryptionEvent !== null &&
+        encryptionEvent !== undefined &&
+        encryptionEvent.getContent().algorithm === "m.megolm.v1.aes-sha2"
+      ) {
+        if (!(await matrixCrypto.isEncryptionEnabledInRoom(roomId))) {
+          const cryptoEventConsumer = matrixCrypto as unknown as {
+            onCryptoEvent(room: Room, event: MatrixEvent): Promise<void>;
+          };
+          await cryptoEventConsumer.onCryptoEvent(room, encryptionEvent);
+        }
+        if (
+          room.hasEncryptionStateEvent() &&
+          (await matrixCrypto.isEncryptionEnabledInRoom(roomId))
+        ) {
+          return;
+        }
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
+    }
+    throw new Error(
+      "Matrix workspace encryption state is not ready; refusing plaintext send"
+    );
+  }
+
+  private async confirmEncryptedDelivery(
+    roomId: string,
+    eventId: string
+  ): Promise<string> {
+    const remote = await this.client.fetchRoomEvent(roomId, eventId);
+    if (remote.event_id !== eventId || remote.type !== "m.room.encrypted") {
+      throw new Error(
+        "Matrix homeserver did not confirm an encrypted workspace event"
+      );
+    }
+    return eventId;
+  }
+
   constructor(
     private readonly client: MatrixClient,
     private readonly eventStore: IndexedDBStore,
@@ -296,6 +345,14 @@ class BrowserAuthenticatedClient
     });
   }
 
+  async hasExistingSecureSetup(): Promise<boolean> {
+    const [crossSigning, secretStorageKey] = await Promise.all([
+      this.requireCrypto().getCrossSigningStatus(),
+      this.client.secretStorage.getKey(),
+    ]);
+    return crossSigning.publicKeysOnDevice || secretStorageKey !== null;
+  }
+
   async joinInvitedWorkspaceRooms(): Promise<void> {
     for (const room of this.client.getRooms()) {
       if (room.getMyMembership() === "invite") {
@@ -403,34 +460,9 @@ class BrowserAuthenticatedClient
         },
       ],
     });
-    const matrixCrypto = this.requireCrypto();
-    const deadline = Date.now() + 15_000;
-    while (!(await matrixCrypto.isEncryptionEnabledInRoom(roomId))) {
-      if (Date.now() >= deadline)
-        throw new Error("Matrix room encryption did not become active");
-      const room = this.client.getRoom(roomId);
-      const encryptionEvent = room?.currentState.getStateEvents(
-        "m.room.encryption",
-        ""
-      );
-      if (
-        room !== null &&
-        room !== undefined &&
-        encryptionEvent !== null &&
-        encryptionEvent !== undefined
-      ) {
-        // A newly-created room can arrive in the same /sync response that raced
-        // with createRoom(). In that case matrix-js-sdk has the authenticated
-        // encryption state but Rust Crypto may not have consumed it yet. Feed
-        // that exact state event through the SDK's normal crypto handler before
-        // allowing any Lift payload to be sent.
-        const cryptoEventConsumer = matrixCrypto as unknown as {
-          onCryptoEvent(room: Room, event: MatrixEvent): Promise<void>;
-        };
-        await cryptoEventConsumer.onCryptoEvent(room, encryptionEvent);
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, 100));
-    }
+    // A newly-created room can arrive in the same /sync response that raced
+    // with createRoom(). The same fail-closed gate is also used after reloads.
+    await this.ensureWorkspaceRoomEncryption(roomId);
     return roomId;
   }
 
@@ -447,6 +479,7 @@ class BrowserAuthenticatedClient
     content: Readonly<Record<string, unknown>>,
     transactionId: string
   ): Promise<string> {
+    await this.ensureWorkspaceRoomEncryption(roomId);
     const room = this.client.getRoom(roomId);
     const existing =
       room?.findEventById(`~${roomId}:${transactionId}`) ??
@@ -467,8 +500,7 @@ class BrowserAuthenticatedClient
         // delivery acknowledgement: verify that the homeserver can return the
         // exact event before allowing the durable outbox row to become acked.
         try {
-          const remote = await this.client.fetchRoomEvent(roomId, eventId);
-          if (remote.event_id === eventId) return eventId;
+          return await this.confirmEncryptedDelivery(roomId, eventId);
         } catch {
           // A missing or currently unreachable remote echo is not an ack. The
           // same Matrix transaction ID makes this retry server-idempotent.
@@ -479,7 +511,7 @@ class BrowserAuthenticatedClient
           content as never,
           transactionId
         );
-        return retried.event_id;
+        return this.confirmEncryptedDelivery(roomId, retried.event_id);
       }
       if (existing.status !== EventStatus.NOT_SENT) {
         throw new Error(
@@ -487,7 +519,7 @@ class BrowserAuthenticatedClient
         );
       }
       const retried = await this.client.resendEvent(existing, room);
-      return retried.event_id;
+      return this.confirmEncryptedDelivery(roomId, retried.event_id);
     }
     const result = await this.client.sendEvent(
       roomId,
@@ -495,7 +527,7 @@ class BrowserAuthenticatedClient
       content as never,
       transactionId
     );
-    return result.event_id;
+    return this.confirmEncryptedDelivery(roomId, result.event_id);
   }
 
   async readWorkspaceEvent(

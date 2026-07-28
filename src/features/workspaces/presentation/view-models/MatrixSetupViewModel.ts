@@ -11,6 +11,18 @@ export class MatrixSetupViewModel {
   }
 
   snapshot(): MatrixSessionSnapshot {
+    const latest = this.session.snapshot();
+    if (
+      latest.phase !== this.current.phase ||
+      latest.profileId !== this.current.profileId ||
+      latest.userId !== this.current.userId ||
+      latest.deviceId !== this.current.deviceId ||
+      latest.errorCode !== this.current.errorCode ||
+      latest.recoveryKeyForDisplay !== this.current.recoveryKeyForDisplay ||
+      latest.confirmationGroup !== this.current.confirmationGroup
+    ) {
+      this.current = latest;
+    }
     return this.current;
   }
 
@@ -51,5 +63,13 @@ export class MatrixSetupViewModel {
 
   recoverWithKey(value: string): Promise<void> {
     return this.session.recoverWithKey(value);
+  }
+
+  async cancelSetup(): Promise<void> {
+    try {
+      await this.session.logout();
+    } catch {
+      await this.session.stop();
+    }
   }
 }
