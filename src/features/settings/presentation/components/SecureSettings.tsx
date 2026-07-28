@@ -12,6 +12,7 @@ import { WorkspaceRole } from "../../../workspaces/domain/WorkspaceRole";
 import { ResultUtils } from "../../../../shared/domain/Result";
 import { MatrixSetupViewModel } from "../../../workspaces/presentation/view-models/MatrixSetupViewModel";
 import { MatrixSetupWizard } from "../../../workspaces/presentation/components/MatrixSetupWizard";
+import { MATRIX_AUTHENTICATION_CAPABILITIES } from "../../../workspaces/application/security/MatrixAuthenticationCapabilities";
 
 interface SecureSettingsProps {
   readonly runtime: SecureRuntime;
@@ -123,23 +124,25 @@ export const SecureSettings = ({ runtime }: SecureSettingsProps) => {
         </dl>
         {matrix.phase === "ready" ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                void runtime.matrixSession
-                  .requestDeviceVerification()
-                  .catch((error) =>
-                    setStatus(
-                      error instanceof Error
-                        ? error.message
-                        : "Не удалось начать проверку"
+            {MATRIX_AUTHENTICATION_CAPABILITIES.sasEmojiVerification ? (
+              <button
+                type="button"
+                onClick={() =>
+                  void runtime.matrixSession
+                    .requestDeviceVerification()
+                    .catch((error) =>
+                      setStatus(
+                        error instanceof Error
+                          ? error.message
+                          : "Не удалось начать проверку"
+                      )
                     )
-                  )
-              }
-              className="rounded-md border px-3 py-2 text-sm font-medium"
-            >
-              Подтвердить другое устройство
-            </button>
+                }
+                className="rounded-md border px-3 py-2 text-sm font-medium"
+              >
+                Подтвердить другое устройство
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() =>

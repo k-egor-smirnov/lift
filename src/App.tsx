@@ -7,6 +7,7 @@ import { WorkspaceSetupScreen } from "./features/workspaces/presentation/compone
 import { WorkspaceSetupViewModel } from "./features/workspaces/presentation/view-models/WorkspaceSetupViewModel";
 import { MatrixSetupViewModel } from "./features/workspaces/presentation/view-models/MatrixSetupViewModel";
 import { MatrixDeviceVerification } from "./features/workspaces/presentation/components/MatrixDeviceVerification";
+import { MATRIX_AUTHENTICATION_CAPABILITIES } from "./features/workspaces/application/security/MatrixAuthenticationCapabilities";
 
 interface AppProps {
   readonly runtime: SecureRuntime;
@@ -40,7 +41,9 @@ function App({ runtime }: AppProps) {
             setWorkspaceId(await setup.create(settings));
           }}
         />
-        <MatrixDeviceVerification session={runtime.matrixSession} />
+        {MATRIX_AUTHENTICATION_CAPABILITIES.sasEmojiVerification ? (
+          <MatrixDeviceVerification session={runtime.matrixSession} />
+        ) : null}
       </>
     );
   }
@@ -48,7 +51,9 @@ function App({ runtime }: AppProps) {
   return (
     <>
       <SecureMVPApp runtime={runtime} />
-      <MatrixDeviceVerification session={runtime.matrixSession} />
+      {MATRIX_AUTHENTICATION_CAPABILITIES.sasEmojiVerification ? (
+        <MatrixDeviceVerification session={runtime.matrixSession} />
+      ) : null}
     </>
   );
 }

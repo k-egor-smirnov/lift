@@ -595,6 +595,27 @@ export class AutomergeWorkspaceDocument {
     return [...Automerge.getHeads(this.document)].sort();
   }
 
+  containsHeads(heads: readonly string[]): boolean {
+    return Automerge.hasHeads(this.document, [...heads]);
+  }
+
+  mergeSnapshot(snapshot: Uint8Array): void {
+    if (!(snapshot instanceof Uint8Array) || snapshot.length === 0) {
+      throw new Error("Invalid Automerge snapshot: expected non-empty bytes");
+    }
+    try {
+      const incoming = Automerge.load<WorkspaceState>(snapshot.slice());
+      this.assertValidDocument(incoming);
+      const merged = Automerge.merge(this.document, incoming);
+      this.assertValidDocument(merged);
+      this.document = merged;
+    } catch (error: unknown) {
+      throw new Error(
+        `Invalid Automerge snapshot merge: ${errorMessage(error)}`
+      );
+    }
+  }
+
   value(): Readonly<WorkspaceState> {
     return this.canonical();
   }

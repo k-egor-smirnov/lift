@@ -2,13 +2,19 @@ import type {
   WorkspaceAccessControl,
   WorkspaceAccessIntent,
 } from "../../application/ports/WorkspaceAccessControl";
+import type { WorkspaceWriteAuthorization } from "../../application/ports/WorkspaceWriteAuthorization";
 import {
   workspaceDeviceRef,
   type WorkspaceAclCheckpoint,
 } from "../../domain/WorkspaceAcl";
-import { matrixPowerLevel, WorkspaceRole } from "../../domain/WorkspaceRole";
+import {
+  can,
+  matrixPowerLevel,
+  WorkspaceRole,
+} from "../../domain/WorkspaceRole";
 import type { LiftSecureDatabase } from "../database/LiftSecureDatabase";
 import type { MatrixWorkspaceClient } from "../matrix/MatrixSdkFacade";
+import { withMatrixRateLimitRetry } from "../matrix/MatrixControlRetry";
 import { AclChainValidator } from "./AclChainValidator";
 import { CanonicalAclCodec } from "./CanonicalAclCodec";
 
@@ -43,7 +49,9 @@ const requireMethod = <T>(value: T | undefined, label: string): T => {
  * cannot be newly claimed while ACL, Matrix membership and Megolm rotation are
  * temporarily inconsistent.
  */
-export class AclControlPlane implements WorkspaceAccessControl {
+export class AclControlPlane
+  implements WorkspaceAccessControl, WorkspaceWriteAuthorization
+{
   private tail: Promise<void> = Promise.resolve();
 
   constructor(
@@ -59,6 +67,38 @@ export class AclControlPlane implements WorkspaceAccessControl {
     const current = chain.at(-1);
     if (current === undefined) throw new Error("Workspace ACL is unavailable");
     return structuredClone(current.checkpoint);
+  }
+
+  async requireEdit(workspaceId: string): Promise<void> {
+    const activeTarget = await this.database.syncTargets
+      .filter(
+        ({ workspaceId: targetWorkspaceId, mode, state }) =>
+          targetWorkspaceId === workspaceId &&
+          mode === "active" &&
+          state === "active"
+      )
+      .first();
+    if (activeTarget === undefined) {
+      throw new Error("Matrix workspace membership is revoked");
+    }
+    const client = this.matrixClient();
+    const identity = requireMethod(
+      client.workspaceIdentity,
+      "workspace identity"
+    ).call(client);
+    const acl = await this.current(workspaceId);
+    if (
+      acl.revokedUsers.includes(identity.userId) ||
+      acl.revokedDevices.includes(
+        workspaceDeviceRef(identity.userId, identity.deviceId)
+      )
+    ) {
+      throw new Error("Workspace write identity is revoked");
+    }
+    const role = acl.members[identity.userId];
+    if (role === undefined || !can(role, "edit")) {
+      throw new Error("Workspace is read-only for this Matrix identity");
+    }
   }
 
   apply(
@@ -95,13 +135,6 @@ export class AclControlPlane implements WorkspaceAccessControl {
     if (target === undefined)
       throw new Error("Active Matrix workspace target is unavailable");
 
-    // A paused target is fail-closed. It is reactivated only after ACL,
-    // membership/power levels and any required session rotation all succeed.
-    await this.database.syncTargets.update(target.id, {
-      state: "paused",
-      updatedAt: this.now(),
-    });
-
     const chain = await this.loadChain(workspaceId);
     const current = chain.at(-1);
     if (current === undefined) throw new Error("Workspace ACL is unavailable");
@@ -116,16 +149,26 @@ export class AclControlPlane implements WorkspaceAccessControl {
     for (const item of chain) await validator.accept(item.checkpoint);
     const accepted = await validator.accept(candidate);
 
+    // Validate the complete intent before changing runtime state. Once a valid
+    // security transition begins, keep ordinary transport fail-closed until
+    // ACL, Matrix access and any required Megolm rotation all agree.
+    await this.database.syncTargets.update(target.id, {
+      state: "paused",
+      updatedAt: this.now(),
+    });
+
     const signed = await client.signWorkspaceContent({
       schemaVersion: 1,
       hash: accepted.hash,
       bytes: toBase64Url(accepted.bytes),
     });
-    const eventId = await client.sendEncryptedWorkspaceEvent(
-      target.roomId,
-      ACL_EVENT_TYPE,
-      signed,
-      `lift.acl.${accepted.hash}`
+    const eventId = await withMatrixRateLimitRetry(() =>
+      client.sendEncryptedWorkspaceEvent(
+        target.roomId,
+        ACL_EVENT_TYPE,
+        signed,
+        `lift.acl.${accepted.hash}`
+      )
     );
     const readBack = await client.readWorkspaceEvent(target.roomId, eventId);
     if (
@@ -138,10 +181,11 @@ export class AclControlPlane implements WorkspaceAccessControl {
       throw new Error("Encrypted ACL read-back mismatch");
     }
 
-    const headEventId = await client.publishWorkspaceState(
-      target.roomId,
-      ACL_HEAD_TYPE,
-      { authEpoch: candidate.authEpoch, hash: accepted.hash }
+    const headEventId = await withMatrixRateLimitRetry(() =>
+      client.publishWorkspaceState(target.roomId, ACL_HEAD_TYPE, {
+        authEpoch: candidate.authEpoch,
+        hash: accepted.hash,
+      })
     );
     await this.waitForHead(
       client,
@@ -174,16 +218,73 @@ export class AclControlPlane implements WorkspaceAccessControl {
         matrixPowerLevel[role],
       ])
     );
-    await requireMethod(
+    const applyWorkspaceAccess = requireMethod(
       client.applyWorkspaceAccess,
       "workspace access updates"
-    ).call(client, target.roomId, levels, invited, removed);
+    );
+    await withMatrixRateLimitRetry(() =>
+      applyWorkspaceAccess.call(client, target.roomId, levels, invited, removed)
+    );
 
-    if (intent.kind === "remove-member" || intent.kind === "revoke-device") {
+    if (
+      intent.kind === "invite-member" ||
+      intent.kind === "remove-member" ||
+      intent.kind === "revoke-device"
+    ) {
       await requireMethod(
         client.forceDiscardWorkspaceSession,
         "Megolm session rotation"
       ).call(client, target.roomId);
+      const rotatedContent =
+        intent.kind === "invite-member"
+          ? await (async () => {
+              const snapshot =
+                await this.database.workspaceSnapshots.get(workspaceId);
+              if (snapshot === undefined)
+                throw new Error("Workspace snapshot is unavailable");
+              return client.signWorkspaceContent({
+                schemaVersion: 1,
+                hash: accepted.hash,
+                bytes: toBase64Url(accepted.bytes),
+                aclChain: [
+                  ...chain.map((item) => ({
+                    hash: item.hash,
+                    bytes: toBase64Url(item.bytes),
+                  })),
+                  {
+                    hash: accepted.hash,
+                    bytes: toBase64Url(accepted.bytes),
+                  },
+                ],
+                bootstrap: {
+                  hash: await this.codec.hash(snapshot.bytes),
+                  bytes: toBase64Url(snapshot.bytes),
+                  heads: [...snapshot.heads].sort(),
+                },
+              });
+            })()
+          : signed;
+      const rekeyEventId = await withMatrixRateLimitRetry(() =>
+        client.sendEncryptedWorkspaceEvent(
+          target.roomId,
+          ACL_EVENT_TYPE,
+          rotatedContent,
+          `lift.acl.rekey.${accepted.hash}`
+        )
+      );
+      const rekeyReadBack = await client.readWorkspaceEvent(
+        target.roomId,
+        rekeyEventId
+      );
+      if (
+        rekeyReadBack.wireType !== "m.room.encrypted" ||
+        rekeyReadBack.clearType !== ACL_EVENT_TYPE ||
+        typeof rekeyReadBack.content !== "object" ||
+        rekeyReadBack.content === null ||
+        Reflect.get(rekeyReadBack.content, "hash") !== accepted.hash
+      ) {
+        throw new Error("Rotated ACL read-back mismatch");
+      }
     }
 
     await this.database.transaction(
@@ -242,6 +343,7 @@ export class AclControlPlane implements WorkspaceAccessControl {
     return records.map((record) => ({
       checkpoint: this.codec.decode(record.bytes),
       hash: record.hash,
+      bytes: record.bytes,
     }));
   }
 

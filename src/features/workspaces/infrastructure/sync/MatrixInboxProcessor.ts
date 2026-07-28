@@ -13,6 +13,7 @@ import { can } from "../../domain/WorkspaceRole";
 import { workspaceDeviceRef } from "../../domain/WorkspaceAcl";
 import { CanonicalAclCodec } from "../acl/CanonicalAclCodec";
 import type { MatrixAclBootstrapper } from "../acl/MatrixAclBootstrapper";
+import { AutomergeWorkspaceDocument } from "../crdt/AutomergeWorkspaceDocument";
 import type { LiftSecureDatabase } from "../database/LiftSecureDatabase";
 import { changeEnvelopeV1 } from "../matrix/LiftEnvelope";
 import type {
@@ -110,7 +111,14 @@ export class MatrixInboxProcessor implements TrustedInboxProcessor {
       )
       .first();
     const validTarget = target ?? reject("wrong-room");
-    const aclRecord = await this.database.aclCheckpoints
+    const parsed = changeEnvelopeV1.safeParse(event.content);
+    const envelope = parsed.success
+      ? parsed.data
+      : reject("change-invalid-schema");
+    if (envelope.workspaceId !== validTarget.workspaceId) {
+      reject("change-acl-binding");
+    }
+    const latestAclRecord = await this.database.aclCheckpoints
       .where("[workspaceId+authEpoch]")
       .between(
         [validTarget.workspaceId, Dexie.minKey],
@@ -119,30 +127,29 @@ export class MatrixInboxProcessor implements TrustedInboxProcessor {
         true
       )
       .last();
-    const validAclRecord = aclRecord ?? reject("missing-acl");
-    const acl = this.codec.decode(validAclRecord.bytes);
+    const validLatestAclRecord = latestAclRecord ?? reject("missing-acl");
+    const latestAcl = this.codec.decode(validLatestAclRecord.bytes);
+    if (envelope.authEpoch > latestAcl.authEpoch) {
+      reject("change-acl-binding");
+    }
+    const eventAclRecord = await this.database.aclCheckpoints.get([
+      validTarget.workspaceId,
+      envelope.authEpoch,
+    ]);
+    const validEventAclRecord = eventAclRecord ?? reject("change-acl-binding");
+    const eventAcl = this.codec.decode(validEventAclRecord.bytes);
     const senderDeviceId =
       event.senderDeviceId ?? reject("change-missing-device");
-    const role = acl.members[event.senderUserId];
+    const role = eventAcl.members[event.senderUserId];
     if (
       role === undefined ||
       !can(role, "edit") ||
-      acl.revokedUsers.includes(event.senderUserId) ||
-      acl.revokedDevices.includes(
+      eventAcl.revokedUsers.includes(event.senderUserId) ||
+      eventAcl.revokedDevices.includes(
         workspaceDeviceRef(event.senderUserId, senderDeviceId)
       )
     ) {
       reject("change-unauthorized");
-    }
-    const parsed = changeEnvelopeV1.safeParse(event.content);
-    const envelope = parsed.success
-      ? parsed.data
-      : reject("change-invalid-schema");
-    if (
-      envelope.workspaceId !== validTarget.workspaceId ||
-      envelope.authEpoch !== acl.authEpoch
-    ) {
-      reject("change-acl-binding");
     }
     const bytes = await this.acceptPayload(
       item,
@@ -162,6 +169,27 @@ export class MatrixInboxProcessor implements TrustedInboxProcessor {
       !equal(decoded.deps, envelope.dependencies)
     ) {
       reject("change-metadata-mismatch");
+    }
+    if (envelope.authEpoch < latestAcl.authEpoch) {
+      const snapshot =
+        (await this.database.workspaceSnapshots.get(validTarget.workspaceId)) ??
+        reject("change-outside-accepted-frontier");
+      if (!latestAcl.acceptedHeads.includes(envelope.changeHash)) {
+        reject("change-outside-accepted-frontier");
+      }
+      const current = (() => {
+        try {
+          return AutomergeWorkspaceDocument.load(
+            new Uint8Array([...snapshot.bytes]),
+            this.actorId
+          );
+        } catch {
+          return reject("change-outside-accepted-frontier");
+        }
+      })();
+      if (!current.containsHeads([envelope.changeHash])) {
+        reject("change-outside-accepted-frontier");
+      }
     }
     try {
       await this.unitOfWork.applyRemote({

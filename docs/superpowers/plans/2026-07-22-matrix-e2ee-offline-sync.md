@@ -1247,6 +1247,13 @@ function isCanonicalLoopbackHttp(input: string, url: URL): boolean {
 **Produces:** distinct Matrix devices, cross-signing, signed-device isolation, high-entropy recovery and encrypted key backup.
 **Consumes:** server profile, local key vault/lease, `matrix-js-sdk` 42.0.0.
 
+**2026-07-28 product-scope amendment:** expose only password plus recovery-key
+setup/recovery. Keep SAS/QR implementation behind
+`MATRIX_AUTHENTICATION_CAPABILITIES.sasEmojiVerification = false`; do not
+render incoming verification dialogs or a Settings action until a later task
+adds complete real-device E2E coverage for accept, cancel, mismatch, retry and
+logout.
+
 - [ ] Write an SDK-mocked test that asserts exact ordering: password login → acquire lease → `initRustCrypto` with unique prefix/storage key → `OnlySignedDevicesIsolationMode` → `startClient`/PREPARED → cross-signing → secret storage with new backup → recovery acknowledgement. Assert no workspace can be created before acknowledgement.
 - [ ] Record the order in the fake and assert the security-critical suffix exactly:
 
@@ -1626,8 +1633,17 @@ try {
 - Create: `src/features/workspaces/infrastructure/acl/__tests__/AclControlPlane.integration.test.ts`
 - Create: `tests/matrix/roles-and-revocation.spec.ts`
 
-**Produces:** Owner/Admin/Editor/Viewer enforcement and post-revocation forward security.
+**Produces:** Owner/Admin/Editor/Viewer enforcement, whole-user removal with
+post-removal forward exclusion, and fail-closed local device ACL enforcement.
 **Consumes:** encrypted ACL chain, Matrix power levels/membership, current Automerge heads.
+
+**2026-07-28 security checkpoint:** Matrix's public cross-signing and
+`OnlySignedDevicesIsolationMode` APIs cannot remove another account owner's
+device signature per room. `revoke-device` can reject future authored changes
+and rotate Megolm, but cannot honestly prove that a still-joined owner-signed
+foreign device receives no future room key. Complete strict per-device
+revocation with account-owner device deletion, whole-user removal, or an
+additional Lift group-key layer before marking that portion of this task done.
 
 - [ ] Write failing application tests for every capability in the approved role table and real E2E cases: Viewer cannot send, Editor cannot alter ACL, Admin can assign Editor/Viewer but not Admin/Owner, Owner can transfer, last Owner cannot demote/remove itself.
 - [ ] Run the new application tests and `npm run test:e2e:matrix -- tests/matrix/roles-and-revocation.spec.ts`; expect failures before ACL control-plane mutations exist.

@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import type { DecryptedMatrixWorkspaceEvent } from "../matrix/MatrixSdkFacade";
-import { workspaceDeviceRef } from "../../domain/WorkspaceAcl";
+import {
+  workspaceDeviceRef,
+  type HashedWorkspaceAclCheckpoint,
+} from "../../domain/WorkspaceAcl";
 import { AutomergeWorkspaceDocument } from "../crdt/AutomergeWorkspaceDocument";
 import type { LiftSecureDatabase } from "../database/LiftSecureDatabase";
 import { AclChainValidator } from "./AclChainValidator";
@@ -10,11 +13,19 @@ import { RejectedInboxEventError } from "../../application/use-cases/ProcessInbo
 
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 const encodedBytes = z.string().regex(/^[A-Za-z0-9_-]+$/);
+const aclChainEntry = z.strictObject({ hash, bytes: encodedBytes });
 const rootEnvelope = z.strictObject({
   schemaVersion: z.literal(1),
   hash,
   bytes: encodedBytes,
-  bootstrap: z.strictObject({ hash, bytes: encodedBytes }).optional(),
+  aclChain: z.array(aclChainEntry).min(1).optional(),
+  bootstrap: z
+    .strictObject({
+      hash,
+      bytes: encodedBytes,
+      heads: z.array(hash).min(1).optional(),
+    })
+    .optional(),
 });
 
 const decode = (value: string): Uint8Array => {
@@ -43,7 +54,7 @@ export class MatrixAclBootstrapper {
   constructor(
     private readonly database: LiftSecureDatabase,
     private readonly profileId: () => string,
-    private readonly onWorkspace: (workspaceId: string) => void,
+    private readonly onWorkspace: (workspaceId: string) => void | Promise<void>,
     private readonly codec = new CanonicalAclCodec(),
     private readonly now: () => number = () => Date.now(),
     private readonly localIdentity: () => {
@@ -83,6 +94,43 @@ export class MatrixAclBootstrapper {
       reject("acl-sender-binding");
     }
 
+    const encodedChain = envelope.aclChain;
+    const providedChain =
+      encodedChain === undefined
+        ? null
+        : await (async () => {
+            const validator = new AclChainValidator(this.codec);
+            const acceptedChain: HashedWorkspaceAclCheckpoint[] = [];
+            for (const entry of encodedChain) {
+              const bytes = decode(entry.bytes);
+              if ((await this.codec.hash(bytes)) !== entry.hash)
+                reject("acl-chain-hash-mismatch");
+              const decoded = (() => {
+                try {
+                  return this.codec.decode(bytes);
+                } catch {
+                  return reject("acl-invalid-chain");
+                }
+              })();
+              try {
+                const accepted = await validator.accept(decoded);
+                if (accepted.hash !== entry.hash)
+                  reject("acl-chain-hash-mismatch");
+                acceptedChain.push(accepted);
+              } catch {
+                reject("acl-invalid-chain");
+              }
+            }
+            const latest = acceptedChain.at(-1);
+            if (
+              latest === undefined ||
+              latest.hash !== envelope.hash ||
+              latest.checkpoint.authEpoch !== checkpoint.authEpoch
+            ) {
+              reject("acl-chain-frontier");
+            }
+            return acceptedChain;
+          })();
     const chainRecords = (
       await this.database.aclCheckpoints
         .filter(({ workspaceId }) => workspaceId === checkpoint.workspaceId)
@@ -93,30 +141,60 @@ export class MatrixAclBootstrapper {
     );
     if (sameEpoch !== undefined && sameEpoch.hash !== envelope.hash)
       reject("acl-rollback-or-fork");
-    const validator = new AclChainValidator(this.codec);
-    try {
-      for (const record of chainRecords) {
-        await validator.accept(this.codec.decode(record.bytes));
+    let accepted: HashedWorkspaceAclCheckpoint;
+    if (providedChain !== null) {
+      const byEpoch = new Map(
+        providedChain.map((item) => [item.checkpoint.authEpoch, item.hash])
+      );
+      if (
+        chainRecords.some(
+          (record) => byEpoch.get(record.authEpoch) !== record.hash
+        ) ||
+        chainRecords.some((record) => record.authEpoch > checkpoint.authEpoch)
+      ) {
+        reject("acl-rollback-or-fork");
       }
-    } catch {
-      reject("acl-local-chain-invalid");
+      const latest = providedChain.at(-1);
+      if (latest === undefined) return reject("acl-chain-frontier");
+      accepted = latest;
+    } else {
+      const validator = new AclChainValidator(this.codec);
+      try {
+        for (const record of chainRecords) {
+          await validator.accept(this.codec.decode(record.bytes));
+        }
+      } catch {
+        reject("acl-local-chain-invalid");
+      }
+      accepted =
+        sameEpoch === undefined
+          ? await (async () => {
+              try {
+                return await validator.accept(checkpoint);
+              } catch {
+                return reject("acl-invalid-chain");
+              }
+            })()
+          : { checkpoint, bytes: aclBytes, hash: sameEpoch.hash };
     }
-    const accepted =
-      sameEpoch === undefined
-        ? await (async () => {
-            try {
-              return await validator.accept(checkpoint);
-            } catch {
-              return reject("acl-invalid-chain");
-            }
-          })()
-        : { checkpoint, bytes: aclBytes, hash: sameEpoch.hash };
 
     const isRoot = checkpoint.authEpoch === 1;
     if (isRoot && envelope.bootstrap === undefined)
       reject("acl-bootstrap-missing");
-    if (!isRoot && envelope.bootstrap !== undefined)
-      reject("acl-transition-has-bootstrap");
+    if (isRoot && envelope.aclChain !== undefined) reject("acl-root-has-chain");
+    if (
+      !isRoot &&
+      (envelope.bootstrap === undefined) !== (envelope.aclChain === undefined)
+    ) {
+      reject("acl-incomplete-invite-bootstrap");
+    }
+    if (
+      !isRoot &&
+      chainRecords.length === 0 &&
+      envelope.bootstrap === undefined
+    ) {
+      reject("acl-missing-workspace-root");
+    }
     const snapshotBytes =
       envelope.bootstrap === undefined
         ? null
@@ -139,7 +217,11 @@ export class MatrixAclBootstrapper {
     if (
       document !== null &&
       (document.value().workspaceId !== checkpoint.workspaceId ||
-        !equal(document.heads(), checkpoint.acceptedHeads))
+        !equal(
+          document.heads(),
+          envelope.bootstrap?.heads ?? checkpoint.acceptedHeads
+        ) ||
+        !document.containsHeads(checkpoint.acceptedHeads))
     ) {
       reject("acl-bootstrap-frontier");
     }
@@ -165,31 +247,46 @@ export class MatrixAclBootstrapper {
         ) {
           reject("acl-room-mismatch");
         }
-        if (!isRoot && existingTarget === undefined)
+        if (!isRoot && existingTarget === undefined && document === null)
           reject("acl-missing-workspace-root");
-        if (
-          document !== null &&
-          snapshotBytes !== null &&
-          (await this.database.workspaceSnapshots.get(
+        if (document !== null && snapshotBytes !== null) {
+          const existingSnapshot = await this.database.workspaceSnapshots.get(
             checkpoint.workspaceId
-          )) === undefined
-        ) {
-          await this.database.workspaceSnapshots.add({
+          );
+          const persistedDocument =
+            existingSnapshot === undefined
+              ? document
+              : (() => {
+                  const existing = AutomergeWorkspaceDocument.load(
+                    new Uint8Array([...existingSnapshot.bytes]),
+                    "dd".repeat(16)
+                  );
+                  existing.mergeSnapshot(snapshotBytes);
+                  return existing;
+                })();
+          await this.database.workspaceSnapshots.put({
             workspaceId: checkpoint.workspaceId,
             schemaVersion: 1,
-            bytes: snapshotBytes,
-            heads: [...document.heads()],
+            bytes: persistedDocument.save(),
+            heads: [...persistedDocument.heads()],
             savedAt: timestamp,
           });
         }
-        await this.database.aclCheckpoints.put({
-          workspaceId: checkpoint.workspaceId,
-          authEpoch: checkpoint.authEpoch,
-          hash: accepted.hash,
-          previousHash: checkpoint.previousHash,
-          bytes: aclBytes,
-          createdAt: timestamp,
-        });
+        const checkpointsToPersist = providedChain ?? [accepted];
+        for (const item of checkpointsToPersist) {
+          const existing = await this.database.aclCheckpoints.get([
+            item.checkpoint.workspaceId,
+            item.checkpoint.authEpoch,
+          ]);
+          await this.database.aclCheckpoints.put({
+            workspaceId: item.checkpoint.workspaceId,
+            authEpoch: item.checkpoint.authEpoch,
+            hash: item.hash,
+            previousHash: item.checkpoint.previousHash,
+            bytes: item.bytes,
+            createdAt: existing?.createdAt ?? timestamp,
+          });
+        }
         await this.database.syncTargets.put({
           id,
           workspaceId: checkpoint.workspaceId,
@@ -252,7 +349,7 @@ export class MatrixAclBootstrapper {
         }
       }
     );
-    this.onWorkspace(checkpoint.workspaceId);
+    await this.onWorkspace(checkpoint.workspaceId);
     return checkpoint.workspaceId;
   }
 }

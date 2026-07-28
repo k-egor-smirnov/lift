@@ -98,6 +98,10 @@ export interface MatrixWorkspaceClient {
   subscribeWorkspaceEvents(
     listener: (event: MatrixWorkspaceWireEvent) => void | Promise<void>
   ): () => void;
+  workspaceMembership?(roomId: string): string | null;
+  subscribeWorkspaceMembership?(
+    listener: (event: MatrixWorkspaceMembershipEvent) => void | Promise<void>
+  ): () => void;
   listWorkspaceWireEvents(): readonly MatrixWorkspaceWireEvent[];
   decryptWorkspaceEvent(
     event: MatrixWorkspaceWireEvent
@@ -109,6 +113,11 @@ export interface MatrixWorkspaceWireEvent {
   readonly roomId: string;
   readonly wireType: string;
   readonly wireEvent: string;
+}
+
+export interface MatrixWorkspaceMembershipEvent {
+  readonly roomId: string;
+  readonly membership: string;
 }
 
 export interface DecryptedMatrixWorkspaceEvent {

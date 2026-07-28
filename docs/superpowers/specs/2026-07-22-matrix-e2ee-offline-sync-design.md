@@ -1,6 +1,6 @@
 # Matrix E2EE + Offline CRDT Sync Design
 
-**Status:** approved in design review  
+**Status:** approved in design review; amended 2026-07-28
 **Date:** 2026-07-22  
 **Scope:** clean-slate replacement of the current Supabase synchronization stack
 
@@ -274,12 +274,20 @@ Password-only recovery is not accepted as the sole protection for workspace keys
 
 ### 10.2 New device
 
-A new device is untrusted until one of these succeeds:
+A new device is untrusted until recovery and cross-signing bootstrap succeeds.
+The currently exposed product flow is:
 
-- QR/SAS verification with an existing verified device;
 - restoration and cross-signing bootstrap using the recovery key.
 
-Workspace keys are shared only with verified devices. A new verified device can obtain historical keys through encrypted key backup or a verified existing device.
+QR/SAS verification with an existing device is deliberately deferred. The
+Matrix adapter retains the SDK integration, but
+`MATRIX_AUTHENTICATION_CAPABILITIES.sasEmojiVerification` keeps every
+SAS/emoji entry point out of the presentation layer until its complete
+accept/cancel/error/retry lifecycle has real multi-device E2E coverage.
+
+Workspace keys are shared only with devices signed by their Matrix account
+owner. A recovered device can obtain historical keys through encrypted key
+backup.
 
 ### 10.3 Rotation
 
@@ -293,6 +301,28 @@ The encrypted Matrix room uses `m.megolm.v1.aes-sha2` through Matrix Rust crypto
 ### 10.4 Recovery limit
 
 If all verified devices and the recovery key are lost, the data is cryptographically unrecoverable. The homeserver cannot reset encryption through an account password reset.
+
+### 10.5 Matrix per-device revocation limit
+
+Matrix cross-signing signatures are account-wide, not room-scoped. A workspace
+Owner cannot remove another user's cross-signing signature or delete that
+user's Matrix device. Consequently, discarding a Megolm session after adding a
+device reference to the encrypted Lift ACL prevents that device from
+authoring accepted future Lift changes, but does **not** by itself prove that a
+still-joined, owner-signed foreign device cannot receive a later Matrix room
+key.
+
+Strict forward exclusion is currently guaranteed for whole-user removal:
+Matrix kicks the user, clients consume the authenticated
+`Room.myMembership=leave` signal fail-closed, the local target/outbox is
+paused, and the outbound Megolm session is rotated.
+
+Strict per-device forward secrecy remains an explicit incomplete requirement.
+It needs either account-owner deletion of the affected Matrix device, removal
+of the whole user from the room, or an additional Lift workspace group-key
+layer distributed only to ACL-approved devices. UI and documentation must not
+claim stronger per-device confidentiality before one of those designs is
+implemented and tested.
 
 ## 11. Roles and authorization
 
@@ -333,6 +363,12 @@ After reconnect, a client processes membership, device, and ACL updates before s
 This deliberately prefers strict post-revocation security over preserving edits that never reached an authorized device before revocation.
 
 A Viewer receives workspace decryption keys and therefore sees the whole workspace. Data with a different confidentiality boundary requires a different workspace/room.
+
+If Matrix reports that the local account left or was banned from the room,
+Lift treats that authenticated membership transition as authoritative even
+when the encrypted revocation ACL raced with the kick. The target becomes
+read-only/paused and pending outbox rows become `paused-auth`. A transient
+absence of the Room object during SDK hydration is not a revocation signal.
 
 ## 12. Checkpoints and compaction
 
@@ -433,7 +469,7 @@ Completion requires automated evidence against a real local Synapse, not only mo
 6. **Server crash:** Synapse and PostgreSQL stop during edits; restart yields convergence without data loss.
 7. **Start of day:** all clients are offline across the boundary; next launch shows correct Today, deferred, and recurring projections without cleanup events or duplicates.
 8. **Ciphertext at rest:** a unique task/note marker appears on two clients but not in raw Matrix events or a PostgreSQL data dump.
-9. **Device trust:** an unverified device receives no workspace keys; a verified device does; a revoked device cannot decrypt future events.
+9. **Device trust:** an unsigned device receives no workspace keys; a recovered owner-signed device does. Whole-user removal prevents future room access after membership removal and rotation. Strict per-device future-decryption rejection remains pending the design in §10.5.
 10. **Roles:** Viewer mutations, Editor ACL changes, and Admin ownership transfer are rejected.
 11. **Recovery:** a new device with the recovery key restores keys and state; an incorrect key reveals nothing.
 12. **Server migration:** workspace heads match after migration between two local Synapse stacks and remain usable after the old stack stops.

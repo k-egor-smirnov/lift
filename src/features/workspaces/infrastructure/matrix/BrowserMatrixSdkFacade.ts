@@ -3,7 +3,7 @@ import {
   EventStatus,
   type MatrixEvent,
 } from "matrix-js-sdk/lib/models/event.js";
-import type { Room } from "matrix-js-sdk/lib/models/room.js";
+import { RoomEvent, type Room } from "matrix-js-sdk/lib/models/room.js";
 import type { IndexedDBStore } from "matrix-js-sdk/lib/store/indexeddb.js";
 import { CryptoEvent } from "matrix-js-sdk/lib/crypto-api/index.js";
 import {
@@ -28,9 +28,12 @@ import type {
   MatrixRefreshResult,
   MatrixSdkFacade,
   MatrixWorkspaceClient,
+  MatrixWorkspaceMembershipEvent,
   MatrixWorkspaceWireEvent,
   DecryptedMatrixWorkspaceEvent,
 } from "./MatrixSdkFacade";
+import { MatrixInviteAutoJoiner } from "./MatrixInviteAutoJoiner";
+import { isDeviceSignedByOwner } from "./MatrixDeviceTrust";
 
 type BrowserSdk = typeof import("matrix-js-sdk/lib/browser-index.js");
 
@@ -77,6 +80,7 @@ class BrowserAuthenticatedClient
   private verificationRequest: VerificationRequest | null = null;
   private sasCallbacks: ShowSasCallbacks | null = null;
   private readonly activeVerifiers = new WeakSet<object>();
+  private readonly inviteAutoJoiner: MatrixInviteAutoJoiner;
   private onlineRetryTimer: number | null = null;
   private readonly retrySyncOnline = () => {
     this.clearOnlineRetry();
@@ -148,11 +152,15 @@ class BrowserAuthenticatedClient
     private readonly secretKeys: SecretStorageKeyCache
   ) {
     window.addEventListener("online", this.retrySyncOnline);
-    (
-      this.client as unknown as {
-        on(event: "sync", listener: (state: string) => void): void;
-      }
-    ).on("sync", this.syncRecovered);
+    const syncEmitter = this.client as unknown as {
+      on(event: "sync", listener: (state: string) => void): void;
+      off(event: "sync", listener: (state: string) => void): void;
+    };
+    syncEmitter.on("sync", this.syncRecovered);
+    this.inviteAutoJoiner = new MatrixInviteAutoJoiner(syncEmitter, () =>
+      this.joinInvitedWorkspaceRooms()
+    );
+    this.inviteAutoJoiner.start();
   }
 
   async eventStoreStartup(): Promise<void> {
@@ -654,6 +662,30 @@ class BrowserAuthenticatedClient
     return () => emitter.off("event", onEvent);
   }
 
+  workspaceMembership(roomId: string): string | null {
+    return this.client.getRoom(roomId)?.getMyMembership() ?? null;
+  }
+
+  subscribeWorkspaceMembership(
+    listener: (event: MatrixWorkspaceMembershipEvent) => void | Promise<void>
+  ): () => void {
+    const emitter = this.client as unknown as {
+      on(
+        event: RoomEvent.MyMembership,
+        listener: (room: Room, membership: string) => void
+      ): void;
+      off(
+        event: RoomEvent.MyMembership,
+        listener: (room: Room, membership: string) => void
+      ): void;
+    };
+    const onMembership = (room: Room, membership: string) => {
+      void listener({ roomId: room.roomId, membership });
+    };
+    emitter.on(RoomEvent.MyMembership, onMembership);
+    return () => emitter.off(RoomEvent.MyMembership, onMembership);
+  }
+
   listWorkspaceWireEvents(): readonly MatrixWorkspaceWireEvent[] {
     return this.client
       .getRooms()
@@ -683,7 +715,8 @@ class BrowserAuthenticatedClient
     const matrixCrypto = this.requireCrypto();
     const encryption = await matrixCrypto.getEncryptionInfoForEvent(event);
     let senderDeviceId: string | null = null;
-    let deviceVerified = false;
+    let deviceSignedByOwner = false;
+    let crossUserVerified = false;
     const devices = (
       await matrixCrypto.getUserDeviceInfo([senderUserId], true)
     ).get(senderUserId);
@@ -697,7 +730,8 @@ class BrowserAuthenticatedClient
           senderUserId,
           device.deviceId
         );
-        deviceVerified = status?.crossSigningVerified === true;
+        deviceSignedByOwner = isDeviceSignedByOwner(status);
+        crossUserVerified = status?.crossSigningVerified === true;
         break;
       }
     }
@@ -722,7 +756,7 @@ class BrowserAuthenticatedClient
       senderDeviceId,
       senderCurve25519Key,
       claimedEd25519Key,
-      deviceCrossSigned: deviceVerified,
+      deviceCrossSigned: deviceSignedByOwner,
       shield:
         encryption === null
           ? "missing"
@@ -732,13 +766,14 @@ class BrowserAuthenticatedClient
               ? "grey"
               : "red",
       applicationSignatureVerified,
-      verified: encryption?.shieldColour === 0 && deviceVerified,
+      verified: encryption?.shieldColour === 0 && crossUserVerified,
     };
   }
 
   async stop(): Promise<void> {
     window.removeEventListener("online", this.retrySyncOnline);
     this.clearOnlineRetry();
+    this.inviteAutoJoiner.stop();
     (
       this.client as unknown as {
         off(event: "sync", listener: (state: string) => void): void;

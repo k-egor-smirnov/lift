@@ -2,7 +2,10 @@ import Dexie from "dexie";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorkspaceRole } from "../../../domain/WorkspaceRole";
-import type { WorkspaceAclCheckpoint } from "../../../domain/WorkspaceAcl";
+import {
+  workspaceDeviceRef,
+  type WorkspaceAclCheckpoint,
+} from "../../../domain/WorkspaceAcl";
 import { LiftSecureDatabase } from "../../database/LiftSecureDatabase";
 import type { MatrixWorkspaceClient } from "../../matrix/MatrixSdkFacade";
 import { AclControlPlane } from "../AclControlPlane";
@@ -132,6 +135,49 @@ const fakeClient = (identity: { userId: string; deviceId: string }) => {
 };
 
 describe("AclControlPlane", () => {
+  it("allows Editor writes and rejects Viewer or revoked-device writes", async () => {
+    const database = await openDatabase();
+    const checkpoint = {
+      ...root({
+        "@owner:test": WorkspaceRole.Owner,
+        "@editor:test": WorkspaceRole.Editor,
+        "@viewer:test": WorkspaceRole.Viewer,
+      }),
+      revokedDevices: [workspaceDeviceRef("@editor:test", "REVOKED")],
+    };
+    await seed(database, checkpoint);
+
+    await expect(
+      new AclControlPlane(
+        database,
+        fakeClient({ userId: "@editor:test", deviceId: "EDITOR" }).client
+      ).requireEdit("ws_1")
+    ).resolves.toBeUndefined();
+    await expect(
+      new AclControlPlane(
+        database,
+        fakeClient({ userId: "@viewer:test", deviceId: "VIEWER" }).client
+      ).requireEdit("ws_1")
+    ).rejects.toThrow("read-only");
+    await expect(
+      new AclControlPlane(
+        database,
+        fakeClient({ userId: "@editor:test", deviceId: "REVOKED" }).client
+      ).requireEdit("ws_1")
+    ).rejects.toThrow("revoked");
+
+    await database.syncTargets.update("target-1", {
+      mode: "read-only",
+      state: "paused",
+    });
+    await expect(
+      new AclControlPlane(
+        database,
+        fakeClient({ userId: "@editor:test", deviceId: "EDITOR" }).client
+      ).requireEdit("ws_1")
+    ).rejects.toThrow("membership is revoked");
+  });
+
   it("lets an Admin add Editor/Viewer but not grant Admin", async () => {
     const database = await openDatabase();
     await seed(
@@ -157,7 +203,14 @@ describe("AclControlPlane", () => {
         role: WorkspaceRole.Admin,
       })
     ).rejects.toThrow("assign-admin");
-    expect((await database.syncTargets.get("target-1"))?.state).toBe("paused");
+    expect((await database.syncTargets.get("target-1"))?.state).toBe("active");
+    expect(fake.order).toEqual([
+      "encrypted-acl",
+      "acl-head",
+      "matrix-access",
+      "discard-megolm",
+      "encrypted-acl",
+    ]);
   });
 
   it("transfers ownership atomically and aligns explicit Matrix levels", async () => {
@@ -209,7 +262,37 @@ describe("AclControlPlane", () => {
       "acl-head",
       "matrix-access",
       "discard-megolm",
+      "encrypted-acl",
     ]);
     expect((await database.syncTargets.get("target-1"))?.state).toBe("active");
+  });
+
+  it("rotates Megolm and republishes the accepted ACL after an invitation", async () => {
+    const database = await openDatabase();
+    await seed(
+      database,
+      root({
+        "@owner:test": WorkspaceRole.Owner,
+      })
+    );
+    const fake = fakeClient({ userId: "@owner:test", deviceId: "OWNER" });
+
+    const accepted = await new AclControlPlane(database, fake.client).apply(
+      "ws_1",
+      {
+        kind: "invite-member",
+        userId: "@editor:test",
+        role: WorkspaceRole.Editor,
+      }
+    );
+
+    expect(accepted.members["@editor:test"]).toBe(WorkspaceRole.Editor);
+    expect(fake.order).toEqual([
+      "encrypted-acl",
+      "acl-head",
+      "matrix-access",
+      "discard-megolm",
+      "encrypted-acl",
+    ]);
   });
 });

@@ -61,6 +61,7 @@ import { ProcessOutboxUseCase } from "../../application/use-cases/ProcessOutboxU
 import { DexieSyncInbox } from "../database/DexieSyncInbox";
 import { MatrixAclBootstrapper } from "../acl/MatrixAclBootstrapper";
 import { MatrixInboxProcessor } from "../sync/MatrixInboxProcessor";
+import { MatrixMembershipGuard } from "../sync/MatrixMembershipGuard";
 import { InboxWorker } from "../sync/InboxWorker";
 import { ProcessInboxUseCase } from "../../application/use-cases/ProcessInboxUseCase";
 import { DexieAuditLogRepository } from "../database/DexieAuditLogRepository";
@@ -74,6 +75,7 @@ import { RevokeWorkspaceDeviceUseCase } from "../../application/use-cases/Revoke
 import { DexieDomainEventStore } from "../database/DexieDomainEventStore";
 import { DurableDomainEventDispatcher } from "../../application/services/DurableDomainEventDispatcher";
 import { DurableDomainEventWorker } from "../sync/DurableDomainEventWorker";
+import { AuthorizedWorkspaceUnitOfWork } from "../../application/services/AuthorizedWorkspaceUnitOfWork";
 
 const automergeActorId = (): string =>
   Array.from(crypto.getRandomValues(new Uint8Array(16)), (value) =>
@@ -167,6 +169,9 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     secretKeys,
     new DexieMatrixSessionMetadataStore(database)
   );
+  const accessControl = new AclControlPlane(database, () =>
+    matrixSession.requireAuthenticatedClient()
+  );
   const outboxWorker = new OutboxWorker(
     new ProcessOutboxUseCase(
       new DexieSyncOutbox(database),
@@ -185,7 +190,7 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
   domainEventWorker.start();
   const wakeOutboxOnline = () => outboxWorker.start();
   window.addEventListener("online", wakeOutboxOnline);
-  const unitOfWork = new DexieWorkspaceUnitOfWork(
+  const persistedUnitOfWork = new DexieWorkspaceUnitOfWork(
     database,
     new AutomergeCommandHandler(new Sha256OccurrenceIdFactory()),
     new WorkspaceProjector(),
@@ -196,14 +201,22 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     () => outboxWorker.wake(),
     () => domainEventWorker.wake()
   );
+  const unitOfWork = new AuthorizedWorkspaceUnitOfWork(
+    persistedUnitOfWork,
+    accessControl
+  );
   const inboxStore = new DexieSyncInbox(database);
   let inboxWorker: InboxWorker | null = null;
+  let membershipGuard: MatrixMembershipGuard | null = null;
   let inboxLifecycle = "idle";
   const startInbox = async (): Promise<void> => {
     inboxLifecycle = "starting";
     try {
       inboxWorker?.stop();
+      membershipGuard?.stop();
       const matrix = matrixSession.requireAuthenticatedClient();
+      membershipGuard = new MatrixMembershipGuard(database, matrix);
+      await membershipGuard.start();
       const bootstrap = new MatrixAclBootstrapper(
         database,
         () => {
@@ -211,7 +224,11 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
           if (profileId === null) throw new Error("Matrix profile is missing");
           return profileId;
         },
-        (workspaceId) => {
+        async (workspaceId) => {
+          await persistedUnitOfWork.rebuildProjections(
+            workspaceId,
+            actor.actorId
+          );
           workspace.set(workspaceId);
           setupComplete = true;
         },
@@ -239,6 +256,8 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
       await inboxWorker.start();
       inboxLifecycle = "running";
     } catch (error) {
+      membershipGuard?.stop();
+      membershipGuard = null;
       inboxLifecycle = `error-${error instanceof Error ? error.name.toLowerCase() : "unknown"}`;
     }
   };
@@ -250,6 +269,8 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     } else {
       inboxWorker?.stop();
       inboxWorker = null;
+      membershipGuard?.stop();
+      membershipGuard = null;
       inboxLifecycle = "stopped";
     }
   });
@@ -289,10 +310,6 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     new MatrixWorkspaceRoom(database, matrixSession),
     import.meta.env.MODE === "test"
   );
-  const accessControl = new AclControlPlane(database, () =>
-    matrixSession.requireAuthenticatedClient()
-  );
-
   const useCases: SecureRuntimeUseCases = {
     createTask: new CreateTaskUseCase(
       workspace,
