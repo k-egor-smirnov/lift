@@ -34,6 +34,7 @@ import type {
 } from "./MatrixSdkFacade";
 import { MatrixInviteAutoJoiner } from "./MatrixInviteAutoJoiner";
 import { isDeviceSignedByOwner } from "./MatrixDeviceTrust";
+import { readRemoteWorkspaceEvent } from "./MatrixRemoteReadback";
 
 type BrowserSdk = typeof import("matrix-js-sdk/lib/browser-index.js");
 
@@ -546,21 +547,7 @@ class BrowserAuthenticatedClient
     readonly clearType: string;
     readonly content: unknown;
   }> {
-    const deadline = Date.now() + 15_000;
-    let event = this.client.getRoom(roomId)?.findEventById(eventId);
-    while (event === undefined) {
-      if (Date.now() >= deadline)
-        throw new Error("Matrix workspace event read-back timed out");
-      await new Promise((resolve) => window.setTimeout(resolve, 100));
-      event = this.client.getRoom(roomId)?.findEventById(eventId);
-    }
-    const wireType = event.getWireType();
-    await this.client.decryptEventIfNeeded(event);
-    return {
-      wireType,
-      clearType: event.getType(),
-      content: event.getContent(),
-    };
+    return readRemoteWorkspaceEvent(this.client, roomId, eventId);
   }
 
   async publishWorkspaceState(

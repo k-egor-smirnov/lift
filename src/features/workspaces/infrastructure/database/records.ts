@@ -95,6 +95,19 @@ export interface VerifiedCheckpointRecord {
   verifiedAt: number;
 }
 
+export interface CheckpointPublicationRecord {
+  id: string;
+  hash: string;
+  workspaceId: string;
+  targetId: string;
+  schemaVersion: 1;
+  authEpoch: number;
+  heads: string[];
+  coveredChangeHashes: string[];
+  compressedSnapshot: Uint8Array;
+  createdAt: number;
+}
+
 export interface QuarantineRecord {
   id: string;
   eventId: string;

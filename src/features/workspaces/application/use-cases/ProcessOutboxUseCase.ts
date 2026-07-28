@@ -25,13 +25,24 @@ const base64Url = (bytes: Uint8Array): string => {
     .replace(/=+$/, "");
 };
 
-const commonEnvelope = (item: ClaimedOutboxItem) => ({
+const changeEnvelope = (item: ClaimedOutboxItem) => ({
   type: "dev.lift.crdt.change.v1" as const,
   schemaVersion: 1 as const,
   workspaceId: item.workspaceId,
   authEpoch: item.authEpoch,
   changeHash: item.changeHash,
   dependencies: [...item.dependencies].sort(),
+});
+
+const checkpointEnvelope = (item: ClaimedOutboxItem) => ({
+  type: "dev.lift.checkpoint.v1" as const,
+  schemaVersion: 1 as const,
+  compression: "gzip" as const,
+  workspaceId: item.workspaceId,
+  authEpoch: item.authEpoch,
+  checkpointHash: item.changeHash,
+  heads: [...item.heads].sort(),
+  coveredChangeHashes: [...item.coveredChangeHashes].sort(),
 });
 
 export class ProcessOutboxUseCase {
@@ -50,14 +61,20 @@ export class ProcessOutboxUseCase {
     await this.outbox.persistFragments(item, fragments);
     try {
       if (fragments.length === 0) {
+        if (!(await this.outbox.isCurrent(item))) return true;
+        const checkpoint = item.innerType === "dev.lift.checkpoint.v1";
         const response = await this.transport.send({
           roomId: item.roomId,
-          innerType: "dev.lift.crdt.change.v1",
+          innerType: checkpoint
+            ? "dev.lift.checkpoint.v1"
+            : "dev.lift.crdt.change.v1",
           content: {
-            ...commonEnvelope(item),
+            ...(checkpoint ? checkpointEnvelope(item) : changeEnvelope(item)),
             payload: { mode: "inline", bytes: base64Url(item.bytes) },
           },
-          transactionId: `lift.c1.${item.changeHash}.0`,
+          transactionId: checkpoint
+            ? `lift.cp1.${item.changeHash}.0`
+            : `lift.c1.${item.changeHash}.${item.authEpoch}.0`,
         });
         await this.outbox.markFragmentSent(item.id, response.eventId, 1, true);
         return true;
@@ -68,13 +85,17 @@ export class ProcessOutboxUseCase {
         index < fragments.length;
         index += 1
       ) {
+        if (!(await this.outbox.isCurrent(item))) return true;
         const fragment = fragments[index];
         if (fragment === undefined) throw new Error("Missing payload fragment");
+        const checkpoint = item.innerType === "dev.lift.checkpoint.v1";
         const response = await this.transport.send({
           roomId: item.roomId,
-          innerType: "dev.lift.crdt.change.v1",
+          innerType: checkpoint
+            ? "dev.lift.checkpoint.v1"
+            : "dev.lift.crdt.change.v1",
           content: {
-            ...commonEnvelope(item),
+            ...(checkpoint ? checkpointEnvelope(item) : changeEnvelope(item)),
             payload: {
               mode: "fragment",
               transferId: item.changeHash,
@@ -84,7 +105,9 @@ export class ProcessOutboxUseCase {
               bytes: base64Url(fragment.bytes),
             },
           },
-          transactionId: `lift.c1.${item.changeHash}.${fragment.index}`,
+          transactionId: checkpoint
+            ? `lift.cp1.${item.changeHash}.${fragment.index}`
+            : `lift.c1.${item.changeHash}.${item.authEpoch}.${fragment.index}`,
         });
         await this.outbox.markFragmentSent(
           item.id,

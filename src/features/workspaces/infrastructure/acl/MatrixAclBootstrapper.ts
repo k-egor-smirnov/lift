@@ -323,10 +323,11 @@ export class MatrixAclBootstrapper {
             );
           const rows = await this.database.syncOutbox
             .filter(
-              ({ workspaceId, state }) =>
+              ({ workspaceId, state, innerType }) =>
                 workspaceId === checkpoint.workspaceId &&
                 (authorized
-                  ? state === "paused-auth"
+                  ? innerType === "dev.lift.crdt.change.v1" &&
+                    state === "paused-auth"
                   : state === "pending" || state === "sending")
             )
             .toArray();

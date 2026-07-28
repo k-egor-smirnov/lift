@@ -309,7 +309,8 @@ export class AclControlPlane
             (row) =>
               row.workspaceId === workspaceId &&
               (authorized
-                ? row.state === "paused-auth"
+                ? row.innerType === "dev.lift.crdt.change.v1" &&
+                  row.state === "paused-auth"
                 : row.state === "pending" || row.state === "sending")
           )
           .toArray();

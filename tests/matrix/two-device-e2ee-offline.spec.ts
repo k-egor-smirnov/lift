@@ -303,11 +303,18 @@ const checkpointState = (page: Page) =>
         verifiedAt: number;
       }>;
       snapshotHeads: string[][];
+      pendingPublications: number;
+      checkpointOutboxStates: string[];
     }>((resolve, reject) => {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const transaction = request.result.transaction(
-          ["verifiedCheckpoints", "workspaceSnapshots"],
+          [
+            "verifiedCheckpoints",
+            "workspaceSnapshots",
+            "checkpointPublications",
+            "syncOutbox",
+          ],
           "readonly"
         );
         const checkpoints = transaction
@@ -316,6 +323,10 @@ const checkpointState = (page: Page) =>
         const snapshots = transaction
           .objectStore("workspaceSnapshots")
           .getAll();
+        const publications = transaction
+          .objectStore("checkpointPublications")
+          .getAll();
+        const outbox = transaction.objectStore("syncOutbox").getAll();
         transaction.onerror = () => reject(transaction.error);
         transaction.oncomplete = () =>
           resolve({
@@ -330,6 +341,10 @@ const checkpointState = (page: Page) =>
             snapshotHeads: snapshots.result.map((row) =>
               [...row.heads].map(String).sort()
             ),
+            pendingPublications: publications.result.length,
+            checkpointOutboxStates: outbox.result
+              .filter((row) => row.innerType === "dev.lift.checkpoint.v1")
+              .map((row) => String(row.state)),
           });
       };
     });
@@ -916,11 +931,37 @@ test("password and recovery key restore verified encrypted checkpoints between i
     await openInbox(pageA);
     await createInboxTask(pageA, seedTitle);
 
+    let blockEncryptedSends = true;
+    await contextA.route(`${homeserver}/_matrix/client/**`, (route) => {
+      if (
+        blockEncryptedSends &&
+        decodeURIComponent(route.request().url()).includes(
+          "/send/m.room.encrypted/"
+        )
+      ) {
+        void route.abort();
+      } else {
+        void route.continue();
+      }
+    });
     await pageA.getByTestId("sidebar-settings").click();
     await pageA.getByRole("button", { name: "Создать checkpoint" }).click();
-    await expect(
-      pageA.getByText(/Зашифрованный checkpoint подтверждён:/)
-    ).toBeVisible();
+    await expect
+      .poll(async () => (await checkpointState(pageA)).pendingPublications)
+      .toBe(1);
+    await pageA.reload();
+    blockEncryptedSends = false;
+    await expect
+      .poll(async () => (await checkpointState(pageA)).checkpoints.length, {
+        timeout: 90_000,
+      })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () => (await checkpointState(pageA)).pendingPublications)
+      .toBe(0);
+    expect((await checkpointState(pageA)).checkpointOutboxStates).toContain(
+      "acknowledged"
+    );
     const firstCheckpoint = (await checkpointState(pageA)).checkpoints.at(-1);
     expect(firstCheckpoint?.hash).toBeTruthy();
     expect(firstCheckpoint?.matrixEventIds.length).toBeGreaterThan(0);

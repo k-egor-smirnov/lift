@@ -37,11 +37,6 @@ export class CheckpointCompactor {
           .sort();
         if (candidates.length === 0) return [];
         const candidateSet = new Set(candidates);
-        const referencedByChange = changes.some(
-          ({ changeHash, dependencies }) =>
-            !candidateSet.has(changeHash) &&
-            dependencies.some((dependency) => candidateSet.has(dependency))
-        );
         const outbox = await this.database.syncOutbox
           .where("workspaceId")
           .equals(checkpoint.workspaceId)
@@ -59,11 +54,7 @@ export class CheckpointCompactor {
             true
           )
           .count();
-        if (
-          referencedByChange ||
-          referencedByPendingOutbox ||
-          pendingInbox > 0
-        ) {
+        if (referencedByPendingOutbox || pendingInbox > 0) {
           throw new Error(
             `Checkpoint cannot compact referenced change ${candidates[0]}`
           );

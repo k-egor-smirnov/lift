@@ -77,7 +77,7 @@ describe("CheckpointCompactor", () => {
     ).toBeDefined();
   });
 
-  it("fails closed when a pending outbox or remaining dependency references a candidate", async () => {
+  it("compacts a covered predecessor even when a retained change depends on it", async () => {
     const database = await openDatabase();
     await database.workspaceChanges.bulkAdd([
       {
@@ -97,6 +97,28 @@ describe("CheckpointCompactor", () => {
         createdAt: 4,
       },
     ]);
+
+    const removed = await new CheckpointCompactor(database).compact(hash("f"));
+
+    expect(removed).toEqual([hash("a")]);
+    expect(
+      await database.workspaceChanges.get(["ws_1", hash("a")])
+    ).toBeUndefined();
+    expect(
+      await database.workspaceChanges.get(["ws_1", hash("d")])
+    ).toBeDefined();
+  });
+
+  it("fails closed when a pending outbox references a candidate", async () => {
+    const database = await openDatabase();
+    await database.workspaceChanges.add({
+      workspaceId: "ws_1",
+      changeHash: hash("a"),
+      bytes: new Uint8Array([1]),
+      dependencies: [],
+      origin: "local",
+      createdAt: 1,
+    });
     await database.syncOutbox.add({
       id: "pending",
       workspaceId: "ws_1",

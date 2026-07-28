@@ -1,7 +1,7 @@
 export interface EncryptedTransport {
   send(input: {
     readonly roomId: string;
-    readonly innerType: "dev.lift.crdt.change.v1";
+    readonly innerType: "dev.lift.crdt.change.v1" | "dev.lift.checkpoint.v1";
     readonly content: Readonly<Record<string, unknown>>;
     readonly transactionId: string;
   }): Promise<{ readonly eventId: string }>;

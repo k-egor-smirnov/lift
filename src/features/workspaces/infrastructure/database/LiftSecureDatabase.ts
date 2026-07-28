@@ -3,6 +3,7 @@ import Dexie, { type Table } from "dexie";
 import type {
   AclCheckpointRecord,
   AuditProjectionRecord,
+  CheckpointPublicationRecord,
   ConflictProjectionRecord,
   DailySelectionProjectionRecord,
   DailyStatisticsProjectionRecord,
@@ -54,6 +55,7 @@ export class LiftSecureDatabase extends Dexie {
   syncTargets!: Table<SyncTargetRecord, string>;
   aclCheckpoints!: Table<AclCheckpointRecord, [string, number]>;
   verifiedCheckpoints!: Table<VerifiedCheckpointRecord, string>;
+  checkpointPublications!: Table<CheckpointPublicationRecord, string>;
   quarantine!: Table<QuarantineRecord, string>;
   taskProjections!: Table<TaskProjectionRecord, [string, string]>;
   dailySelectionProjections!: Table<
@@ -90,6 +92,7 @@ export class LiftSecureDatabase extends Dexie {
       aclCheckpoints: "&[workspaceId+authEpoch], &hash, previousHash",
       verifiedCheckpoints:
         "&hash, [workspaceId+authEpoch], workspaceId, verifiedAt",
+      checkpointPublications: "&id, hash, workspaceId, targetId",
       quarantine: "&id, eventId, workspaceId, reason, createdAt",
       taskProjections:
         "&[workspaceId+taskId], [workspaceId+category], [workspaceId+completion], [workspaceId+positionKey]",

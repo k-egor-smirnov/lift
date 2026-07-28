@@ -65,6 +65,8 @@ import { MatrixMembershipGuard } from "../sync/MatrixMembershipGuard";
 import { MatrixCheckpointReceiver } from "../checkpoint/MatrixCheckpointReceiver";
 import { MatrixCheckpointPublisher } from "../checkpoint/MatrixCheckpointPublisher";
 import { CheckpointRestorer } from "../checkpoint/CheckpointRestorer";
+import { CheckpointScheduler } from "../checkpoint/CheckpointScheduler";
+import { CheckpointCompactor } from "../checkpoint/CheckpointCompactor";
 import type { CheckpointStore } from "../../application/ports/CheckpointStore";
 import { CreateCheckpointUseCase } from "../../application/use-cases/CreateCheckpointUseCase";
 import { RestoreCheckpointUseCase } from "../../application/use-cases/RestoreCheckpointUseCase";
@@ -227,19 +229,34 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
   };
   const checkpointPublisher = new MatrixCheckpointPublisher(
     database,
-    () => matrixSession.requireAuthenticatedClient(),
-    accessControl
+    accessControl,
+    () => outboxWorker.wake()
   );
   const checkpointRestorer = new CheckpointRestorer(
     database,
     actor.actorId,
     acceptWorkspace
   );
+  const checkpointCompactor = new CheckpointCompactor(database);
   const checkpointStore: CheckpointStore = {
-    publish: (workspaceId) => checkpointPublisher.publish(workspaceId),
+    publish: async (workspaceId) => {
+      const checkpoint = await checkpointPublisher.publish(workspaceId);
+      try {
+        await checkpointCompactor.compact(checkpoint.hash);
+      } catch {
+        // Verification is already durable. Compaction is opportunistic and
+        // must remain fail-closed while references are still live.
+      }
+      return checkpoint;
+    },
     restoreLatest: (workspaceId) =>
       checkpointRestorer.restoreLatest(workspaceId),
   };
+  const checkpointScheduler = new CheckpointScheduler(
+    database,
+    checkpointStore,
+    () => workspace.getId()
+  );
   const inboxStore = new DexieSyncInbox(database);
   let inboxWorker: InboxWorker | null = null;
   let membershipGuard: MatrixMembershipGuard | null = null;
@@ -300,8 +317,12 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     if (snapshot.phase === "ready") {
       // Security-control events (membership, device trust and ACL) must be
       // consumed before any offline outbox row may leave this device.
-      void startInbox().then(() => outboxWorker.start());
+      void startInbox().then(() => {
+        outboxWorker.start();
+        checkpointScheduler.start();
+      });
     } else {
+      checkpointScheduler.stop();
       inboxWorker?.stop();
       inboxWorker = null;
       membershipGuard?.stop();
@@ -585,6 +606,7 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
       stopMatrixSubscription();
       window.removeEventListener("online", wakeOutboxOnline);
       outboxWorker.stop();
+      checkpointScheduler.stop();
       domainEventWorker.stop();
       inboxWorker?.stop();
       await matrixSession.stop();

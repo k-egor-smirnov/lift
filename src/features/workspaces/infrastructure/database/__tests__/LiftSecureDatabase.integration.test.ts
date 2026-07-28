@@ -3,6 +3,7 @@ import Dexie from "dexie";
 import { LiftSecureDatabase } from "../LiftSecureDatabase";
 import type {
   AclCheckpointRecord,
+  CheckpointPublicationRecord,
   LocalSecretRecord,
   MatrixEventIndexRecord,
   PayloadFragmentRecord,
@@ -19,6 +20,7 @@ import type {
 
 const TABLE_SCHEMAS = {
   aclCheckpoints: "&[workspaceId+authEpoch], &hash, previousHash",
+  checkpointPublications: "&id, hash, workspaceId, targetId",
   auditProjections:
     "&[workspaceId+source+recordId], [workspaceId+auditTime], [workspaceId+taskId], [workspaceId+kind]",
   conflictProjections: "&id, [workspaceId+taskId], path",
@@ -55,7 +57,8 @@ type ForbiddenTransportField = Extract<
   | keyof QuarantineRecord
   | keyof PayloadFragmentRecord
   | keyof ServerProfileRecord
-  | keyof VerifiedCheckpointRecord,
+  | keyof VerifiedCheckpointRecord
+  | keyof CheckpointPublicationRecord,
   "title" | "note" | "tag" | "tags" | "domainPlaintext"
 >;
 

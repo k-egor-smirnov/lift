@@ -1439,15 +1439,15 @@ const changeEnvelopeV1 = z.object({
 await worker.runOnce();
 await worker.runOnce();
 expect(transport.transactionIds).toEqual([
-  `lift.c1.${changeHash}.0`,
-  `lift.c1.${changeHash}.0`,
+  `lift.c1.${changeHash}.${authEpoch}.0`,
+  `lift.c1.${changeHash}.${authEpoch}.0`,
 ]);
 expect(transport.acceptedLogicalHashes).toEqual([changeHash]);
 expect((await outbox.get(rowId))?.state).toBe("acknowledged");
 ```
 
 - [ ] Run `npx vitest --run --config vitest.integration.config.ts src/features/workspaces/infrastructure/sync/__tests__/OutboxWorker.integration.test.ts`; expect missing implementation.
-- [ ] Split binary changes at 32,768 raw bytes. Derive transfer ID from the full change hash, hash every fragment, persist fragments before sending, and use transaction ID `lift.c1.${changeHash}.${index}` (index zero for inline). Resume from `nextFragmentIndex` after restart; acknowledge the logical outbox row only after every deterministic fragment send returns an event ID. Before every batch, refresh membership/device/ACL head; do not send ordinary changes until control-plane events are current. Re-envelope an authorized pending change at current `authEpoch` without changing binary bytes/hash.
+- [ ] Split binary changes at 32,768 raw bytes. Derive transfer ID from the full change hash, hash every fragment, persist fragments before sending, and use transaction ID `lift.c1.${changeHash}.${authEpoch}.${index}` (index zero for inline). Including the ACL epoch prevents a Matrix transaction-ID collision when the immutable change is re-enveloped after authorization rotation. Resume from `nextFragmentIndex` after restart; acknowledge the logical outbox row only after every deterministic fragment send returns an event ID. Before every batch, refresh membership/device/ACL head; do not send ordinary changes until control-plane events are current. Re-envelope an authorized pending change at current `authEpoch` without changing binary bytes/hash.
 - [ ] Implement send through `client.sendEvent(roomId, "dev.lift.crdt.change.v1", content, transactionId)`. Keep the unavoidable custom-event typing cast inside `MatrixEncryptedTransport`; no caller sees Matrix types. Store returned `event_id` atomically on the outbox row.
 - [ ] Implement exponential backoff as `min(300_000, 1_000 * 2 ** min(attempt, 8))` with injected full jitter. Network/5xx/rate-limit errors retry forever; authentication, schema, revoked-device and role errors change state to actionable pause and never discard data.
 - [ ] Start worker after local commit, online event, Matrix sync PREPARED and app restart. `navigator.onLine` may wake it but never defines synced state.

@@ -3,8 +3,11 @@ export interface ClaimedOutboxItem {
   readonly workspaceId: string;
   readonly targetId: string;
   readonly roomId: string;
+  readonly innerType: "dev.lift.crdt.change.v1" | "dev.lift.checkpoint.v1";
   readonly changeHash: string;
   readonly dependencies: readonly string[];
+  readonly heads: readonly string[];
+  readonly coveredChangeHashes: readonly string[];
   readonly bytes: Uint8Array;
   readonly authEpoch: number;
   readonly attemptCount: number;
@@ -20,6 +23,7 @@ export interface OutboxFragment {
 
 export interface SyncOutbox {
   claimNext(now: number): Promise<ClaimedOutboxItem | null>;
+  isCurrent(item: ClaimedOutboxItem): Promise<boolean>;
   persistFragments(
     item: ClaimedOutboxItem,
     fragments: readonly OutboxFragment[]

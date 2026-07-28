@@ -1,39 +1,23 @@
 import Dexie from "dexie";
 
 import type { WorkspaceWriteAuthorization } from "../../application/ports/WorkspaceWriteAuthorization";
-import { signingJsonBytes } from "../crypto/MatrixSigningJson";
 import type { LiftSecureDatabase } from "../database/LiftSecureDatabase";
-import type { MatrixWorkspaceClient } from "../matrix/MatrixSdkFacade";
-import { withMatrixRateLimitRetry } from "../matrix/MatrixControlRetry";
-import { PayloadFragmenter } from "../sync/PayloadFragmenter";
+import type { SyncOutboxRecord } from "../database/records";
 import type { EncodedCheckpointV1 } from "./CheckpointCodec";
 import { CheckpointCodec } from "./CheckpointCodec";
-import { checkpointEnvelopeV1 } from "./CheckpointEnvelope";
 
-const CHECKPOINT_TYPE = "dev.lift.checkpoint.v1";
-
-const equalBytes = (left: Uint8Array, right: Uint8Array): boolean =>
-  left.byteLength === right.byteLength &&
-  left.every((value, index) => value === right[index]);
-
-const base64Url = (bytes: Uint8Array): string => {
-  let binary = "";
-  for (const value of bytes) binary += String.fromCharCode(value);
-  return btoa(binary)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/, "");
-};
+const wait = (milliseconds: number): Promise<void> =>
+  new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
 export class MatrixCheckpointPublisher {
   constructor(
     private readonly database: LiftSecureDatabase,
-    private readonly matrixSource:
-      MatrixWorkspaceClient | (() => MatrixWorkspaceClient),
     private readonly authorization: WorkspaceWriteAuthorization,
+    private readonly signalOutbox: () => void | Promise<void>,
     private readonly codec = new CheckpointCodec(),
-    private readonly fragmenter = new PayloadFragmenter(),
-    private readonly now: () => number = () => Date.now()
+    private readonly now: () => number = () => Date.now(),
+    private readonly sleep: (milliseconds: number) => Promise<void> = wait,
+    private readonly acknowledgementTimeout = 60_000
   ) {}
 
   async publish(workspaceId: string): Promise<EncodedCheckpointV1> {
@@ -48,23 +32,8 @@ export class MatrixCheckpointPublisher {
       async () => {
         const snapshot =
           await this.database.workspaceSnapshots.get(workspaceId);
-        const acl = await this.database.aclCheckpoints
-          .where("[workspaceId+authEpoch]")
-          .between(
-            [workspaceId, Dexie.minKey],
-            [workspaceId, Dexie.maxKey],
-            true,
-            true
-          )
-          .last();
-        const target = await this.database.syncTargets
-          .filter(
-            ({ workspaceId: candidate, mode, state }) =>
-              candidate === workspaceId &&
-              mode === "active" &&
-              state === "active"
-          )
-          .first();
+        const acl = await this.latestAcl(workspaceId);
+        const target = await this.activeTarget(workspaceId);
         if (snapshot === undefined)
           throw new Error("Workspace snapshot is unavailable");
         if (acl === undefined) throw new Error("Workspace ACL is unavailable");
@@ -73,7 +42,7 @@ export class MatrixCheckpointPublisher {
         return {
           snapshot: new Uint8Array([...snapshot.bytes]),
           authEpoch: acl.authEpoch,
-          roomId: target.roomId,
+          targetId: target.id,
         };
       }
     );
@@ -82,124 +51,106 @@ export class MatrixCheckpointPublisher {
       authEpoch: source.authEpoch,
       snapshot: source.snapshot,
     });
-    const existing = await this.database.verifiedCheckpoints.get(
-      checkpoint.hash
-    );
-    if (existing !== undefined) return checkpoint;
-    await this.authorization.requireEdit(workspaceId);
-    await this.requireCurrentSource(
-      workspaceId,
-      source.authEpoch,
-      source.roomId
-    );
-
-    const fragments = await this.fragmenter.split(
-      checkpoint.compressedSnapshot
-    );
-    const payloads =
-      fragments.length === 0
-        ? [
-            {
-              mode: "inline" as const,
-              bytes: base64Url(checkpoint.compressedSnapshot),
-            },
-          ]
-        : fragments.map((fragment) => ({
-            mode: "fragment" as const,
-            transferId: checkpoint.hash,
-            index: fragment.index,
-            count: fragment.count,
-            fragmentHash: fragment.fragmentHash,
-            bytes: base64Url(fragment.bytes),
-          }));
-    const matrixEventIds: string[] = [];
-    const matrix = this.matrixClient();
-    for (let index = 0; index < payloads.length; index += 1) {
-      await this.requireCurrentSource(
-        workspaceId,
-        source.authEpoch,
-        source.roomId
-      );
-      const content = checkpointEnvelopeV1.parse({
-        type: CHECKPOINT_TYPE,
-        schemaVersion: 1,
-        compression: "gzip",
-        workspaceId,
-        authEpoch: checkpoint.authEpoch,
-        checkpointHash: checkpoint.hash,
-        heads: [...checkpoint.heads],
-        coveredChangeHashes: [...checkpoint.coveredChangeHashes],
-        payload: payloads[index],
-      });
-      const signed = await matrix.signWorkspaceContent(content);
-      const eventId = await withMatrixRateLimitRetry(() =>
-        matrix.sendEncryptedWorkspaceEvent(
-          source.roomId,
-          CHECKPOINT_TYPE,
-          signed,
-          `lift.cp1.${checkpoint.hash}.${index}`
-        )
-      );
-      const readBack = await matrix.readWorkspaceEvent(source.roomId, eventId);
-      if (
-        readBack.wireType !== "m.room.encrypted" ||
-        readBack.clearType !== CHECKPOINT_TYPE ||
-        typeof readBack.content !== "object" ||
-        readBack.content === null ||
-        !equalBytes(
-          signingJsonBytes(content),
-          signingJsonBytes(readBack.content)
-        )
-      ) {
-        throw new Error("Encrypted checkpoint read-back mismatch");
-      }
-      matrixEventIds.push(eventId);
+    if (
+      (await this.database.verifiedCheckpoints.get(checkpoint.hash)) !==
+      undefined
+    ) {
+      return checkpoint;
     }
 
-    await this.codec.decodeAndVerify(checkpoint, "fb".repeat(16));
     await this.authorization.requireEdit(workspaceId);
+    const timestamp = this.now();
+    const publicationId = `${workspaceId}\0${source.targetId}\0checkpoint\0${checkpoint.hash}`;
     await this.database.transaction(
       "rw",
       [
-        this.database.verifiedCheckpoints,
+        this.database.checkpointPublications,
+        this.database.syncOutbox,
         this.database.aclCheckpoints,
         this.database.syncTargets,
       ],
       async () => {
-        await this.requireCurrentSource(
-          workspaceId,
-          source.authEpoch,
-          source.roomId
-        );
-        await this.database.verifiedCheckpoints.put({
+        const acl = await this.latestAcl(workspaceId);
+        const target = await this.activeTarget(workspaceId);
+        if (
+          acl?.authEpoch !== source.authEpoch ||
+          target?.id !== source.targetId
+        ) {
+          throw new Error(
+            "Checkpoint authorization changed during publication"
+          );
+        }
+        await this.database.checkpointPublications.put({
+          id: publicationId,
           hash: checkpoint.hash,
           workspaceId,
+          targetId: source.targetId,
           schemaVersion: 1,
           authEpoch: checkpoint.authEpoch,
           heads: [...checkpoint.heads],
           coveredChangeHashes: [...checkpoint.coveredChangeHashes],
           compressedSnapshot: checkpoint.compressedSnapshot.slice(),
-          matrixEventIds,
-          verifiedAt: this.now(),
+          createdAt: timestamp,
         });
+        const existing = await this.database.syncOutbox.get(publicationId);
+        if (existing === undefined) {
+          const row: SyncOutboxRecord = {
+            id: publicationId,
+            workspaceId,
+            targetId: source.targetId,
+            changeHash: checkpoint.hash,
+            innerType: "dev.lift.checkpoint.v1",
+            authEpoch: checkpoint.authEpoch,
+            state: "pending",
+            attemptCount: 0,
+            nextAttemptAt: timestamp,
+            lastError: null,
+            matrixTxnId: publicationId,
+            matrixEventIds: [],
+            nextFragmentIndex: 0,
+          };
+          await this.database.syncOutbox.add(row);
+        }
       }
     );
+    try {
+      await this.signalOutbox();
+    } catch {
+      // The durable row is committed; startup/reconnect will resume it.
+    }
+    await this.waitForAcknowledgement(publicationId, checkpoint.hash);
     await this.pruneOldRecords(workspaceId);
     return checkpoint;
   }
 
-  private matrixClient(): MatrixWorkspaceClient {
-    return typeof this.matrixSource === "function"
-      ? this.matrixSource()
-      : this.matrixSource;
+  private async waitForAcknowledgement(
+    publicationId: string,
+    checkpointHash: string
+  ): Promise<void> {
+    const deadline = this.now() + this.acknowledgementTimeout;
+    while (this.now() <= deadline) {
+      if (
+        (await this.database.verifiedCheckpoints.get(checkpointHash)) !==
+        undefined
+      ) {
+        return;
+      }
+      const row = await this.database.syncOutbox.get(publicationId);
+      if (
+        row?.state === "paused-auth" ||
+        row?.state === "paused-permanent-error"
+      ) {
+        throw new Error(row.lastError ?? "Checkpoint publication is paused");
+      }
+      await this.sleep(50);
+    }
+    throw new Error(
+      "Checkpoint publication is queued and will resume in background"
+    );
   }
 
-  private async requireCurrentSource(
-    workspaceId: string,
-    authEpoch: number,
-    roomId: string
-  ): Promise<void> {
-    const acl = await this.database.aclCheckpoints
+  private latestAcl(workspaceId: string) {
+    return this.database.aclCheckpoints
       .where("[workspaceId+authEpoch]")
       .between(
         [workspaceId, Dexie.minKey],
@@ -208,18 +159,14 @@ export class MatrixCheckpointPublisher {
         true
       )
       .last();
-    const target = await this.database.syncTargets
-      .filter(
-        (candidate) =>
-          candidate.workspaceId === workspaceId &&
-          candidate.roomId === roomId &&
-          candidate.mode === "active" &&
-          candidate.state === "active"
-      )
+  }
+
+  private activeTarget(workspaceId: string) {
+    return this.database.syncTargets
+      .where("workspaceId")
+      .equals(workspaceId)
+      .filter(({ mode, state }) => mode === "active" && state === "active")
       .first();
-    if (acl?.authEpoch !== authEpoch || target === undefined) {
-      throw new Error("Checkpoint authorization changed during publication");
-    }
   }
 
   private async pruneOldRecords(workspaceId: string): Promise<void> {

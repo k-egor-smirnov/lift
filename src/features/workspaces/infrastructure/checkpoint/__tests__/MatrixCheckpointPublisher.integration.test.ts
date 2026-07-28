@@ -1,19 +1,23 @@
 import Dexie from "dexie";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { EncryptedTransport } from "../../../application/ports/EncryptedTransport";
 import type { WorkspaceWriteAuthorization } from "../../../application/ports/WorkspaceWriteAuthorization";
+import { ProcessOutboxUseCase } from "../../../application/use-cases/ProcessOutboxUseCase";
 import type { WorkspaceAclCheckpoint } from "../../../domain/WorkspaceAcl";
 import { WorkspaceRole } from "../../../domain/WorkspaceRole";
 import { createEmptyWorkspace } from "../../../domain/WorkspaceState";
 import { CanonicalAclCodec } from "../../acl/CanonicalAclCodec";
 import { AutomergeWorkspaceDocument } from "../../crdt/AutomergeWorkspaceDocument";
 import { LiftSecureDatabase } from "../../database/LiftSecureDatabase";
-import type { MatrixWorkspaceClient } from "../../matrix/MatrixSdkFacade";
+import { DexieSyncOutbox } from "../../database/DexieSyncOutbox";
+import { PayloadFragmenter } from "../../sync/PayloadFragmenter";
 import { MatrixCheckpointPublisher } from "../MatrixCheckpointPublisher";
 
 const databases: LiftSecureDatabase[] = [];
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(
     databases.splice(0).map(async (database) => {
       const name = database.name;
@@ -81,59 +85,45 @@ const seed = async () => {
   return database;
 };
 
-const fakeMatrix = (
-  mutateReadBack?: (
-    content: Readonly<Record<string, unknown>>
-  ) => Readonly<Record<string, unknown>>
-) => {
-  const sent: Array<{
-    eventId: string;
-    type: string;
-    content: Readonly<Record<string, unknown>>;
-    transactionId: string;
-  }> = [];
-  const client = {
-    signWorkspaceContent: async (
-      content: Readonly<Record<string, unknown>>
-    ) => ({ ...content, signatures: { test: true } }),
-    sendEncryptedWorkspaceEvent: async (
-      _roomId: string,
-      type: string,
-      content: Readonly<Record<string, unknown>>,
-      transactionId: string
-    ) => {
-      const eventId = `$checkpoint-${sent.length}`;
-      sent.push({ eventId, type, content, transactionId });
-      return eventId;
-    },
-    readWorkspaceEvent: async (_roomId: string, eventId: string) => {
-      const event = sent.find((item) => item.eventId === eventId);
-      if (event === undefined) throw new Error("missing sent event");
-      return {
-        wireType: "m.room.encrypted",
-        clearType: event.type,
-        content:
-          mutateReadBack === undefined
-            ? event.content
-            : mutateReadBack(event.content),
-      };
-    },
-  } as unknown as MatrixWorkspaceClient;
-  return { client, sent };
-};
+const processFor = (
+  database: LiftSecureDatabase,
+  transport: EncryptedTransport,
+  now: () => number
+) =>
+  new ProcessOutboxUseCase(
+    new DexieSyncOutbox(database, now),
+    transport,
+    new PayloadFragmenter(),
+    { now },
+    () => 1
+  );
 
 describe("MatrixCheckpointPublisher", () => {
-  it("publishes, reads back and records a deterministic encrypted checkpoint", async () => {
+  it("durably enqueues, sends and records a deterministic checkpoint", async () => {
     const database = await seed();
-    const matrix = fakeMatrix();
+    const sent: Array<{
+      transactionId: string;
+      content: Readonly<Record<string, unknown>>;
+    }> = [];
+    const process = processFor(
+      database,
+      {
+        send: async ({ transactionId, content }) => {
+          sent.push({ transactionId, content });
+          return { eventId: "$checkpoint" };
+        },
+      },
+      () => 10
+    );
     const authorization: WorkspaceWriteAuthorization = {
       requireEdit: async () => undefined,
     };
     const publisher = new MatrixCheckpointPublisher(
       database,
-      matrix.client,
       authorization,
-      undefined,
+      async () => {
+        await process.runOnce();
+      },
       undefined,
       () => 10
     );
@@ -142,58 +132,96 @@ describe("MatrixCheckpointPublisher", () => {
     const second = await publisher.publish("ws_checkpoint");
 
     expect(second.hash).toBe(first.hash);
-    expect(matrix.sent).toHaveLength(1);
-    expect(matrix.sent[0]).toMatchObject({
-      type: "dev.lift.checkpoint.v1",
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({
       transactionId: `lift.cp1.${first.hash}.0`,
+      content: {
+        type: "dev.lift.checkpoint.v1",
+        checkpointHash: first.hash,
+      },
     });
-    expect(matrix.sent[0]?.content).not.toHaveProperty("compressedSnapshot");
     expect(await database.verifiedCheckpoints.get(first.hash)).toMatchObject({
       workspaceId: "ws_checkpoint",
       authEpoch: 1,
       heads: first.heads,
-      matrixEventIds: ["$checkpoint-0"],
+      matrixEventIds: ["$checkpoint"],
       verifiedAt: 10,
     });
+    expect(await database.checkpointPublications.count()).toBe(0);
   });
 
-  it("does not record a checkpoint whose encrypted read-back mismatches", async () => {
+  it("leaves a durable pending publication after a process interruption and resumes it", async () => {
     const database = await seed();
-    const matrix = fakeMatrix((content) => ({
-      ...content,
-      payload: { mode: "inline", bytes: "different" },
-    }));
-    const publisher = new MatrixCheckpointPublisher(
+    let now = 0;
+    const authorization: WorkspaceWriteAuthorization = {
+      requireEdit: async () => undefined,
+    };
+    const interrupted = new MatrixCheckpointPublisher(
       database,
-      matrix.client,
-      { requireEdit: async () => undefined },
+      authorization,
+      () => {
+        throw new Error("tab closed before worker wake");
+      },
       undefined,
-      undefined,
-      () => 10
+      () => now,
+      async () => {
+        now += 1;
+      },
+      1
     );
 
-    await expect(publisher.publish("ws_checkpoint")).rejects.toThrow(
-      "read-back"
+    await expect(interrupted.publish("ws_checkpoint")).rejects.toThrow(
+      "queued"
     );
-    expect(await database.verifiedCheckpoints.count()).toBe(0);
+    expect(await database.checkpointPublications.count()).toBe(1);
+    expect(await database.syncOutbox.toCollection().first()).toMatchObject({
+      state: "pending",
+      innerType: "dev.lift.checkpoint.v1",
+    });
+
+    const transport: EncryptedTransport = {
+      send: async () => ({ eventId: "$resumed-checkpoint" }),
+    };
+    const process = processFor(database, transport, () => now);
+    const resumed = new MatrixCheckpointPublisher(
+      database,
+      authorization,
+      async () => {
+        await process.runOnce();
+      },
+      undefined,
+      () => now
+    );
+    const checkpoint = await resumed.publish("ws_checkpoint");
+
+    expect(
+      await database.verifiedCheckpoints.get(checkpoint.hash)
+    ).toMatchObject({
+      matrixEventIds: ["$resumed-checkpoint"],
+    });
+    expect(await database.checkpointPublications.count()).toBe(0);
   });
 
   it("rechecks write authorization after binding the checkpoint ACL epoch", async () => {
     const database = await seed();
-    const matrix = fakeMatrix();
     let checks = 0;
-    const publisher = new MatrixCheckpointPublisher(database, matrix.client, {
-      requireEdit: async () => {
-        checks += 1;
-        if (checks > 1) throw new Error("Workspace is read-only");
+    const signal = vi.fn();
+    const publisher = new MatrixCheckpointPublisher(
+      database,
+      {
+        requireEdit: async () => {
+          checks += 1;
+          if (checks > 1) throw new Error("Workspace is read-only");
+        },
       },
-    });
+      signal
+    );
 
     await expect(publisher.publish("ws_checkpoint")).rejects.toThrow(
       "read-only"
     );
     expect(checks).toBe(2);
-    expect(matrix.sent).toHaveLength(0);
-    expect(await database.verifiedCheckpoints.count()).toBe(0);
+    expect(signal).not.toHaveBeenCalled();
+    expect(await database.checkpointPublications.count()).toBe(0);
   });
 });
