@@ -1,8 +1,34 @@
 import { createHmac, randomBytes } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
 
 const homeserver = "http://127.0.0.1:8008";
 const registrationSecret = "lift-primary-registration-dev-only";
+const execFileAsync = promisify(execFile);
+const compose = async (...args: string[]): Promise<string> => {
+  const { stdout } = await execFileAsync(
+    "docker",
+    ["compose", "-f", "infra/matrix/docker-compose.yml", ...args],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    }
+  );
+  return String(stdout);
+};
+const startPrimaryMatrix = () =>
+  compose("up", "-d", "--wait", "primary-db", "primary-synapse");
+const stopPrimaryMatrix = () =>
+  compose("stop", "primary-synapse", "primary-db");
+const matrixIsHealthy = async (): Promise<boolean> => {
+  try {
+    return (await fetch(`${homeserver}/_matrix/client/versions`)).ok;
+  } catch {
+    return false;
+  }
+};
 
 const registerUser = async (username: string, password: string) => {
   const nonceResponse = await fetch(`${homeserver}/_synapse/admin/v1/register`);
@@ -148,6 +174,53 @@ const createInboxTask = async (page: Page, title: string) => {
   await input.press("Enter");
   await expect(page.getByText(title, { exact: true })).toBeVisible();
 };
+
+const editTaskNote = async (page: Page, title: string, note: string) => {
+  const card = page
+    .locator('[data-testid="task-card"]')
+    .filter({ hasText: title });
+  await card.getByRole("toolbar").getByRole("button").last().click();
+  await page.getByRole("menuitem").first().click();
+  const dialog = page.getByRole("dialog", { name: "Редактирование задачи" });
+  await dialog.getByLabel("Заметка").fill(note);
+  await dialog.getByRole("button", { name: "Сохранить" }).click();
+  await expect(dialog).toHaveCount(0);
+};
+
+const readTaskNote = async (page: Page, title: string): Promise<string> => {
+  const card = page
+    .locator('[data-testid="task-card"]')
+    .filter({ hasText: title });
+  await card.getByRole("toolbar").getByRole("button").last().click();
+  await page.getByRole("menuitem").first().click();
+  const dialog = page.getByRole("dialog", { name: "Редактирование задачи" });
+  const note = await dialog.getByLabel("Заметка").inputValue();
+  await dialog.getByRole("button", { name: "Отмена" }).click();
+  return note;
+};
+
+const activeMatrixRoomId = (page: Page) =>
+  page.evaluate(async () => {
+    const request = indexedDB.open("LiftSecureDatabase");
+    return new Promise<string>((resolve, reject) => {
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const rows = request.result
+          .transaction("syncTargets", "readonly")
+          .objectStore("syncTargets")
+          .getAll();
+        rows.onerror = () => reject(rows.error);
+        rows.onsuccess = () => {
+          const active = rows.result.find(
+            (row) => row.mode === "active" && row.state === "active"
+          );
+          if (active === undefined)
+            reject(new Error("Active Matrix room is missing"));
+          else resolve(String(active.roomId));
+        };
+      };
+    });
+  });
 
 const syncDiagnostic = (page: Page) =>
   page.evaluate(async () => {
@@ -596,4 +669,116 @@ test("registration, recovery-key confirmation errors and session resume are hand
   await expect(page.getByTestId("sidebar-today")).toBeVisible();
   await page.getByTestId("sidebar-settings").click();
   await expect(page.getByText("ready", { exact: true })).toBeVisible();
+});
+
+test("Synapse and PostgreSQL restart during offline edits without losing convergence", async ({
+  browser,
+}) => {
+  const suffix = randomBytes(5).toString("hex");
+  const username = `restart_${suffix}`;
+  const password = `Lift-restart-${suffix}-strong`;
+  const titleA = `server-down-a-${suffix}`;
+  const titleB = `server-down-b-${suffix}`;
+  await registerUser(username, password);
+
+  const contextA = await browser.newContext();
+  const contextB = await browser.newContext();
+  const pageA = await contextA.newPage();
+  const pageB = await contextB.newPage();
+  let stackStopped = false;
+  try {
+    const recoveryKey = await setupFirstDevice(pageA, username, password);
+    await recoverSecondDevice(pageB, username, password, recoveryKey);
+    await openInbox(pageA);
+    await openInbox(pageB);
+
+    await stopPrimaryMatrix();
+    stackStopped = true;
+    await expect.poll(matrixIsHealthy).toBe(false);
+    await createInboxTask(pageA, titleA);
+    await createInboxTask(pageB, titleB);
+
+    await startPrimaryMatrix();
+    stackStopped = false;
+    await expect.poll(matrixIsHealthy, { timeout: 90_000 }).toBe(true);
+    await expect(pageA.getByText(titleB, { exact: true })).toBeVisible();
+    await expect(pageB.getByText(titleA, { exact: true })).toBeVisible();
+    await expect
+      .poll(async () => {
+        const [left, right] = (await Promise.all([
+          syncDiagnostic(pageA),
+          syncDiagnostic(pageB),
+        ])) as Array<{ tasks: string[] }>;
+        return [left.tasks, right.tasks];
+      })
+      .toEqual([[titleA, titleB].sort(), [titleA, titleB].sort()]);
+  } finally {
+    if (stackStopped) await startPrimaryMatrix();
+    await contextA.close();
+    await contextB.close();
+  }
+});
+
+test("task and note markers are ciphertext in raw Matrix events and the PostgreSQL dump", async ({
+  browser,
+}) => {
+  const suffix = randomBytes(8).toString("hex");
+  const username = `cipher_${suffix}`;
+  const password = `Lift-cipher-${suffix}-strong`;
+  const title = `TITLE_MARKER_${suffix}`;
+  const note = `NOTE_MARKER_${suffix}`;
+  await registerUser(username, password);
+
+  const contextA = await browser.newContext();
+  const contextB = await browser.newContext();
+  const pageA = await contextA.newPage();
+  const pageB = await contextB.newPage();
+  try {
+    const recoveryKey = await setupFirstDevice(pageA, username, password);
+    await recoverSecondDevice(pageB, username, password, recoveryKey);
+    await openInbox(pageA);
+    await openInbox(pageB);
+    await createInboxTask(pageA, title);
+    await editTaskNote(pageA, title, note);
+    await expect(pageB.getByText(title, { exact: true })).toBeVisible();
+    await expect.poll(() => readTaskNote(pageB, title)).toBe(note);
+
+    const roomId = await activeMatrixRoomId(pageA);
+    const quotedRoomId = roomId.replaceAll("'", "''");
+    const rawEvents = await compose(
+      "exec",
+      "-T",
+      "primary-db",
+      "psql",
+      "-U",
+      "synapse",
+      "-d",
+      "synapse",
+      "-At",
+      "-c",
+      `SELECT json FROM event_json WHERE room_id='${quotedRoomId}' ORDER BY event_id`
+    );
+    expect(rawEvents).toContain('"type":"m.room.encrypted"');
+    expect(rawEvents).not.toMatch(/"type":"dev\.lift\.crdt\./);
+    expect(rawEvents).not.toContain(title);
+    expect(rawEvents).not.toContain(note);
+
+    const postgresDump = await compose(
+      "exec",
+      "-T",
+      "primary-db",
+      "pg_dump",
+      "-U",
+      "synapse",
+      "-d",
+      "synapse",
+      "--data-only",
+      "--no-owner"
+    );
+    expect(postgresDump).not.toContain(title);
+    expect(postgresDump).not.toContain(note);
+  } finally {
+    await contextA.close();
+    await contextB.close();
+  }
 });
