@@ -19,6 +19,7 @@ import type {
   TaskProjectionRecord,
   WorkspaceChangeRecord,
   WorkspaceSnapshotRecord,
+  VerifiedCheckpointRecord,
 } from "./records";
 
 const DEFAULT_DATABASE_NAME = "LiftSecureDatabase";
@@ -52,6 +53,7 @@ export class LiftSecureDatabase extends Dexie {
   matrixEventIndex!: Table<MatrixEventIndexRecord, string>;
   syncTargets!: Table<SyncTargetRecord, string>;
   aclCheckpoints!: Table<AclCheckpointRecord, [string, number]>;
+  verifiedCheckpoints!: Table<VerifiedCheckpointRecord, string>;
   quarantine!: Table<QuarantineRecord, string>;
   taskProjections!: Table<TaskProjectionRecord, [string, string]>;
   dailySelectionProjections!: Table<
@@ -86,6 +88,8 @@ export class LiftSecureDatabase extends Dexie {
       matrixEventIndex: "&eventId, [workspaceId+changeHash], roomId",
       syncTargets: "&id, workspaceId, serverProfileId, mode",
       aclCheckpoints: "&[workspaceId+authEpoch], &hash, previousHash",
+      verifiedCheckpoints:
+        "&hash, [workspaceId+authEpoch], workspaceId, verifiedAt",
       quarantine: "&id, eventId, workspaceId, reason, createdAt",
       taskProjections:
         "&[workspaceId+taskId], [workspaceId+category], [workspaceId+completion], [workspaceId+positionKey]",

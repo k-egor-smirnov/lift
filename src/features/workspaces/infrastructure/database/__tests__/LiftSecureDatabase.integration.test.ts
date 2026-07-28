@@ -14,6 +14,7 @@ import type {
   TaskProjectionRecord,
   WorkspaceChangeRecord,
   WorkspaceSnapshotRecord,
+  VerifiedCheckpointRecord,
 } from "../records";
 
 const TABLE_SCHEMAS = {
@@ -41,6 +42,8 @@ const TABLE_SCHEMAS = {
   workspaceChanges:
     "&[workspaceId+changeHash], workspaceId, changeHash, origin",
   workspaceSnapshots: "&workspaceId",
+  verifiedCheckpoints:
+    "&hash, [workspaceId+authEpoch], workspaceId, verifiedAt",
 } as const;
 
 type ForbiddenTransportField = Extract<
@@ -51,7 +54,8 @@ type ForbiddenTransportField = Extract<
   | keyof AclCheckpointRecord
   | keyof QuarantineRecord
   | keyof PayloadFragmentRecord
-  | keyof ServerProfileRecord,
+  | keyof ServerProfileRecord
+  | keyof VerifiedCheckpointRecord,
   "title" | "note" | "tag" | "tags" | "domainPlaintext"
 >;
 

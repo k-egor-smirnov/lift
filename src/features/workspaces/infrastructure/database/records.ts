@@ -83,6 +83,18 @@ export interface AclCheckpointRecord {
   createdAt: number;
 }
 
+export interface VerifiedCheckpointRecord {
+  hash: string;
+  workspaceId: string;
+  schemaVersion: 1;
+  authEpoch: number;
+  heads: string[];
+  coveredChangeHashes: string[];
+  compressedSnapshot: Uint8Array;
+  matrixEventIds: string[];
+  verifiedAt: number;
+}
+
 export interface QuarantineRecord {
   id: string;
   eventId: string;
