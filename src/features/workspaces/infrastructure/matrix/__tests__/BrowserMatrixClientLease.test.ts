@@ -11,6 +11,8 @@ class FakeLockManager {
   async request<T>(
     name: string,
     options: LockOptions,
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore на CI не проходит билд, надо синкануть версии TypeScript
     callback: LockGrantedCallback<T>
   ): Promise<T> {
     if (options.ifAvailable && this.held.has(name)) return callback(null);
