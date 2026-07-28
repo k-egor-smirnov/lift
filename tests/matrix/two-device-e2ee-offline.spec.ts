@@ -1094,10 +1094,24 @@ test("Synapse and PostgreSQL restart during offline edits without losing converg
     await expect.poll(matrixIsHealthy).toBe(false);
     await createInboxTask(pageA, titleA);
     await createInboxTask(pageB, titleB);
+    await pageA.getByTestId("sidebar-settings").click();
+    await pageA.getByRole("button", { name: "Создать checkpoint" }).click();
+    await expect
+      .poll(async () => (await checkpointState(pageA)).pendingPublications)
+      .toBe(1);
 
     await startPrimaryMatrix();
     stackStopped = false;
     await expect.poll(matrixIsHealthy, { timeout: 90_000 }).toBe(true);
+    await expect
+      .poll(async () => (await checkpointState(pageA)).checkpoints.length, {
+        timeout: 90_000,
+      })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () => (await checkpointState(pageA)).pendingPublications)
+      .toBe(0);
+    await openInbox(pageA);
     await expect(pageA.getByText(titleB, { exact: true })).toBeVisible();
     await expect(pageB.getByText(titleA, { exact: true })).toBeVisible();
     await expect
