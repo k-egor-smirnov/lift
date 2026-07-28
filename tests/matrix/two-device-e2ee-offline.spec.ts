@@ -671,6 +671,77 @@ test("registration, recovery-key confirmation errors and session resume are hand
   await expect(page.getByText("ready", { exact: true })).toBeVisible();
 });
 
+test("an unfinished first-device setup can log out and resume with its saved recovery key", async ({
+  page,
+}) => {
+  const suffix = randomBytes(5).toString("hex");
+  const username = `cancel_${suffix}`;
+  const password = `Lift-cancel-${suffix}-strong`;
+  await registerUser(username, password);
+
+  await page.goto("/");
+  await enterCredentials(page, username, password);
+  await page.getByRole("button", { name: "Первое устройство" }).click();
+  await expect(
+    page.getByRole("region", { name: "Подтверждение ключа восстановления" })
+  ).toBeVisible();
+  const recoveryKey = (await page.locator("code").textContent())?.trim();
+  expect(recoveryKey).toBeTruthy();
+
+  await page.getByRole("button", { name: "Выйти и войти заново" }).click();
+  await expect(page.getByLabel("Настройка Matrix")).toBeVisible();
+  await enterCredentials(page, username, password);
+  await page.getByRole("button", { name: "Восстановить", exact: true }).click();
+  await page.getByLabel("Ключ восстановления").fill(recoveryKey!);
+  await page.getByRole("button", { name: "Восстановить ключи" }).click();
+  await expect(
+    page.getByText(
+      "Matrix E2EE-устройство готово и ключ восстановления подтверждён."
+    )
+  ).toBeVisible();
+});
+
+test("Settings logout clears the local session while the homeserver is unreachable and recovery remains possible", async ({
+  browser,
+}) => {
+  const suffix = randomBytes(5).toString("hex");
+  const username = `offline_logout_${suffix}`;
+  const password = `Lift-offline-logout-${suffix}-strong`;
+  const title = `offline-logout-seed-${suffix}`;
+  await registerUser(username, password);
+
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    const recoveryKey = await setupFirstDevice(page, username, password);
+    await openInbox(page);
+    await createInboxTask(page, title);
+    await page.getByTestId("sidebar-settings").click();
+
+    await context.setOffline(true);
+    await page.getByRole("button", { name: "Выйти из Matrix" }).click();
+    await expect(page.getByLabel("Настройка Matrix")).toBeVisible();
+    await expect(page.getByText("signed-out", { exact: true })).toBeVisible();
+    await expect(page.getByText(/Локальная сессия удалена/)).toBeVisible();
+
+    await context.setOffline(false);
+    await enterCredentials(page, username, password);
+    await page
+      .getByRole("button", { name: "Восстановить", exact: true })
+      .click();
+    await page.getByLabel("Ключ восстановления").fill(recoveryKey);
+    await page.getByRole("button", { name: "Восстановить ключи" }).click();
+    await expect(
+      page.getByRole("button", { name: "Выйти из Matrix" })
+    ).toBeVisible();
+    await openInbox(page);
+    await expect(page.getByText(title, { exact: true })).toBeVisible();
+  } finally {
+    await context.setOffline(false);
+    await context.close();
+  }
+});
+
 test("Synapse and PostgreSQL restart during offline edits without losing convergence", async ({
   browser,
 }) => {
