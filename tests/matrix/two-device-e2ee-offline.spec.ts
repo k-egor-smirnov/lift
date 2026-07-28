@@ -292,6 +292,145 @@ const outboxChangeHashes = (page: Page) =>
     });
   });
 
+const checkpointState = (page: Page) =>
+  page.evaluate(async () => {
+    const request = indexedDB.open("LiftSecureDatabase");
+    return new Promise<{
+      checkpoints: Array<{
+        hash: string;
+        heads: string[];
+        matrixEventIds: string[];
+        verifiedAt: number;
+      }>;
+      snapshotHeads: string[][];
+    }>((resolve, reject) => {
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const transaction = request.result.transaction(
+          ["verifiedCheckpoints", "workspaceSnapshots"],
+          "readonly"
+        );
+        const checkpoints = transaction
+          .objectStore("verifiedCheckpoints")
+          .getAll();
+        const snapshots = transaction
+          .objectStore("workspaceSnapshots")
+          .getAll();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.oncomplete = () =>
+          resolve({
+            checkpoints: checkpoints.result
+              .map((row) => ({
+                hash: String(row.hash),
+                heads: [...row.heads].map(String).sort(),
+                matrixEventIds: [...row.matrixEventIds].map(String),
+                verifiedAt: Number(row.verifiedAt),
+              }))
+              .sort((left, right) => left.verifiedAt - right.verifiedAt),
+            snapshotHeads: snapshots.result.map((row) =>
+              [...row.heads].map(String).sort()
+            ),
+          });
+      };
+    });
+  });
+
+const workspaceSnapshotState = (page: Page) =>
+  page.evaluate(async () => {
+    const request = indexedDB.open("LiftSecureDatabase");
+    return new Promise<{
+      workspaceId: string;
+      bytes: number[];
+      heads: string[];
+    }>((resolve, reject) => {
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const rows = request.result
+          .transaction("workspaceSnapshots", "readonly")
+          .objectStore("workspaceSnapshots")
+          .getAll();
+        rows.onerror = () => reject(rows.error);
+        rows.onsuccess = () => {
+          const row = rows.result[0];
+          if (row === undefined)
+            reject(new Error("Workspace snapshot missing"));
+          else
+            resolve({
+              workspaceId: String(row.workspaceId),
+              bytes: Array.from(row.bytes as Uint8Array),
+              heads: [...row.heads].map(String),
+            });
+        };
+      };
+    });
+  });
+
+const checkpointWireTypes = (page: Page) =>
+  page.evaluate(async () => {
+    const request = indexedDB.open("LiftSecureDatabase");
+    return new Promise<string[]>((resolve, reject) => {
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const transaction = request.result.transaction(
+          ["verifiedCheckpoints", "syncInbox"],
+          "readonly"
+        );
+        const checkpoints = transaction
+          .objectStore("verifiedCheckpoints")
+          .getAll();
+        const inbox = transaction.objectStore("syncInbox").getAll();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.oncomplete = () => {
+          const eventIds = new Set(
+            checkpoints.result.flatMap((row) => row.matrixEventIds as string[])
+          );
+          resolve(
+            inbox.result
+              .filter((row) => eventIds.has(String(row.eventId)))
+              .map((row) => String(JSON.parse(row.wireEvent).type))
+          );
+        };
+      };
+    });
+  });
+
+const replaceSnapshotAndClearProjections = (
+  page: Page,
+  snapshot: { workspaceId: string; bytes: number[]; heads: string[] }
+) =>
+  page.evaluate(async (input) => {
+    const request = indexedDB.open("LiftSecureDatabase");
+    await new Promise<void>((resolve, reject) => {
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const projectionStores = [
+          "taskProjections",
+          "dailySelectionProjections",
+          "conflictProjections",
+          "auditProjections",
+          "dailyStatisticsProjections",
+        ];
+        const transaction = request.result.transaction(
+          ["workspaceSnapshots", "workspaceChanges", ...projectionStores],
+          "readwrite"
+        );
+        transaction.objectStore("workspaceSnapshots").put({
+          workspaceId: input.workspaceId,
+          schemaVersion: 1,
+          bytes: new Uint8Array(input.bytes),
+          heads: input.heads,
+          savedAt: Date.now(),
+        });
+        transaction.objectStore("workspaceChanges").clear();
+        for (const store of projectionStores) {
+          transaction.objectStore(store).clear();
+        }
+        transaction.onerror = () => reject(transaction.error);
+        transaction.oncomplete = () => resolve();
+      };
+    });
+  }, snapshot);
+
 test("two independent E2EE devices converge after realtime, offline writes and restart", async ({
   browser,
 }) => {
@@ -739,6 +878,152 @@ test("Settings logout clears the local session while the homeserver is unreachab
   } finally {
     await context.setOffline(false);
     await context.close();
+  }
+});
+
+test("password and recovery key restore verified encrypted checkpoints between independent devices", async ({
+  browser,
+}) => {
+  const suffix = randomBytes(5).toString("hex");
+  const username = `checkpoint_${suffix}`;
+  const password = `Lift-checkpoint-${suffix}-strong`;
+  const seedTitle = `checkpoint-seed-${suffix}`;
+  const secondTitle = `checkpoint-second-${suffix}`;
+  await registerUser(username, password);
+
+  const contextA = await browser.newContext();
+  const contextB = await browser.newContext();
+  const contextC = await browser.newContext();
+  const pageA = await contextA.newPage();
+  const pageB = await contextB.newPage();
+  const pageC = await contextC.newPage();
+  const plaintextCheckpointRequests: string[] = [];
+  for (const page of [pageA, pageB, pageC]) {
+    page.on("request", (request) => {
+      if (
+        /\/send\/dev\.lift\.checkpoint\.v1\//.test(
+          decodeURIComponent(request.url())
+        )
+      ) {
+        plaintextCheckpointRequests.push(request.url());
+      }
+    });
+  }
+
+  try {
+    const recoveryKey = await setupFirstDevice(pageA, username, password);
+    const rootSnapshot = await workspaceSnapshotState(pageA);
+    await openInbox(pageA);
+    await createInboxTask(pageA, seedTitle);
+
+    await pageA.getByTestId("sidebar-settings").click();
+    await pageA.getByRole("button", { name: "Создать checkpoint" }).click();
+    await expect(
+      pageA.getByText(/Зашифрованный checkpoint подтверждён:/)
+    ).toBeVisible();
+    const firstCheckpoint = (await checkpointState(pageA)).checkpoints.at(-1);
+    expect(firstCheckpoint?.hash).toBeTruthy();
+    expect(firstCheckpoint?.matrixEventIds.length).toBeGreaterThan(0);
+
+    await recoverSecondDevice(pageB, username, password, recoveryKey);
+    await openInbox(pageB);
+    await expect(pageB.getByText(seedTitle, { exact: true })).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          (await checkpointState(pageB)).checkpoints.some(
+            ({ hash }) => hash === firstCheckpoint!.hash
+          ),
+        { timeout: 90_000 }
+      )
+      .toBe(true);
+    const restoredFirst = (await checkpointState(pageB)).checkpoints.find(
+      ({ hash }) => hash === firstCheckpoint!.hash
+    );
+    expect(restoredFirst?.heads).toEqual(firstCheckpoint!.heads);
+
+    await createInboxTask(pageB, secondTitle);
+    await openInbox(pageA);
+    await expect(pageA.getByText(secondTitle, { exact: true })).toBeVisible();
+    await pageB.getByTestId("sidebar-settings").click();
+    await pageB.getByRole("button", { name: "Создать checkpoint" }).click();
+    await expect(
+      pageB.getByText(/Зашифрованный checkpoint подтверждён:/)
+    ).toBeVisible();
+    const secondCheckpoint = (await checkpointState(pageB)).checkpoints.at(-1);
+    expect(secondCheckpoint?.hash).toBeTruthy();
+    expect(secondCheckpoint?.hash).not.toBe(firstCheckpoint!.hash);
+
+    await expect
+      .poll(
+        async () =>
+          (await checkpointState(pageA)).checkpoints.some(
+            ({ hash }) => hash === secondCheckpoint!.hash
+          ),
+        { timeout: 90_000 }
+      )
+      .toBe(true);
+    const restoredSecond = (await checkpointState(pageA)).checkpoints.find(
+      ({ hash }) => hash === secondCheckpoint!.hash
+    );
+    expect(restoredSecond?.heads).toEqual(secondCheckpoint!.heads);
+    expect(
+      (await checkpointState(pageA)).snapshotHeads.some(
+        (heads) =>
+          JSON.stringify(heads) === JSON.stringify(restoredSecond!.heads)
+      )
+    ).toBe(true);
+
+    await recoverSecondDevice(pageC, username, password, recoveryKey);
+    await openInbox(pageC);
+    await expect(pageC.getByText(seedTitle, { exact: true })).toBeVisible();
+    await expect(pageC.getByText(secondTitle, { exact: true })).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          (await checkpointState(pageC)).checkpoints.some(
+            ({ hash }) => hash === secondCheckpoint!.hash
+          ),
+        { timeout: 90_000 }
+      )
+      .toBe(true);
+    const restoredFresh = (await checkpointState(pageC)).checkpoints.find(
+      ({ hash }) => hash === secondCheckpoint!.hash
+    );
+    expect(restoredFresh?.heads).toEqual(secondCheckpoint!.heads);
+    const wireTypes = await checkpointWireTypes(pageC);
+    expect(wireTypes.length).toBeGreaterThan(0);
+    expect(new Set(wireTypes)).toEqual(new Set(["m.room.encrypted"]));
+
+    await pageC.getByTestId("sidebar-settings").click();
+    await pageC.getByRole("button", { name: "Выйти из Matrix" }).click();
+    await expect(pageC.getByLabel("Настройка Matrix")).toBeVisible();
+    await replaceSnapshotAndClearProjections(pageC, rootSnapshot);
+    expect((await workspaceSnapshotState(pageC)).heads.sort()).toEqual(
+      [...rootSnapshot.heads].sort()
+    );
+    await pageC.reload();
+    expect((await workspaceSnapshotState(pageC)).heads.sort()).toEqual(
+      [...rootSnapshot.heads].sort()
+    );
+    await openInbox(pageC);
+    await expect(pageC.getByText(seedTitle, { exact: true })).toHaveCount(0);
+    await expect(pageC.getByText(secondTitle, { exact: true })).toHaveCount(0);
+    await pageC.getByTestId("sidebar-settings").click();
+    await pageC
+      .getByRole("button", { name: "Проверить восстановление" })
+      .click();
+    await expect(
+      pageC.getByText("Состояние восстановлено из verified checkpoint")
+    ).toBeVisible();
+    await openInbox(pageC);
+    await expect(pageC.getByText(seedTitle, { exact: true })).toBeVisible();
+    await expect(pageC.getByText(secondTitle, { exact: true })).toBeVisible();
+    expect(plaintextCheckpointRequests).toEqual([]);
+  } finally {
+    await contextA.close();
+    await contextB.close();
+    await contextC.close();
   }
 });
 

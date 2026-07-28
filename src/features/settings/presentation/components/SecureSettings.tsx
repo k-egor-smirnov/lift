@@ -13,6 +13,7 @@ import { ResultUtils } from "../../../../shared/domain/Result";
 import { MatrixSetupViewModel } from "../../../workspaces/presentation/view-models/MatrixSetupViewModel";
 import { MatrixSetupWizard } from "../../../workspaces/presentation/components/MatrixSetupWizard";
 import { MATRIX_AUTHENTICATION_CAPABILITIES } from "../../../workspaces/application/security/MatrixAuthenticationCapabilities";
+import { createCheckpointSettingsViewModel } from "../view-models/CheckpointSettingsViewModel";
 
 interface SecureSettingsProps {
   readonly runtime: SecureRuntime;
@@ -38,6 +39,11 @@ export const SecureSettings = ({ runtime }: SecureSettingsProps) => {
     () => new MatrixSetupViewModel(runtime.matrixSession),
     [runtime]
   );
+  const checkpointStore = useMemo(
+    () => createCheckpointSettingsViewModel(runtime.useCases),
+    [runtime]
+  );
+  const checkpoint = checkpointStore();
 
   useEffect(() => runtime.matrixSession.subscribe(setMatrix), [runtime]);
   useEffect(() => {
@@ -359,6 +365,26 @@ export const SecureSettings = ({ runtime }: SecureSettingsProps) => {
             {sync?.quarantined ?? 0} / dead-letter: {sync?.deadLetters ?? 0}
           </p>
         </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {matrix.phase === "ready" && (
+            <button
+              type="button"
+              onClick={() => void checkpoint.createCheckpoint()}
+              disabled={checkpoint.busy}
+              className="rounded-md border px-3 py-2 text-sm font-medium"
+            >
+              Создать checkpoint
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void checkpoint.restoreCheckpoint()}
+            disabled={checkpoint.busy}
+            className="rounded-md border px-3 py-2 text-sm font-medium"
+          >
+            Проверить восстановление
+          </button>
+        </div>
       </section>
       <section className="rounded-xl border bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-3">
@@ -396,7 +422,11 @@ export const SecureSettings = ({ runtime }: SecureSettingsProps) => {
         >
           Сохранить
         </button>
-        {status && <p className="mt-2 text-sm text-gray-600">{status}</p>}
+        {(checkpoint.status ?? status) && (
+          <p className="mt-2 text-sm text-gray-600">
+            {checkpoint.status ?? status}
+          </p>
+        )}
       </section>
       <section className="rounded-xl border bg-white p-5 shadow-sm">
         <h2 className="mb-3 font-semibold">Язык</h2>

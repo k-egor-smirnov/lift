@@ -14,6 +14,7 @@ import { WorkspaceRole } from "../../../domain/WorkspaceRole";
 import { createEmptyWorkspace } from "../../../domain/WorkspaceState";
 import { CanonicalAclCodec } from "../../acl/CanonicalAclCodec";
 import type { MatrixAclBootstrapper } from "../../acl/MatrixAclBootstrapper";
+import type { MatrixCheckpointReceiver } from "../../checkpoint/MatrixCheckpointReceiver";
 import { AutomergeWorkspaceDocument } from "../../crdt/AutomergeWorkspaceDocument";
 import { LiftSecureDatabase } from "../../database/LiftSecureDatabase";
 import type {
@@ -192,6 +193,53 @@ const setupHistoricalChange = async (includeChangeInSnapshot: boolean) => {
 };
 
 describe("MatrixInboxProcessor historical ACL epochs", () => {
+  it("delegates encrypted checkpoint events to the checkpoint receiver", async () => {
+    const database = new LiftSecureDatabase(
+      `LiftSecureDatabase-test-${crypto.randomUUID()}`
+    );
+    databases.push(database);
+    await database.open();
+    const event = {
+      eventId: "$checkpoint",
+      roomId: "!checkpoint:test",
+      clearType: "dev.lift.checkpoint.v1",
+      content: {},
+      senderUserId: "@owner:test",
+      senderDeviceId: "OWNER",
+      senderCurve25519Key: "curve",
+      claimedEd25519Key: "ed",
+      deviceCrossSigned: true,
+      shield: "none" as const,
+      applicationSignatureVerified: true,
+      verified: true,
+    };
+    const received: DecryptedMatrixWorkspaceEvent[] = [];
+    const checkpointReceiver = {
+      accept: async (input: DecryptedMatrixWorkspaceEvent) => {
+        received.push(input);
+        return true;
+      },
+    } as MatrixCheckpointReceiver;
+    const processor = new MatrixInboxProcessor(
+      database,
+      matrixClient(event),
+      undefined as unknown as MatrixAclBootstrapper,
+      new RecordingUnitOfWork(),
+      "bb".repeat(16),
+      undefined,
+      checkpointReceiver
+    );
+
+    await processor.process({
+      eventId: "$checkpoint",
+      roomId: "!checkpoint:test",
+      workspaceId: null,
+      wireEvent: "{}",
+    });
+
+    expect(received).toEqual([event]);
+  });
+
   it("accepts an older-epoch change already covered by the current signed snapshot", async () => {
     const { database, processor, unitOfWork, item, change } =
       await setupHistoricalChange(true);

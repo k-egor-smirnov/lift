@@ -62,6 +62,12 @@ import { DexieSyncInbox } from "../database/DexieSyncInbox";
 import { MatrixAclBootstrapper } from "../acl/MatrixAclBootstrapper";
 import { MatrixInboxProcessor } from "../sync/MatrixInboxProcessor";
 import { MatrixMembershipGuard } from "../sync/MatrixMembershipGuard";
+import { MatrixCheckpointReceiver } from "../checkpoint/MatrixCheckpointReceiver";
+import { MatrixCheckpointPublisher } from "../checkpoint/MatrixCheckpointPublisher";
+import { CheckpointRestorer } from "../checkpoint/CheckpointRestorer";
+import type { CheckpointStore } from "../../application/ports/CheckpointStore";
+import { CreateCheckpointUseCase } from "../../application/use-cases/CreateCheckpointUseCase";
+import { RestoreCheckpointUseCase } from "../../application/use-cases/RestoreCheckpointUseCase";
 import { InboxWorker } from "../sync/InboxWorker";
 import { ProcessInboxUseCase } from "../../application/use-cases/ProcessInboxUseCase";
 import { DexieAuditLogRepository } from "../database/DexieAuditLogRepository";
@@ -201,10 +207,39 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     () => outboxWorker.wake(),
     () => domainEventWorker.wake()
   );
+  // A crash can happen after an authoritative snapshot/checkpoint commit and
+  // before its derived projections are rebuilt. Rebuilding from the snapshot
+  // on every startup makes that post-commit window self-healing.
+  if (existing !== undefined) {
+    await persistedUnitOfWork.rebuildProjections(
+      existing.workspaceId,
+      actor.actorId
+    );
+  }
   const unitOfWork = new AuthorizedWorkspaceUnitOfWork(
     persistedUnitOfWork,
     accessControl
   );
+  const acceptWorkspace = async (workspaceId: string) => {
+    await persistedUnitOfWork.rebuildProjections(workspaceId, actor.actorId);
+    workspace.set(workspaceId);
+    setupComplete = true;
+  };
+  const checkpointPublisher = new MatrixCheckpointPublisher(
+    database,
+    () => matrixSession.requireAuthenticatedClient(),
+    accessControl
+  );
+  const checkpointRestorer = new CheckpointRestorer(
+    database,
+    actor.actorId,
+    acceptWorkspace
+  );
+  const checkpointStore: CheckpointStore = {
+    publish: (workspaceId) => checkpointPublisher.publish(workspaceId),
+    restoreLatest: (workspaceId) =>
+      checkpointRestorer.restoreLatest(workspaceId),
+  };
   const inboxStore = new DexieSyncInbox(database);
   let inboxWorker: InboxWorker | null = null;
   let membershipGuard: MatrixMembershipGuard | null = null;
@@ -224,20 +259,18 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
           if (profileId === null) throw new Error("Matrix profile is missing");
           return profileId;
         },
-        async (workspaceId) => {
-          await persistedUnitOfWork.rebuildProjections(
-            workspaceId,
-            actor.actorId
-          );
-          workspace.set(workspaceId);
-          setupComplete = true;
-        },
+        acceptWorkspace,
         undefined,
         undefined,
         () => ({
           userId: matrixSession.snapshot().userId,
           deviceId: matrixSession.snapshot().deviceId,
         })
+      );
+      const checkpointReceiver = new MatrixCheckpointReceiver(
+        database,
+        actor.actorId,
+        acceptWorkspace
       );
       inboxWorker = new InboxWorker(
         inboxStore,
@@ -248,7 +281,9 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
             matrix,
             bootstrap,
             unitOfWork,
-            actor.actorId
+            actor.actorId,
+            undefined,
+            checkpointReceiver
           )
         ),
         matrix
@@ -413,6 +448,8 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
     ),
     removeWorkspaceMember: new RemoveWorkspaceMemberUseCase(accessControl),
     revokeWorkspaceDevice: new RevokeWorkspaceDeviceUseCase(accessControl),
+    createCheckpoint: new CreateCheckpointUseCase(workspace, checkpointStore),
+    restoreCheckpoint: new RestoreCheckpointUseCase(workspace, checkpointStore),
   };
 
   const currentEffectiveDate = async (): Promise<string> => {

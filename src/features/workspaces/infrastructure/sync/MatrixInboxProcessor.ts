@@ -13,6 +13,7 @@ import { can } from "../../domain/WorkspaceRole";
 import { workspaceDeviceRef } from "../../domain/WorkspaceAcl";
 import { CanonicalAclCodec } from "../acl/CanonicalAclCodec";
 import type { MatrixAclBootstrapper } from "../acl/MatrixAclBootstrapper";
+import type { MatrixCheckpointReceiver } from "../checkpoint/MatrixCheckpointReceiver";
 import { AutomergeWorkspaceDocument } from "../crdt/AutomergeWorkspaceDocument";
 import type { LiftSecureDatabase } from "../database/LiftSecureDatabase";
 import { changeEnvelopeV1 } from "../matrix/LiftEnvelope";
@@ -70,7 +71,8 @@ export class MatrixInboxProcessor implements TrustedInboxProcessor {
     private readonly aclBootstrap: MatrixAclBootstrapper,
     private readonly unitOfWork: WorkspaceUnitOfWork,
     private readonly actorId: string,
-    private readonly codec = new CanonicalAclCodec()
+    private readonly codec = new CanonicalAclCodec(),
+    private readonly checkpointReceiver?: MatrixCheckpointReceiver
   ) {}
 
   async process(item: ClaimedInboxItem): Promise<void> {
@@ -88,6 +90,12 @@ export class MatrixInboxProcessor implements TrustedInboxProcessor {
     }
     if (event.clearType === "dev.lift.acl.v1") {
       await this.aclBootstrap.acceptRoot(event);
+      return;
+    }
+    if (event.clearType === "dev.lift.checkpoint.v1") {
+      const receiver =
+        this.checkpointReceiver ?? reject("checkpoint-receiver-unavailable");
+      await receiver.accept(event);
       return;
     }
     if (event.clearType !== "dev.lift.crdt.change.v1") {
