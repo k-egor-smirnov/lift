@@ -136,6 +136,28 @@ export interface AppendAuditRecordCommand extends WorkspaceCommandBase {
   readonly data: Readonly<Record<string, string>>;
 }
 
+export interface ImportedTaskState {
+  readonly sourceTaskId: string;
+  readonly targetTaskId: string;
+  readonly title: string;
+  readonly note: string;
+  readonly category: WorkspaceTaskCategory;
+  readonly deferredUntil: string | null;
+  readonly originalCategory: WorkspaceTaskCategory | null;
+  readonly completion: "active" | "completed";
+  readonly inboxEnteredOn: string | null;
+  readonly tags: readonly string[];
+  readonly selectedDates: readonly string[];
+}
+
+export interface ImportOfflineWorkspaceCommand extends WorkspaceCommandBase {
+  readonly type: "ImportOfflineWorkspace";
+  readonly sourceWorkspaceId: string;
+  readonly deviceId: string;
+  readonly auditTime: string;
+  readonly tasks: readonly ImportedTaskState[];
+}
+
 /** The exhaustive semantic mutation boundary for one workspace document. */
 export type WorkspaceCommand =
   | CreateTaskCommand
@@ -152,4 +174,5 @@ export type WorkspaceCommand =
   | RemoveFromDayCommand
   | UpdateWorkspaceSettingsCommand
   | MaterializeOccurrenceCommand
-  | AppendAuditRecordCommand;
+  | AppendAuditRecordCommand
+  | ImportOfflineWorkspaceCommand;

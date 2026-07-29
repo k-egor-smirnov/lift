@@ -19,9 +19,17 @@ export interface TaskCrdtState {
   deferredUntil: DateOnlyString | null;
   originalCategory: "INBOX" | "SIMPLE" | "FOCUS" | null;
   completion: "active" | "completed";
+  /** Durable lifecycle seed when source completion records are unavailable. */
+  readonly completionBaselineEpoch?: 0 | 1;
   completionEpoch: number;
   tags: ObservedRemoveSet;
   deletionDots: Record<Dot, true>;
+  readonly importedFrom?: {
+    version: "lift-offline-import-v1";
+    sourceWorkspaceId: string;
+    sourceTaskId: string;
+    targetWorkspaceId: string;
+  };
 }
 
 export interface RecurrenceTemplateState {

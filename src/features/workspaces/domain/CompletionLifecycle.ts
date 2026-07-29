@@ -40,16 +40,20 @@ export const assertCompletionRecordStructure = (
 
 export const canonicalCompletionLifecycle = (
   taskId: string,
-  records: Readonly<Record<string, CompletionRecordState>>
+  records: Readonly<Record<string, CompletionRecordState>>,
+  baselineEpoch: 0 | 1 = 0
 ): CanonicalCompletionLifecycle => {
   const epochs = new Set<number>();
   for (const record of Object.values(records)) {
     if (record.taskId !== taskId) continue;
     assertCompletionRecordStructure(record);
+    if (record.completionEpoch <= baselineEpoch) {
+      throw new Error("Invalid completion lifecycle before baseline");
+    }
     epochs.add(record.completionEpoch);
   }
 
-  let completionEpoch = 0;
+  let completionEpoch = baselineEpoch;
   while (epochs.has(completionEpoch + 1)) completionEpoch += 1;
   if ([...epochs].some((epoch) => epoch > completionEpoch)) {
     throw new Error("Invalid completion lifecycle gap");

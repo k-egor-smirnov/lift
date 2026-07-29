@@ -1,12 +1,16 @@
 import * as Automerge from "@automerge/automerge";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 
-import type { WorkspaceCommand } from "../../application/commands/WorkspaceCommand";
+import type {
+  ImportedTaskState,
+  WorkspaceCommand,
+} from "../../application/commands/WorkspaceCommand";
 import type { OccurrenceIdFactory } from "../../application/ports/OccurrenceIdFactory";
 import { comparePositions, isDeleted } from "../../domain/ConflictPolicy";
 import { isValidDateOnly } from "../../domain/EffectiveDate";
 import { enumerateOccurrenceDates } from "../../domain/Recurrence";
 import type {
+  ObservedRemoveSet,
   TaskCrdtState,
   WorkspaceState,
 } from "../../domain/WorkspaceState";
@@ -308,6 +312,217 @@ const validateBase = (
     throw new Error("Workspace command targets a different workspace");
   }
 };
+
+interface ValidatedOfflineImport {
+  readonly sourceWorkspaceId: string;
+  readonly deviceId: string;
+  readonly auditTime: string;
+  readonly tasks: readonly ImportedTaskState[];
+}
+
+const requireNullableDate = (value: unknown, field: string): string | null =>
+  value === null ? null : requireDate(value, field);
+
+const requireNullableCategory = (
+  value: unknown
+): TaskCrdtState["originalCategory"] =>
+  value === null ? null : requireCategory(value);
+
+const requireImportedTags = (value: unknown): readonly string[] => {
+  if (!Array.isArray(value)) {
+    throw new Error("Invalid tags: expected a sorted unique array");
+  }
+  const tags = value.map((tag) => requireNonEmpty(tag, "tag"));
+  for (let index = 1; index < tags.length; index += 1) {
+    if (tags[index - 1]! >= tags[index]!) {
+      throw new Error("Invalid tags: expected a sorted unique array");
+    }
+  }
+  return tags;
+};
+
+const requireSelectedDates = (value: unknown): readonly string[] => {
+  if (!Array.isArray(value)) {
+    throw new Error("Invalid selectedDates: expected an array");
+  }
+  const dates = value.map((date) => requireDate(date, "selection"));
+  if (new Set(dates).size !== dates.length) {
+    throw new Error("Invalid selectedDates: expected unique dates");
+  }
+  return dates;
+};
+
+const validateOfflineImport = (
+  state: Readonly<WorkspaceState>,
+  command: Extract<WorkspaceCommand, { type: "ImportOfflineWorkspace" }>
+): ValidatedOfflineImport => {
+  const sourceWorkspaceId = requireNonEmpty(
+    command.sourceWorkspaceId,
+    "sourceWorkspaceId"
+  );
+  if (sourceWorkspaceId === state.workspaceId) {
+    throw new Error("Offline import source and target workspaces must differ");
+  }
+  const deviceId = requireNonEmpty(command.deviceId, "deviceId");
+  const auditTime = requireAuditTime(command.auditTime);
+  if (!Array.isArray(command.tasks)) {
+    throw new Error("Invalid imported tasks: expected an array");
+  }
+
+  const sourceTaskIds = new Set<string>();
+  const targetTaskIds = new Set<string>();
+  const tasks = command.tasks.map((task): ImportedTaskState => {
+    if (typeof task !== "object" || task === null) {
+      throw new Error("Invalid imported task");
+    }
+    const sourceTaskId = requireNonEmpty(task.sourceTaskId, "sourceTaskId");
+    const targetTaskId = requireNonEmpty(task.targetTaskId, "targetTaskId");
+    if (sourceTaskIds.has(sourceTaskId)) {
+      throw new Error("Imported source task IDs must be unique");
+    }
+    if (targetTaskIds.has(targetTaskId)) {
+      throw new Error("Imported target task IDs must be unique");
+    }
+    sourceTaskIds.add(sourceTaskId);
+    targetTaskIds.add(targetTaskId);
+
+    const title = requireNonEmpty(task.title, "title");
+    if (typeof task.note !== "string") {
+      throw new Error("Invalid note");
+    }
+    const category = requireCategory(task.category);
+    const deferredUntil = requireNullableDate(
+      task.deferredUntil,
+      "deferredUntil"
+    );
+    const originalCategory = requireNullableCategory(task.originalCategory);
+    if (task.completion !== "active" && task.completion !== "completed") {
+      throw new Error("Invalid task completion");
+    }
+    const inboxEnteredOn = requireNullableDate(
+      task.inboxEnteredOn,
+      "inboxEnteredOn"
+    );
+    const tags = requireImportedTags(task.tags);
+    const selectedDates = requireSelectedDates(task.selectedDates);
+
+    return {
+      sourceTaskId,
+      targetTaskId,
+      title,
+      note: task.note,
+      category,
+      deferredUntil,
+      originalCategory,
+      completion: task.completion,
+      inboxEnteredOn,
+      tags,
+      selectedDates,
+    };
+  });
+
+  return { sourceWorkspaceId, deviceId, auditTime, tasks };
+};
+
+const activeSetMembers = (
+  set: Readonly<ObservedRemoveSet>
+): readonly string[] =>
+  Object.keys(set.adds)
+    .filter((element) =>
+      Object.keys(set.adds[element] ?? {}).some(
+        (dot) => !Object.hasOwn(set.removedDots, dot)
+      )
+    )
+    .sort();
+
+const equalStringArrays = (
+  left: readonly string[],
+  right: readonly string[]
+): boolean =>
+  left.length === right.length &&
+  left.every((value, index) => value === right[index]);
+
+const selectedDatesForTask = (
+  state: Readonly<WorkspaceState>,
+  taskId: string
+): readonly string[] =>
+  Object.keys(state.dailySelections)
+    .filter((date) => {
+      const selection = state.dailySelections[date]!;
+      return Object.keys(selection.adds[taskId] ?? {}).some(
+        (dot) => !Object.hasOwn(selection.removedDots, dot)
+      );
+    })
+    .sort();
+
+const hasExactImportProvenance = (
+  task: Readonly<TaskCrdtState>,
+  sourceWorkspaceId: string,
+  sourceTaskId: string,
+  targetWorkspaceId: string
+): boolean =>
+  task.importedFrom?.version === "lift-offline-import-v1" &&
+  task.importedFrom.sourceWorkspaceId === sourceWorkspaceId &&
+  task.importedFrom.sourceTaskId === sourceTaskId &&
+  task.importedFrom.targetWorkspaceId === targetWorkspaceId;
+
+const hasExactImportedContent = (
+  state: Readonly<WorkspaceState>,
+  task: Readonly<TaskCrdtState>,
+  imported: Readonly<ImportedTaskState>,
+  deviceId: string,
+  auditTime: string
+): boolean =>
+  task.title === imported.title &&
+  task.note === imported.note &&
+  task.category === imported.category &&
+  task.created.deviceId === deviceId &&
+  task.created.auditTime === auditTime &&
+  task.inboxEnteredOn === imported.inboxEnteredOn &&
+  task.deferredUntil === imported.deferredUntil &&
+  task.originalCategory === imported.originalCategory &&
+  task.completion === imported.completion &&
+  (task.completionBaselineEpoch ?? 0) ===
+    (imported.completion === "completed" ? 1 : 0) &&
+  task.completionEpoch === (imported.completion === "completed" ? 1 : 0) &&
+  equalStringArrays(activeSetMembers(task.tags), imported.tags) &&
+  equalStringArrays(
+    selectedDatesForTask(state, task.id),
+    [...imported.selectedDates].sort()
+  );
+
+const hasExactImportAudit = (
+  state: Readonly<WorkspaceState>,
+  command: Extract<WorkspaceCommand, { type: "ImportOfflineWorkspace" }>,
+  imported: Readonly<ValidatedOfflineImport>
+): boolean => {
+  const record = state.auditRecords[command.operationId];
+  return (
+    record !== undefined &&
+    record.id === command.operationId &&
+    record.kind === "offline.workspace-imported.v1" &&
+    record.taskId === null &&
+    record.effectiveDate === null &&
+    record.actorId === command.actorId &&
+    record.auditTime === imported.auditTime &&
+    equalStringArrays(Object.keys(record.data).sort(), [
+      "importedTaskCount",
+      "sourceWorkspaceId",
+    ]) &&
+    record.data.sourceWorkspaceId === imported.sourceWorkspaceId &&
+    record.data.importedTaskCount === String(imported.tasks.length)
+  );
+};
+
+const importDot = (
+  operationId: string,
+  targetTaskId: string,
+  kind: "tag" | "day",
+  value: string
+): Promise<string> =>
+  sha256Hex(
+    `dev.lift.offline-import-${kind}-dot.v1\0${operationId}\0${targetTaskId}\0${value}`
+  );
 
 const completionChange = (
   document: AutomergeWorkspaceDocument,
@@ -789,6 +1004,166 @@ export class AutomergeCommandHandler {
             templateId,
             occurrenceDate,
             taskId,
+          };
+        });
+      }
+      case "ImportOfflineWorkspace": {
+        const imported = validateOfflineImport(state, command);
+        const auditExists =
+          state.auditRecords[command.operationId] !== undefined;
+        const exactAudit = hasExactImportAudit(state, command, imported);
+        let existingTargetCount = 0;
+
+        for (const importedTask of imported.tasks) {
+          const existing = state.tasks[importedTask.targetTaskId];
+          if (existing === undefined) continue;
+          existingTargetCount += 1;
+          if (
+            !hasExactImportProvenance(
+              existing,
+              imported.sourceWorkspaceId,
+              importedTask.sourceTaskId,
+              state.workspaceId
+            )
+          ) {
+            throw new Error(
+              "Imported task ID collides with incompatible target data"
+            );
+          }
+          if (
+            !hasExactImportedContent(
+              state,
+              existing,
+              importedTask,
+              imported.deviceId,
+              imported.auditTime
+            )
+          ) {
+            throw new Error(
+              "Imported task ID already contains different imported content"
+            );
+          }
+        }
+
+        if (auditExists && !exactAudit) {
+          throw new Error(
+            "operationId already identifies another audit record"
+          );
+        }
+        if (exactAudit) {
+          if (existingTargetCount === imported.tasks.length) return [];
+          throw new Error("Offline import audit has incomplete target data");
+        }
+        if (existingTargetCount > 0) {
+          throw new Error(
+            "Imported task already exists without its exact import audit"
+          );
+        }
+
+        const liveTasks = Object.values(state.tasks)
+          .filter((task) => !isDeleted(task.deletionDots))
+          .sort(canonicalTaskOrder);
+        const lastKey = liveTasks.at(-1)?.position.key ?? null;
+        let positionKeys: readonly string[];
+        try {
+          positionKeys = generateNKeysBetween(
+            lastKey,
+            null,
+            imported.tasks.length
+          );
+        } catch {
+          throw new Error("Invalid imported task positions");
+        }
+
+        const dots = await Promise.all(
+          imported.tasks.map(async (importedTask) => ({
+            tags: await Promise.all(
+              importedTask.tags.map(async (tag) => ({
+                tag,
+                dot: await importDot(
+                  command.operationId,
+                  importedTask.targetTaskId,
+                  "tag",
+                  tag
+                ),
+              }))
+            ),
+            selectedDates: await Promise.all(
+              importedTask.selectedDates.map(async (date) => ({
+                date,
+                dot: await importDot(
+                  command.operationId,
+                  importedTask.targetTaskId,
+                  "day",
+                  date
+                ),
+              }))
+            ),
+          }))
+        );
+
+        return document.change(command.type, (draft) => {
+          imported.tasks.forEach((importedTask, index) => {
+            const taskDots = dots[index]!;
+            const completionBaselineEpoch =
+              importedTask.completion === "completed" ? 1 : 0;
+            draft.tasks[importedTask.targetTaskId] = {
+              id: importedTask.targetTaskId,
+              title: importedTask.title,
+              note: importedTask.note,
+              category: importedTask.category,
+              position: {
+                key: positionKeys[index]!,
+                actorId: command.actorId,
+              },
+              created: {
+                deviceId: imported.deviceId,
+                auditTime: imported.auditTime,
+              },
+              inboxEnteredOn: importedTask.inboxEnteredOn,
+              deferredUntil: importedTask.deferredUntil,
+              originalCategory: importedTask.originalCategory,
+              completion: importedTask.completion,
+              completionBaselineEpoch,
+              completionEpoch: completionBaselineEpoch,
+              tags: {
+                adds: Object.fromEntries(
+                  taskDots.tags.map(({ tag, dot }) => [tag, { [dot]: true }])
+                ),
+                removedDots: {},
+              },
+              deletionDots: {},
+              importedFrom: {
+                version: "lift-offline-import-v1",
+                sourceWorkspaceId: imported.sourceWorkspaceId,
+                sourceTaskId: importedTask.sourceTaskId,
+                targetWorkspaceId: state.workspaceId,
+              },
+            };
+
+            for (const { date, dot } of taskDots.selectedDates) {
+              if (draft.dailySelections[date] === undefined) {
+                draft.dailySelections[date] = {
+                  adds: {},
+                  removedDots: {},
+                };
+              }
+              draft.dailySelections[date]!.adds[importedTask.targetTaskId] = {
+                [dot]: true,
+              };
+            }
+          });
+          draft.auditRecords[command.operationId] = {
+            id: command.operationId,
+            kind: "offline.workspace-imported.v1",
+            taskId: null,
+            effectiveDate: null,
+            actorId: command.actorId,
+            auditTime: imported.auditTime,
+            data: {
+              sourceWorkspaceId: imported.sourceWorkspaceId,
+              importedTaskCount: String(imported.tasks.length),
+            },
           };
         });
       }

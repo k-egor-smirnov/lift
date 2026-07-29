@@ -72,6 +72,9 @@ const frequencyGuard = (
 const schemaVersionGuard = (
   value: Automerge.AutomergeValue
 ): value is WorkspaceState["schemaVersion"] => value === 1;
+const importVersionGuard = (
+  value: Automerge.AutomergeValue
+): value is "lift-offline-import-v1" => value === "lift-offline-import-v1";
 
 const START_OF_DAY_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
@@ -97,6 +100,12 @@ const ObservedRemoveSetSchema = z.strictObject({
   adds: z.record(NonEmptyStringSchema, DotSetSchema),
   removedDots: DotSetSchema,
 });
+const ImportedFromSchema = z.strictObject({
+  version: z.literal("lift-offline-import-v1"),
+  sourceWorkspaceId: NonEmptyStringSchema,
+  sourceTaskId: NonEmptyStringSchema,
+  targetWorkspaceId: NonEmptyStringSchema,
+});
 const TaskStateSchema = z.strictObject({
   id: NonEmptyStringSchema,
   title: z.string(),
@@ -114,9 +123,11 @@ const TaskStateSchema = z.strictObject({
   deferredUntil: DateOnlySchema.nullable(),
   originalCategory: CategorySchema.nullable(),
   completion: z.enum(["active", "completed"]),
+  completionBaselineEpoch: z.union([z.literal(0), z.literal(1)]).optional(),
   completionEpoch: z.number().int().safe().nonnegative(),
   tags: ObservedRemoveSetSchema,
   deletionDots: DotSetSchema,
+  importedFrom: ImportedFromSchema.optional(),
 });
 const RecurrenceTemplateSchema = z.strictObject({
   id: NonEmptyStringSchema,
@@ -199,7 +210,8 @@ const assertLifecycleState = (state: Readonly<WorkspaceState>): void => {
   for (const task of Object.values(state.tasks)) {
     const lifecycle = canonicalCompletionLifecycle(
       task.id,
-      state.completionRecords
+      state.completionRecords,
+      task.completionBaselineEpoch ?? 0
     );
     if (
       task.completion !== lifecycle.completion ||
@@ -1050,7 +1062,21 @@ export class AutomergeWorkspaceDocument {
     completionRecords: Readonly<Record<string, CompletionRecordState>>
   ): TaskCrdtState {
     const taskId = this.scalar(task, "id", task.id, stringGuard);
-    const lifecycle = canonicalCompletionLifecycle(taskId, completionRecords);
+    const completionBaselineEpoch =
+      task.completionBaselineEpoch === undefined
+        ? undefined
+        : this.scalar(
+            task,
+            "completionBaselineEpoch",
+            task.completionBaselineEpoch,
+            (value): value is 0 | 1 => value === 0 || value === 1
+          );
+    const lifecycle = canonicalCompletionLifecycle(
+      taskId,
+      completionRecords,
+      completionBaselineEpoch ?? 0
+    );
+    const importedFrom = task.importedFrom;
     return {
       id: taskId,
       title: this.scalar(task, "title", task.title, stringGuard),
@@ -1098,9 +1124,42 @@ export class AutomergeWorkspaceDocument {
         nullableCategoryGuard
       ),
       completion: lifecycle.completion,
+      ...(completionBaselineEpoch === undefined
+        ? {}
+        : { completionBaselineEpoch }),
       completionEpoch: lifecycle.completionEpoch,
       tags: canonicalObservedRemoveSet(task.tags),
       deletionDots: canonicalDots(task.deletionDots),
+      ...(importedFrom === undefined
+        ? {}
+        : {
+            importedFrom: {
+              version: this.scalar(
+                importedFrom,
+                "version",
+                importedFrom.version,
+                importVersionGuard
+              ),
+              sourceWorkspaceId: this.scalar(
+                importedFrom,
+                "sourceWorkspaceId",
+                importedFrom.sourceWorkspaceId,
+                stringGuard
+              ),
+              sourceTaskId: this.scalar(
+                importedFrom,
+                "sourceTaskId",
+                importedFrom.sourceTaskId,
+                stringGuard
+              ),
+              targetWorkspaceId: this.scalar(
+                importedFrom,
+                "targetWorkspaceId",
+                importedFrom.targetWorkspaceId,
+                stringGuard
+              ),
+            },
+          }),
     };
   }
 

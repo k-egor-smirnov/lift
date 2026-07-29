@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { WorkspaceCommand } from "../../../application/commands/WorkspaceCommand";
 import { comparePositions } from "../../../domain/ConflictPolicy";
+import { has } from "../../../domain/ObservedRemoveSet";
 import {
   createEmptyWorkspace,
   type TaskCrdtState,
@@ -76,7 +77,169 @@ const completionCommand = (
         auditTime: AUDIT_TIME,
       };
 
+const importCommand: Extract<
+  WorkspaceCommand,
+  { type: "ImportOfflineWorkspace" }
+> = {
+  type: "ImportOfflineWorkspace",
+  workspaceId: WORKSPACE_ID,
+  actorId: ACTOR_A,
+  operationId: "offline-import-v1:fixture",
+  sourceWorkspaceId: "ws_source",
+  deviceId: "DEVICE",
+  auditTime: AUDIT_TIME,
+  tasks: [
+    {
+      sourceTaskId: "source-active",
+      targetTaskId: "target-active",
+      title: "Active",
+      note: "note",
+      category: "INBOX",
+      deferredUntil: null,
+      originalCategory: null,
+      completion: "active",
+      inboxEnteredOn: "2026-07-20",
+      tags: ["local", "urgent"],
+      selectedDates: ["2026-07-21", "2026-07-22"],
+    },
+    {
+      sourceTaskId: "source-deferred",
+      targetTaskId: "target-deferred",
+      title: "Deferred",
+      note: "",
+      category: "FOCUS",
+      deferredUntil: "2026-08-01",
+      originalCategory: "FOCUS",
+      completion: "active",
+      inboxEnteredOn: null,
+      tags: [],
+      selectedDates: [],
+    },
+    {
+      sourceTaskId: "source-completed",
+      targetTaskId: "target-completed",
+      title: "Completed",
+      note: "",
+      category: "SIMPLE",
+      deferredUntil: null,
+      originalCategory: null,
+      completion: "completed",
+      inboxEnteredOn: null,
+      tags: ["done"],
+      selectedDates: ["2026-07-19"],
+    },
+  ],
+};
+
 describe("AutomergeCommandHandler repaired invariants", () => {
+  it("imports all supported task state and dated selections in one change", async () => {
+    const document = documentWith((state) => {
+      state.tasks.existing = task("existing", {
+        key: "a0",
+        actorId: ACTOR_A,
+      });
+    });
+
+    const changes = await handler().handle(document, importCommand);
+    const state = document.value();
+
+    expect(changes).toHaveLength(1);
+    expect(Object.keys(state.tasks).sort()).toEqual([
+      "existing",
+      "target-active",
+      "target-completed",
+      "target-deferred",
+    ]);
+    expect(state.tasks["target-active"]).toMatchObject({
+      title: "Active",
+      note: "note",
+      completion: "active",
+      importedFrom: {
+        version: "lift-offline-import-v1",
+        sourceWorkspaceId: "ws_source",
+        sourceTaskId: "source-active",
+        targetWorkspaceId: WORKSPACE_ID,
+      },
+    });
+    expect(state.tasks["target-deferred"]).toMatchObject({
+      category: "FOCUS",
+      deferredUntil: "2026-08-01",
+      originalCategory: "FOCUS",
+    });
+    expect(state.tasks["target-completed"]).toMatchObject({
+      completion: "completed",
+      completionEpoch: 1,
+    });
+    expect(has(state.tasks["target-active"].tags, "urgent")).toBe(true);
+    expect(has(state.dailySelections["2026-07-22"], "target-active")).toBe(
+      true
+    );
+    expect(state.auditRecords[importCommand.operationId]).toMatchObject({
+      kind: "offline.workspace-imported.v1",
+      taskId: null,
+      data: {
+        sourceWorkspaceId: "ws_source",
+        importedTaskCount: "3",
+      },
+    });
+    expect(state.completionRecords).toEqual({});
+  });
+
+  it("treats the exact imported provenance as an idempotent retry", async () => {
+    const document = documentWith(() => undefined);
+    await handler().handle(document, importCommand);
+    const heads = document.heads();
+
+    await expect(handler().handle(document, importCommand)).resolves.toEqual(
+      []
+    );
+    expect(document.heads()).toEqual(heads);
+  });
+
+  it("reopens an imported completed task from its durable epoch-one baseline", async () => {
+    const document = documentWith(() => undefined);
+    await handler().handle(document, importCommand);
+
+    const changes = await handler().handle(document, {
+      type: "ReopenTask",
+      workspaceId: WORKSPACE_ID,
+      actorId: ACTOR_A,
+      operationId: "reopen-imported",
+      taskId: "target-completed",
+      effectiveDate: "2026-07-22",
+      auditTime: AUDIT_TIME,
+    });
+
+    expect(changes).toHaveLength(1);
+    expect(document.value().tasks["target-completed"]).toMatchObject({
+      completion: "active",
+      completionBaselineEpoch: 1,
+      completionEpoch: 2,
+    });
+    expect(document.value().completionRecords["reopen-imported"]).toMatchObject(
+      {
+        fromCompletionEpoch: 1,
+        completionEpoch: 2,
+        kind: "reopened",
+      }
+    );
+  });
+
+  it("fails closed when a deterministic target ID has incompatible provenance", async () => {
+    const document = documentWith((state) => {
+      state.tasks["target-active"] = task("target-active", {
+        key: "a0",
+        actorId: ACTOR_A,
+      });
+    });
+    const heads = document.heads();
+
+    await expect(handler().handle(document, importCommand)).rejects.toThrow(
+      "Imported task ID collides with incompatible target data"
+    );
+    expect(document.heads()).toEqual(heads);
+  });
+
   it("creates a task and its day selection in one Automerge change", async () => {
     const document = documentWith((state) => {
       state.dailySelections["2026-07-22"] = {
