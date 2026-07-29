@@ -417,13 +417,21 @@ export const createSecureRuntime = async (): Promise<SecureRuntime> => {
         );
         const heads = [...document.heads()];
         const snapshotBytes = document.save();
-        await database.workspaceSnapshots.add({
-          workspaceId,
-          schemaVersion: 1,
-          bytes: snapshotBytes,
-          heads,
-          savedAt: Date.now(),
-        });
+        const createdAt = Date.now();
+        await database.transaction(
+          "rw",
+          [database.workspaceSnapshots, database.workspaceMetadata],
+          async () => {
+            await database.workspaceSnapshots.add({
+              workspaceId,
+              schemaVersion: 1,
+              bytes: snapshotBytes,
+              heads,
+              savedAt: createdAt,
+            });
+            await database.workspaceMetadata.add({ workspaceId, createdAt });
+          }
+        );
         workspace.set(workspaceId);
         return { workspaceId, heads, snapshotBytes: snapshotBytes.slice() };
       },

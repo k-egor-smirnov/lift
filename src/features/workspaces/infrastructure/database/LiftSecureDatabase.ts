@@ -20,6 +20,7 @@ import type {
   SyncTargetRecord,
   TaskProjectionRecord,
   WorkspaceChangeRecord,
+  WorkspaceMetadataRecord,
   WorkspaceSnapshotRecord,
   VerifiedCheckpointRecord,
 } from "./records";
@@ -49,6 +50,7 @@ const requireSecureDatabaseName = (name: string): string => {
 
 export class LiftSecureDatabase extends Dexie {
   workspaceSnapshots!: Table<WorkspaceSnapshotRecord, string>;
+  workspaceMetadata!: Table<WorkspaceMetadataRecord, string>;
   workspaceChanges!: Table<WorkspaceChangeRecord, [string, string]>;
   syncOutbox!: Table<SyncOutboxRecord, string>;
   syncInbox!: Table<SyncInboxRecord, string>;
@@ -113,6 +115,9 @@ export class LiftSecureDatabase extends Dexie {
       domainEvents:
         "&id, [workspaceId+status], [status+nextAttemptAt], [aggregateId+aggregateSequence]",
       handledDomainEvents: "&[eventId+handlerId], eventId, handlerId",
+    });
+    this.version(2).stores({
+      workspaceMetadata: "&workspaceId, createdAt",
     });
   }
 }

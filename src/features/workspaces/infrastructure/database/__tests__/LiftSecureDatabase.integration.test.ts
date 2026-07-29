@@ -46,6 +46,7 @@ const TABLE_SCHEMAS = {
     "&[workspaceId+taskId], [workspaceId+category], [workspaceId+completion], [workspaceId+positionKey]",
   workspaceChanges:
     "&[workspaceId+changeHash], workspaceId, changeHash, origin",
+  workspaceMetadata: "&workspaceId, createdAt",
   workspaceSnapshots: "&workspaceId",
   verifiedCheckpoints:
     "&hash, [workspaceId+authEpoch], workspaceId, verifiedAt",
@@ -124,7 +125,7 @@ describe("LiftSecureDatabase", () => {
   });
   afterAll(cleanupOwnedDatabases);
 
-  it("declares exactly the clean-slate version-one table and index schema", async () => {
+  it("declares exactly the current table and index schema", async () => {
     const db = createDatabase();
 
     await db.open();
@@ -134,14 +135,14 @@ describe("LiftSecureDatabase", () => {
       Object.keys(TABLE_SCHEMAS).sort()
     );
     expect(schemaSources(db)).toEqual(TABLE_SCHEMAS);
-    expect(db.verno).toBe(1);
+    expect(db.verno).toBe(2);
     expect(
       (
         db as unknown as {
           _versions: Array<{ _cfg: { version: number } }>;
         }
       )._versions.map(({ _cfg }) => _cfg.version)
-    ).toEqual([1]);
+    ).toEqual([1, 2]);
   });
 
   it("rejects names outside the LiftSecureDatabase namespace before opening", () => {

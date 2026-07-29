@@ -65,8 +65,16 @@ export class MatrixWorkspaceIdentityResolver {
 
   async listOfflineWorkspaceIds(): Promise<readonly string[]> {
     const snapshots = await this.database.workspaceSnapshots.toArray();
-    const targets = await this.database.syncTargets.toArray();
-    const bound = new Set(targets.map(({ workspaceId }) => workspaceId));
+    const [targets, acls, certificates] = await Promise.all([
+      this.database.syncTargets.toArray(),
+      this.database.aclCheckpoints.toArray(),
+      this.database.migrationCertificates.toArray(),
+    ]);
+    const bound = new Set([
+      ...targets.map(({ workspaceId }) => workspaceId),
+      ...acls.map(({ workspaceId }) => workspaceId),
+      ...certificates.map(({ workspaceId }) => workspaceId),
+    ]);
     return snapshots
       .map(({ workspaceId }) => workspaceId)
       .filter((workspaceId) => !bound.has(workspaceId))

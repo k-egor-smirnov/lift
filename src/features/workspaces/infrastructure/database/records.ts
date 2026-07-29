@@ -6,6 +6,11 @@ export interface WorkspaceSnapshotRecord {
   savedAt: number;
 }
 
+export interface WorkspaceMetadataRecord {
+  readonly workspaceId: string;
+  readonly createdAt: number;
+}
+
 export interface WorkspaceChangeRecord {
   workspaceId: string;
   changeHash: string;

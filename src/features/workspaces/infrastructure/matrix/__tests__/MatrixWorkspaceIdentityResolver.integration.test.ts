@@ -138,6 +138,43 @@ describe("MatrixWorkspaceIdentityResolver", () => {
       heads: ["offline-head"],
       savedAt: 5,
     });
+    await database.workspaceSnapshots.bulkAdd([
+      {
+        workspaceId: "ws_acl_only",
+        schemaVersion: 1,
+        bytes: new Uint8Array([3]),
+        heads: ["acl-head"],
+        savedAt: 6,
+      },
+      {
+        workspaceId: "ws_certificate_only",
+        schemaVersion: 1,
+        bytes: new Uint8Array([4]),
+        heads: ["certificate-head"],
+        savedAt: 7,
+      },
+    ]);
+    await database.aclCheckpoints.add({
+      workspaceId: "ws_acl_only",
+      authEpoch: 1,
+      hash: "acl-only-hash",
+      previousHash: null,
+      bytes: new Uint8Array([5]),
+      createdAt: 6,
+    });
+    await database.migrationCertificates.add({
+      hash: "certificate-only-hash",
+      workspaceId: "ws_certificate_only",
+      sourceTargetId: "source",
+      targetTargetId: "target",
+      sourceAclHash: "source-acl",
+      targetAclHash: "target-acl",
+      heads: ["certificate-head"],
+      bytes: new Uint8Array([6]),
+      sourceEventId: "$source",
+      targetEventId: "$target",
+      verifiedAt: 7,
+    });
 
     const resolver = new MatrixWorkspaceIdentityResolver(database);
 
