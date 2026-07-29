@@ -484,6 +484,42 @@ describe("AutomergeWorkspaceDocument", () => {
       },
     },
     {
+      name: "unprovenanced imported completion baseline",
+      mutate: (state: WorkspaceState) => {
+        state.tasks.task.completion = "completed";
+        Reflect.set(state.tasks.task, "completionBaselineEpoch", 1);
+        state.tasks.task.completionEpoch = 1;
+      },
+    },
+    {
+      name: "import provenance for another target workspace",
+      mutate: (state: WorkspaceState) => {
+        state.tasks.task.completion = "completed";
+        Reflect.set(state.tasks.task, "completionBaselineEpoch", 1);
+        state.tasks.task.completionEpoch = 1;
+        Reflect.set(state.tasks.task, "importedFrom", {
+          version: "lift-offline-import-v1",
+          sourceWorkspaceId: "workspace-source",
+          sourceTaskId: "source-task",
+          targetWorkspaceId: "workspace-other",
+        });
+      },
+    },
+    {
+      name: "import provenance whose source is the target workspace",
+      mutate: (state: WorkspaceState) => {
+        state.tasks.task.completion = "completed";
+        Reflect.set(state.tasks.task, "completionBaselineEpoch", 1);
+        state.tasks.task.completionEpoch = 1;
+        Reflect.set(state.tasks.task, "importedFrom", {
+          version: "lift-offline-import-v1",
+          sourceWorkspaceId: state.workspaceId,
+          sourceTaskId: "source-task",
+          targetWorkspaceId: state.workspaceId,
+        });
+      },
+    },
+    {
       name: "gapped completion lifecycle",
       mutate: (state: WorkspaceState) => {
         state.completionRecords.gapped = {

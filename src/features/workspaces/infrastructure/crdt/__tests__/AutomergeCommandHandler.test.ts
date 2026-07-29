@@ -196,6 +196,24 @@ describe("AutomergeCommandHandler repaired invariants", () => {
     expect(document.heads()).toEqual(heads);
   });
 
+  it("fails closed when retrying after an imported task was deleted", async () => {
+    const document = documentWith(() => undefined);
+    await handler().handle(document, importCommand);
+    await handler().handle(document, {
+      type: "DeleteTask",
+      workspaceId: WORKSPACE_ID,
+      actorId: ACTOR_A,
+      operationId: "delete-imported",
+      taskId: "target-active",
+    });
+    const heads = document.heads();
+
+    await expect(handler().handle(document, importCommand)).rejects.toThrow(
+      "Imported task ID already contains different imported content"
+    );
+    expect(document.heads()).toEqual(heads);
+  });
+
   it("reopens an imported completed task from its durable epoch-one baseline", async () => {
     const document = documentWith(() => undefined);
     await handler().handle(document, importCommand);

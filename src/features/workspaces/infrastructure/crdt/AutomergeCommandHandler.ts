@@ -473,6 +473,7 @@ const hasExactImportedContent = (
   deviceId: string,
   auditTime: string
 ): boolean =>
+  !isDeleted(task.deletionDots) &&
   task.title === imported.title &&
   task.note === imported.note &&
   task.category === imported.category &&

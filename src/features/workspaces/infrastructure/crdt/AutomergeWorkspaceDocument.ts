@@ -208,6 +208,21 @@ const assertLifecycleState = (state: Readonly<WorkspaceState>): void => {
     }
   }
   for (const task of Object.values(state.tasks)) {
+    if (
+      task.completionBaselineEpoch !== undefined &&
+      task.importedFrom === undefined
+    ) {
+      throw new Error(
+        "Invalid imported completion baseline without provenance"
+      );
+    }
+    if (
+      task.importedFrom !== undefined &&
+      (task.importedFrom.targetWorkspaceId !== state.workspaceId ||
+        task.importedFrom.sourceWorkspaceId === state.workspaceId)
+    ) {
+      throw new Error("Invalid import provenance workspace identity");
+    }
     const lifecycle = canonicalCompletionLifecycle(
       task.id,
       state.completionRecords,
