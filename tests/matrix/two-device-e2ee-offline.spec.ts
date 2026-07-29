@@ -955,6 +955,8 @@ test("Settings logout clears the local session while the homeserver is unreachab
       .click();
     await page.getByLabel("Ключ восстановления").fill(recoveryKey);
     await page.getByRole("button", { name: "Восстановить ключи" }).click();
+    await expect(page.getByTestId("sidebar-settings")).toBeVisible();
+    await page.getByTestId("sidebar-settings").click();
     await expect(
       page.getByRole("button", { name: "Выйти из Matrix" })
     ).toBeVisible();
@@ -1106,14 +1108,15 @@ test("password and recovery key restore verified encrypted checkpoints between i
     expect(wireTypes.length).toBeGreaterThan(0);
     expect(new Set(wireTypes)).toEqual(new Set(["m.room.encrypted"]));
 
-    await pageC.getByTestId("sidebar-settings").click();
-    await pageC.getByRole("button", { name: "Выйти из Matrix" }).click();
-    await expect(pageC.getByLabel("Настройка Matrix")).toBeVisible();
+    await contextC.route(`${homeserver}/_matrix/client/**`, async (route) => {
+      await route.abort();
+    });
     await replaceSnapshotAndClearProjections(pageC, rootSnapshot);
     expect((await workspaceSnapshotState(pageC)).heads.sort()).toEqual(
       [...rootSnapshot.heads].sort()
     );
     await pageC.reload();
+    await expect(pageC.getByTestId("sidebar-today")).toBeVisible();
     expect((await workspaceSnapshotState(pageC)).heads.sort()).toEqual(
       [...rootSnapshot.heads].sort()
     );
@@ -1130,8 +1133,18 @@ test("password and recovery key restore verified encrypted checkpoints between i
     await openInbox(pageC);
     await expect(pageC.getByText(seedTitle, { exact: true })).toBeVisible();
     await expect(pageC.getByText(secondTitle, { exact: true })).toBeVisible();
+
+    await contextC.unroute(`${homeserver}/_matrix/client/**`);
+    await pageC.getByTestId("sidebar-settings").click();
+    await pageC.getByRole("button", { name: "Выйти из Matrix" }).click();
+    await expect(pageC.getByLabel("Настройка Matrix")).toBeVisible();
+    await recoverSecondDevice(pageC, username, password, recoveryKey);
+    await openInbox(pageC);
+    await expect(pageC.getByText(seedTitle, { exact: true })).toBeVisible();
+    await expect(pageC.getByText(secondTitle, { exact: true })).toBeVisible();
     expect(plaintextCheckpointRequests).toEqual([]);
   } finally {
+    await contextC.unroute(`${homeserver}/_matrix/client/**`);
     await contextA.close();
     await contextB.close();
     await contextC.close();
