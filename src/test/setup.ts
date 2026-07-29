@@ -6,10 +6,24 @@ import { vi } from "vitest";
 // Mock TaskId
 vi.mock("../shared/domain/value-objects/TaskId", () => {
   let counter = 0;
+  class InvalidTaskIdError extends Error {
+    constructor(value: string) {
+      super(`Invalid TaskId: ${value}. Must be a valid ULID.`);
+      this.name = "InvalidTaskIdError";
+    }
+  }
 
   return {
+    InvalidTaskIdError,
     TaskId: class MockTaskId {
-      constructor(public value: string) {}
+      constructor(public value: string) {
+        if (
+          typeof value !== "string" ||
+          !/^[0-9A-HJKMNP-TV-Z]{26}$/.test(value)
+        ) {
+          throw new InvalidTaskIdError(String(value));
+        }
+      }
 
       equals(other: any) {
         return this.value === (other?.value || other);
@@ -41,11 +55,20 @@ vi.mock("../shared/domain/value-objects/TaskId", () => {
       }
 
       static fromString(value: string) {
-        // Simple validation - check if it looks like a ULID
-        if (!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(value)) {
-          throw new Error("Invalid task ID format");
-        }
         return new MockTaskId(value);
+      }
+
+      getTimestamp() {
+        const chars = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+        let timestamp = 0;
+        for (const char of this.value.slice(0, 10)) {
+          timestamp = timestamp * 32 + chars.indexOf(char);
+        }
+        return new Date(timestamp);
+      }
+
+      toString() {
+        return this.value;
       }
     },
   };
@@ -53,12 +76,23 @@ vi.mock("../shared/domain/value-objects/TaskId", () => {
 
 // Mock NonEmptyTitle
 vi.mock("../shared/domain/value-objects/NonEmptyTitle", () => {
+  class InvalidTitleError extends Error {
+    constructor(value: string) {
+      super(
+        `Invalid title: "${value}". Title cannot be empty or contain only whitespace.`
+      );
+      this.name = "InvalidTitleError";
+    }
+  }
+
   return {
+    InvalidTitleError,
     NonEmptyTitle: class MockNonEmptyTitle {
       constructor(public value: string) {
-        if (!value || value.trim().length === 0) {
-          throw new Error("Title cannot be empty");
+        if (typeof value !== "string" || value.trim().length === 0) {
+          throw new InvalidTitleError(value);
         }
+        this.value = value.trim();
       }
 
       equals(other: any) {
@@ -68,19 +102,61 @@ vi.mock("../shared/domain/value-objects/NonEmptyTitle", () => {
       static fromString(value: string) {
         return new MockNonEmptyTitle(value);
       }
+
+      get length() {
+        return this.value.length;
+      }
+
+      contains(substring: string) {
+        return this.value.toLowerCase().includes(substring.toLowerCase());
+      }
+
+      toUpperCase() {
+        return this.value.toUpperCase();
+      }
+
+      toLowerCase() {
+        return this.value.toLowerCase();
+      }
+
+      truncate(maxLength: number) {
+        return this.value.length <= maxLength
+          ? this.value
+          : `${this.value.substring(0, maxLength - 3)}...`;
+      }
+
+      toString() {
+        return this.value;
+      }
     },
   };
 });
 
 // Mock DateOnly
 vi.mock("../shared/domain/value-objects/DateOnly", () => {
-  const mockDate = new Date("2023-12-01T12:00:00Z");
-  const mockDateString = "2023-12-01";
-  const mockYesterdayString = "2023-11-30";
+  const defaultTestDate = new Date("2023-12-01T12:00:00.000Z");
+
+  class InvalidDateOnlyError extends Error {
+    constructor(value: string) {
+      super(`Invalid DateOnly: ${value}. Must be in YYYY-MM-DD format.`);
+      this.name = "InvalidDateOnlyError";
+    }
+  }
 
   return {
+    InvalidDateOnlyError,
     DateOnly: class MockDateOnly {
       constructor(value: string) {
+        if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          throw new InvalidDateOnlyError(String(value));
+        }
+        const date = new Date(`${value}T00:00:00.000Z`);
+        if (
+          Number.isNaN(date.getTime()) ||
+          date.toISOString().slice(0, 10) !== value
+        ) {
+          throw new InvalidDateOnlyError(value);
+        }
         this.value = value;
       }
 
@@ -99,15 +175,22 @@ vi.mock("../shared/domain/value-objects/DateOnly", () => {
       }
 
       static today() {
-        return new MockDateOnly(mockDateString);
+        return MockDateOnly.fromDate(MockDateOnly.getCurrentDate());
       }
 
       static yesterday() {
-        return new MockDateOnly(mockYesterdayString);
+        return MockDateOnly.today().subtractDays(1);
       }
 
-      getCurrentDate() {
-        return mockDate;
+      static getCurrentDate() {
+        if (typeof window !== "undefined") {
+          const mockedDate = localStorage.getItem("__dev_mocked_date__");
+          if (mockedDate) {
+            return new Date(mockedDate);
+          }
+        }
+
+        return vi.isFakeTimers() ? new Date() : new Date(defaultTestDate);
       }
 
       static fromDate = (date: Date) => {
@@ -120,12 +203,34 @@ vi.mock("../shared/domain/value-objects/DateOnly", () => {
       };
 
       static fromString = (dateString: string) => {
-        // Validate date format
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-          throw new Error("Invalid date format");
-        }
         return new MockDateOnly(dateString);
       };
+
+      toDate() {
+        return new Date(`${this.value}T00:00:00.000Z`);
+      }
+
+      addDays(days: number) {
+        const date = this.toDate();
+        date.setUTCDate(date.getUTCDate() + days);
+        return MockDateOnly.fromDate(date);
+      }
+
+      subtractDays(days: number) {
+        return this.addDays(-days);
+      }
+
+      isBefore(other: any) {
+        return this.value < (other?.value || other);
+      }
+
+      isAfter(other: any) {
+        return this.value > (other?.value || other);
+      }
+
+      toString() {
+        return this.value;
+      }
     },
   };
 });

@@ -1,8 +1,4 @@
-import {
-  TaskEvent,
-  TaskEventType,
-  AnyTaskEvent,
-} from "../../domain/events/TaskEvent";
+import { TaskEventType, AnyTaskEvent } from "../../domain/events/TaskEvent";
 
 /**
  * Event listener function type

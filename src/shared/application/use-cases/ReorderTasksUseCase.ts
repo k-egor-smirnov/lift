@@ -1,121 +1,152 @@
-import { injectable, inject } from "tsyringe";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import { TaskRepository } from "../../domain/repositories/TaskRepository";
-import { EventBus } from "../../domain/events/EventBus";
+import type { CurrentActor } from "../../../features/workspaces/application/ports/CurrentActor";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
+import type { WorkspaceRepository } from "../../../features/workspaces/application/ports/WorkspaceRepository";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
+import {
+  comparePositions,
+  isDeleted,
+} from "../../../features/workspaces/domain/ConflictPolicy";
 import { Result, ResultUtils } from "../../domain/Result";
-import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
-import { hashTask } from "../../infrastructure/utils/hashUtils";
-import * as tokens from "../../infrastructure/di/tokens";
+import { BaseTaskUseCase, TaskOperationError } from "./BaseTaskUseCase";
 
-/**
- * Request for reordering tasks
- */
 export interface ReorderTasksRequest {
-  taskOrders: Array<{
-    taskId: string;
-    order: number;
-  }>;
+  readonly taskId: string;
+  readonly leftTaskId?: string | null;
+  readonly rightTaskId?: string | null;
 }
 
-/**
- * Domain errors for task reordering
- */
-export class TaskReorderError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string
-  ) {
-    super(message);
+export class TaskReorderError extends TaskOperationError {
+  constructor(message: string, code: string) {
+    super(message, code);
     this.name = "TaskReorderError";
   }
 }
 
-/**
- * Use case for reordering multiple tasks
- */
-@injectable()
-export class ReorderTasksUseCase {
+export class ReorderTasksUseCase extends BaseTaskUseCase {
   constructor(
-    @inject(tokens.TASK_REPOSITORY_TOKEN)
-    private readonly taskRepository: TaskRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
-  ) {}
+    workspace: CurrentWorkspace,
+    repository: WorkspaceRepository,
+    unitOfWork: WorkspaceUnitOfWork,
+    actor: CurrentActor
+  ) {
+    super(workspace, repository, unitOfWork, actor);
+  }
 
   async execute(
     request: ReorderTasksRequest
   ): Promise<Result<void, TaskReorderError>> {
-    try {
-      const tasks = [];
-      const allEvents: any[] = [];
-
-      // Validate and load all tasks
-      for (const { taskId, order } of request.taskOrders) {
-        let parsedTaskId: TaskId;
-        try {
-          parsedTaskId = TaskId.fromString(taskId);
-        } catch (error) {
-          return ResultUtils.error(
-            new TaskReorderError(
-              `Invalid task ID format: ${taskId}`,
-              "INVALID_TASK_ID"
-            )
-          );
-        }
-
-        const task = await this.taskRepository.findById(parsedTaskId);
-        if (!task) {
-          return ResultUtils.error(
-            new TaskReorderError(`Task not found: ${taskId}`, "TASK_NOT_FOUND")
-          );
-        }
-
-        // Update task order
-        const orderEvents = task.changeOrder(order);
-        allEvents.push(...orderEvents);
-        tasks.push(task);
-      }
-
-      // Execute transactional operation
-      await this.database.transaction(
-        "rw",
-        [
-          this.database.tasks,
-          this.database.syncQueue,
-          this.database.eventStore,
-        ],
-        async () => {
-          // Save all updated tasks
-          for (const task of tasks) {
-            await this.taskRepository.save(task);
-
-            // Add sync queue entry for each task
-            await this.database.syncQueue.add({
-              entityType: "task",
-              entityId: task.id.value,
-              operation: "update",
-              payloadHash: hashTask(task),
-              attemptCount: 0,
-              createdAt: new Date(),
-              nextAttemptAt: Date.now(),
-            });
-          }
-
-          // Publish domain events
-          if (allEvents.length > 0) {
-            await this.eventBus.publishAll(allEvents);
-          }
-        }
-      );
-
-      return ResultUtils.ok(undefined);
-    } catch (error) {
+    const parsedTaskId = this.parseTaskId(request.taskId);
+    if (ResultUtils.isFailure(parsedTaskId)) {
       return ResultUtils.error(
         new TaskReorderError(
-          `Failed to reorder tasks: ${error instanceof Error ? error.message : "Unknown error"}`,
-          "REORDER_FAILED"
+          parsedTaskId.error.message,
+          parsedTaskId.error.code
         )
       );
     }
+    const left = this.parseNeighbor(request.leftTaskId);
+    if (ResultUtils.isFailure(left)) return left;
+    const right = this.parseNeighbor(request.rightTaskId);
+    if (ResultUtils.isFailure(right)) return right;
+    if (left.data === parsedTaskId.data || right.data === parsedTaskId.data) {
+      return ResultUtils.error(
+        new TaskReorderError(
+          "A task cannot be its own position neighbor",
+          "INVALID_POSITION"
+        )
+      );
+    }
+
+    const loaded = await this.findTaskById(parsedTaskId.data);
+    if (ResultUtils.isFailure(loaded)) {
+      return ResultUtils.error(
+        new TaskReorderError(loaded.error.message, loaded.error.code)
+      );
+    }
+    const leftTask = left.data
+      ? loaded.data.workspace.state.tasks[left.data]
+      : undefined;
+    const rightTask = right.data
+      ? loaded.data.workspace.state.tasks[right.data]
+      : undefined;
+    if (
+      (left.data && (!leftTask || isDeleted(leftTask.deletionDots))) ||
+      (right.data && (!rightTask || isDeleted(rightTask.deletionDots)))
+    ) {
+      return ResultUtils.error(
+        new TaskReorderError("Task not found", "TASK_NOT_FOUND")
+      );
+    }
+    if (
+      leftTask !== undefined &&
+      rightTask !== undefined &&
+      comparePositions(
+        { ...leftTask.position, taskId: leftTask.id },
+        { ...rightTask.position, taskId: rightTask.id }
+      ) >= 0
+    ) {
+      return ResultUtils.error(
+        new TaskReorderError("Invalid task position bounds", "INVALID_POSITION")
+      );
+    }
+
+    const remaining = Object.values(loaded.data.workspace.state.tasks)
+      .filter(
+        (task) =>
+          task.id !== loaded.data.taskId && !isDeleted(task.deletionDots)
+      )
+      .sort((first, second) =>
+        comparePositions(
+          { ...first.position, taskId: first.id },
+          { ...second.position, taskId: second.id }
+        )
+      );
+    const insertionIndex =
+      left.data === null
+        ? 0
+        : remaining.findIndex((task) => task.id === left.data) + 1;
+    if (
+      insertionIndex < 0 ||
+      (right.data !== null && remaining[insertionIndex]?.id !== right.data) ||
+      (right.data === null && insertionIndex !== remaining.length)
+    ) {
+      return ResultUtils.error(
+        new TaskReorderError(
+          "Invalid task position bounds: left and right must be actual canonical neighbours",
+          "INVALID_POSITION"
+        )
+      );
+    }
+
+    const metadata = this.commandBase(loaded.data);
+    if (ResultUtils.isFailure(metadata)) {
+      return ResultUtils.error(
+        new TaskReorderError(metadata.error.message, metadata.error.code)
+      );
+    }
+    const committed = await this.commit({
+      type: "MoveTask",
+      ...metadata.data,
+      taskId: loaded.data.taskId,
+      leftTaskId: left.data,
+      rightTaskId: right.data,
+    });
+    return ResultUtils.isFailure(committed)
+      ? ResultUtils.error(
+          new TaskReorderError(committed.error.message, committed.error.code)
+        )
+      : ResultUtils.ok(undefined);
+  }
+
+  private parseNeighbor(
+    value: string | null | undefined
+  ): Result<string | null, TaskReorderError> {
+    if (value === null || value === undefined) return ResultUtils.ok(null);
+    const parsed = this.parseTaskId(value);
+    return ResultUtils.isFailure(parsed)
+      ? ResultUtils.error(
+          new TaskReorderError(parsed.error.message, parsed.error.code)
+        )
+      : ResultUtils.ok(parsed.data);
   }
 }

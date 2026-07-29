@@ -10,11 +10,12 @@ import {
   PopoverTrigger,
 } from "../../../../../shared/ui/popover";
 import { cn } from "../../../../../shared/lib/utils";
+import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
 
 interface TaskDeferModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDeferConfirm: (deferDate: Date) => void;
+  onDeferConfirm: (deferDate: string) => void;
 }
 
 export const TaskDeferModal: React.FC<TaskDeferModalProps> = ({
@@ -119,7 +120,7 @@ export const TaskDeferModal: React.FC<TaskDeferModalProps> = ({
           <Button
             onClick={() => {
               if (selectedDate) {
-                onDeferConfirm(selectedDate);
+                onDeferConfirm(DateOnly.fromDate(selectedDate).value);
               }
             }}
             disabled={!selectedDate}

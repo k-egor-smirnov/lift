@@ -1,35 +1,34 @@
-import React, { useEffect, useState, useRef } from "react";
-import { Plus, Sun } from "lucide-react";
+import React, { useEffect, useRef } from "react";
+import { Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskList } from "../../../tasks/presentation/components/TaskList";
 import { LogEntry } from "../../../../shared/application/use-cases/GetTaskLogsUseCase";
 import { TodayViewModelDependencies } from "../view-models/TodayViewModel";
 import { useTodayViewModelStore } from "../view-models/TodayViewModelStore";
-import { Task } from "../../../../shared/domain/entities/Task";
 import { useOnboardingViewModel } from "../../../onboarding/presentation/view-models/OnboardingViewModel";
 import { toast } from "sonner";
-import { getService, tokens } from "../../../../shared/infrastructure/di";
-import { ResultUtils } from "../../../../shared/domain/Result";
-import { RevertTaskCompletionUseCase } from "../../../../shared/application/use-cases/RevertTaskCompletionUseCase";
-import { TaskId } from "../../../../shared/domain/value-objects/TaskId";
-import { TaskCategory } from "../../../../shared/domain/types";
+import { workspaceTaskToListItem } from "../../../tasks/presentation/models/TaskListItem";
+import type { TaskReorderIntent } from "../../../tasks/presentation/models/TaskReorderIntent";
+import type { TaskListItem } from "../../../tasks/presentation/models/TaskListItem";
+import type { Tag } from "../../../tags/presentation/view-models/TagViewModel";
 
 interface TodayMobileViewProps {
   dependencies: TodayViewModelDependencies;
-  onEditTask?: (taskId: string, newTitle: string) => void;
   onDeleteTask?: (taskId: string) => void;
-  onDefer?: (taskId: string, deferDate: Date) => void;
-  onUndefer?: (taskId: TaskId) => Promise<void>;
-  onReorderTasks?: (tasks: Task[]) => void;
+  onDefer?: (taskId: string, deferDate: string) => void;
+  onUndefer?: (taskId: string) => Promise<void>;
+  onReorderTasks?: (intent: TaskReorderIntent) => void;
   onLoadTaskLogs?: (taskId: string) => Promise<LogEntry[]>;
   onCreateLog?: (taskId: string, message: string) => Promise<boolean>;
   lastLogs?: Record<string, LogEntry>;
-  onCreateTask?: (title: string, category: TaskCategory) => Promise<void>;
+  onEditTask?: (task: TaskListItem) => void;
+  tags?: readonly Tag[];
+  taskTags?: Record<string, string[]>;
+  refreshToken?: string;
 }
 
 export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   dependencies,
-  onEditTask,
   onDeleteTask,
   onDefer,
   onUndefer,
@@ -37,14 +36,16 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   onLoadTaskLogs,
   onCreateLog,
   lastLogs = {},
-  onCreateTask,
+  onEditTask,
+  tags = [],
+  taskTags = {},
+  refreshToken,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Use global store
   const {
-    tasks,
     loading,
     refreshing,
     error,
@@ -52,7 +53,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     loadTodayTasks,
     removeTaskFromToday,
     completeTask,
-    refreshToday,
+    revertTaskCompletion,
     clearError,
     getActiveTasks,
     getCompletedTasks,
@@ -73,15 +74,15 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   // Load today's tasks on component mount
   useEffect(() => {
     loadTodayTasks();
-  }, [loadTodayTasks]);
+  }, [loadTodayTasks, refreshToken]);
 
   const handleCompleteTask = async (taskId: string) => {
     try {
       // Find task to get its title for the notification
       const taskInfo = [...getActiveTasks(), ...getCompletedTasks()].find(
-        (t) => t.task.id.value === taskId
+        (task) => task.taskId === taskId
       );
-      const taskTitle = taskInfo?.task.title.value || t("tasks.newTask");
+      const taskTitle = taskInfo?.title || t("tasks.newTask");
 
       await completeTask(taskId);
 
@@ -103,15 +104,8 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
 
   const handleRevertCompletion = async (taskId: string) => {
     try {
-      const revertUseCase = getService<RevertTaskCompletionUseCase>(
-        tokens.REVERT_TASK_COMPLETION_USE_CASE_TOKEN
-      );
-      const result = await revertUseCase.execute({ taskId });
-
-      if (ResultUtils.isSuccess(result)) {
+      if (await revertTaskCompletion(taskId)) {
         toast.success(t("toasts.completionUndone"));
-        // Reload today's tasks to reflect changes (silent refresh)
-        await loadTodayTasks(undefined, true);
       } else {
         toast.error(t("toasts.completionUndoFailed"));
       }
@@ -121,18 +115,8 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
     }
   };
 
-  const handleRemoveFromToday = async (taskId: string) => {
-    await removeTaskFromToday(taskId);
-  };
-
   const handleToggleToday = async (taskId: string) => {
     await removeTaskFromToday(taskId);
-  };
-
-  const handleEditTask = (taskId: string, newTitle: string) => {
-    if (onEditTask) {
-      onEditTask(taskId, newTitle);
-    }
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -142,12 +126,6 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
       console.warn(
         "onDeleteTask prop not provided to TodayMobileView - task deletion not available"
       );
-    }
-  };
-
-  const handleCreateTask = async (title: string, category: TaskCategory) => {
-    if (title.trim() && onCreateTask) {
-      await onCreateTask(title.trim(), category);
     }
   };
 
@@ -168,10 +146,7 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
   return (
     <div className="h-screen w-full overflow-hidden bg-gray-50">
       {/* Scroll container */}
-      <div
-        ref={containerRef}
-        className="h-full overflow-y-auto pb-24"
-      >
+      <div ref={containerRef} className="h-full overflow-y-auto pb-24">
         <div className="px-4 py-6">
           {/* Header */}
           <div className="mb-6">
@@ -191,7 +166,8 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
             </div>
             {allTasks.length > 0 && (
               <p className="text-center text-gray-500 mt-2">
-                {activeTasks.length} {t("todayView.active").toLowerCase()}, {completedTasks.length} {t("todayView.completed").toLowerCase()}
+                {activeTasks.length} {t("todayView.active").toLowerCase()},{" "}
+                {completedTasks.length} {t("todayView.completed").toLowerCase()}
               </p>
             )}
 
@@ -206,131 +182,133 @@ export const TodayMobileView: React.FC<TodayMobileViewProps> = ({
             )}
           </div>
 
-            {/* Error Message */}
-            {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <p className="text-sm text-red-800">{error}</p>
-                  <button
-                    onClick={clearError}
-                    className="text-red-400 hover:text-red-600 ml-2"
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex justify-between items-start">
+                <p className="text-sm text-red-800">{error}</p>
+                <button
+                  onClick={clearError}
+                  className="text-red-400 hover:text-red-600 ml-2"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
                   >
+                    <path
+                      fillRule="evenodd"
+                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">
+                {t("todayView.loadingTasks")}
+              </p>
+            </div>
+          )}
+
+          {/* Task List */}
+          {/* Show tasks if not loading OR if we have existing tasks (to prevent flickering during refresh) */}
+          {(!loading || allTasks.length > 0) && (
+            <>
+              {allTasks.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
                     <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
+                      className="w-16 h-16 mx-auto"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                     >
                       <path
-                        fillRule="evenodd"
-                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                        clipRule="evenodd"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1}
+                        d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
                       />
                     </svg>
-                  </button>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {t("todayView.noTasksForToday")}
+                  </h3>
+                  <p className="text-gray-500">{t("todayView.swipeUpToAdd")}</p>
                 </div>
-              </div>
-            )}
-
-            {/* Loading State */}
-            {loading && (
-              <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p className="mt-2 text-gray-600">{t("todayView.loadingTasks")}</p>
-              </div>
-            )}
-
-            {/* Task List */}
-            {/* Show tasks if not loading OR if we have existing tasks (to prevent flickering during refresh) */}
-            {(!loading || allTasks.length > 0) && (
-              <>
-                {allTasks.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-gray-400 mb-4">
-                      <svg
-                        className="w-16 h-16 mx-auto"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1}
-                          d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                        />
-                      </svg>
+              ) : (
+                <div className="space-y-4">
+                  {/* Active Tasks */}
+                  {activeTasks.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        {t("todayView.active")} ({activeTasks.length})
+                      </h3>
+                      <TaskList
+                        tasks={activeTasks.map(workspaceTaskToListItem)}
+                        onComplete={handleCompleteTask}
+                        onEdit={onEditTask}
+                        onRevertCompletion={handleRevertCompletion}
+                        onDelete={handleDeleteTask}
+                        onAddToToday={handleToggleToday}
+                        onDefer={onDefer}
+                        onUndefer={onUndefer}
+                        onReorder={onReorderTasks}
+                        showTodayButton={true}
+                        showDeferButton={true}
+                        lastLogs={lastLogs}
+                        onLoadTaskLogs={onLoadTaskLogs}
+                        onCreateLog={onCreateLog}
+                        groupByCategory={false}
+                        todayTaskIds={getTodayTaskIds()}
+                        tags={[...tags]}
+                        taskTags={taskTags}
+                      />
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      {t("todayView.noTasksForToday")}
-                    </h3>
-                    <p className="text-gray-500">
-                      {t("todayView.swipeUpToAdd")}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Active Tasks */}
-                    {activeTasks.length > 0 && (
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                          {t("todayView.active")} ({activeTasks.length})
-                        </h3>
-                        <TaskList
-                          tasks={activeTasks.map((taskInfo) => taskInfo.task)}
-                          onComplete={handleCompleteTask}
-                          onRevertCompletion={handleRevertCompletion}
-                          onEdit={handleEditTask}
-                          onDelete={handleDeleteTask}
-                          onAddToToday={handleToggleToday}
-                          onDefer={onDefer}
-                          onUndefer={onUndefer}
-                          onReorder={onReorderTasks}
-                          showTodayButton={true}
-                          showDeferButton={true}
-                          lastLogs={lastLogs}
-                          onLoadTaskLogs={onLoadTaskLogs}
-                          onCreateLog={onCreateLog}
-                          groupByCategory={false}
-                          todayTaskIds={getTodayTaskIds()}
-                        />
-                      </div>
-                    )}
+                  )}
 
-                    {/* Completed Tasks */}
-                    {completedTasks.length > 0 && (
-                      <div className={activeTasks.length > 0 ? "mt-8" : ""}>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                          {t("todayView.completed")} ({completedTasks.length})
-                        </h3>
-                        <TaskList
-                          tasks={completedTasks.map(
-                            (taskInfo) => taskInfo.task
-                          )}
-                          onComplete={undefined}
-                          onRevertCompletion={handleRevertCompletion}
-                          onEdit={handleEditTask}
-                          onDelete={handleDeleteTask}
-                          onAddToToday={handleToggleToday}
-                          onDefer={onDefer}
-                          onUndefer={onUndefer}
-                          onReorder={onReorderTasks}
-                          showTodayButton={true}
-                          showDeferButton={false}
-                          lastLogs={lastLogs}
-                          onLoadTaskLogs={onLoadTaskLogs}
-                          onCreateLog={onCreateLog}
-                          groupByCategory={false}
-                          todayTaskIds={getTodayTaskIds()}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+                  {/* Completed Tasks */}
+                  {completedTasks.length > 0 && (
+                    <div className={activeTasks.length > 0 ? "mt-8" : ""}>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        {t("todayView.completed")} ({completedTasks.length})
+                      </h3>
+                      <TaskList
+                        tasks={completedTasks.map(workspaceTaskToListItem)}
+                        onComplete={undefined}
+                        onRevertCompletion={handleRevertCompletion}
+                        onEdit={onEditTask}
+                        onDelete={handleDeleteTask}
+                        onAddToToday={handleToggleToday}
+                        onDefer={onDefer}
+                        onUndefer={onUndefer}
+                        onReorder={onReorderTasks}
+                        showTodayButton={true}
+                        showDeferButton={false}
+                        lastLogs={lastLogs}
+                        onLoadTaskLogs={onLoadTaskLogs}
+                        onCreateLog={onCreateLog}
+                        groupByCategory={false}
+                        todayTaskIds={getTodayTaskIds()}
+                        tags={[...tags]}
+                        taskTags={taskTags}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -42,6 +42,7 @@ describe("DateOnly", () => {
   describe("today", () => {
     it("should create DateOnly for current date", () => {
       const mockDate = new Date("2023-12-25T15:30:00");
+      vi.useFakeTimers();
       vi.setSystemTime(mockDate);
 
       const today = DateOnly.today();

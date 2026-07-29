@@ -66,11 +66,6 @@ export interface DailySelectionRepository {
   ): Promise<DailySelectionEntry[]>;
 
   /**
-   * Clear all selections for a specific day
-   */
-  clearDay(date: DateOnly): Promise<void>;
-
-  /**
    * Count tasks selected for a specific day
    */
   countTasksForDay(date: DateOnly): Promise<number>;

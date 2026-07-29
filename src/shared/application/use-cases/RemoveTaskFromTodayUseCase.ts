@@ -1,96 +1,95 @@
-import { injectable, inject } from "tsyringe";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import { DateOnly } from "../../domain/value-objects/DateOnly";
-import { DailySelectionRepository } from "../../domain/repositories/DailySelectionRepository";
-import { EventBus } from "../../domain/events/EventBus";
-import { TaskRemovedFromTodayEvent } from "../../domain/events/TaskEvents";
+import type { CurrentActor } from "../../../features/workspaces/application/ports/CurrentActor";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
+import type { EffectiveDateProvider } from "../../../features/workspaces/application/ports/EffectiveDateProvider";
+import type { WorkspaceRepository } from "../../../features/workspaces/application/ports/WorkspaceRepository";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
+import { isValidDateOnly } from "../../../features/workspaces/domain/EffectiveDate";
 import { Result, ResultUtils } from "../../domain/Result";
-import { DebouncedSyncService } from "../services/DebouncedSyncService";
-import * as tokens from "../../infrastructure/di/tokens";
+import {
+  BaseTaskUseCase,
+  errorMessage,
+  TaskOperationError,
+} from "./BaseTaskUseCase";
 
-/**
- * Request for removing a task from today's selection
- */
 export interface RemoveTaskFromTodayRequest {
-  taskId: string;
-  date?: string; // Optional, defaults to today (YYYY-MM-DD format)
+  readonly taskId: string;
+  readonly date?: string;
 }
 
-/**
- * Domain errors for removing task from today
- */
-export class RemoveTaskFromTodayError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string
-  ) {
-    super(message);
+export class RemoveTaskFromTodayError extends TaskOperationError {
+  constructor(message: string, code: string) {
+    super(message, code);
     this.name = "RemoveTaskFromTodayError";
   }
 }
 
-/**
- * Use case for removing a task from today's daily selection
- */
-@injectable()
-export class RemoveTaskFromTodayUseCase {
+export class RemoveTaskFromTodayUseCase extends BaseTaskUseCase {
   constructor(
-    @inject(tokens.DAILY_SELECTION_REPOSITORY_TOKEN)
-    private readonly dailySelectionRepository: DailySelectionRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
-    private readonly debouncedSyncService: DebouncedSyncService
-  ) {}
+    workspace: CurrentWorkspace,
+    repository: WorkspaceRepository,
+    unitOfWork: WorkspaceUnitOfWork,
+    actor: CurrentActor,
+    private readonly effectiveDates: EffectiveDateProvider
+  ) {
+    super(workspace, repository, unitOfWork, actor);
+  }
 
   async execute(
     request: RemoveTaskFromTodayRequest
   ): Promise<Result<void, RemoveTaskFromTodayError>> {
+    if (request.date !== undefined && !isValidDateOnly(request.date)) {
+      return ResultUtils.error(
+        new RemoveTaskFromTodayError("Invalid date format", "INVALID_DATE")
+      );
+    }
+    const loaded = await this.findTaskById(request.taskId);
+    if (ResultUtils.isFailure(loaded)) {
+      return ResultUtils.error(
+        new RemoveTaskFromTodayError(loaded.error.message, loaded.error.code)
+      );
+    }
+
+    let date: string;
     try {
-      // Parse and validate task ID
-      let taskId: TaskId;
-      try {
-        taskId = TaskId.fromString(request.taskId);
-      } catch (error) {
-        return ResultUtils.error(
-          new RemoveTaskFromTodayError(
-            "Invalid task ID format",
-            "INVALID_TASK_ID"
-          )
-        );
-      }
-
-      // Parse date or use today
-      let date: DateOnly;
-      try {
-        if (request.date) {
-          date = DateOnly.fromString(request.date);
-        } else {
-          date = DateOnly.today();
-        }
-      } catch (error) {
-        return ResultUtils.error(
-          new RemoveTaskFromTodayError("Invalid date format", "INVALID_DATE")
-        );
-      }
-
-      // Remove task from daily selection
-      await this.dailySelectionRepository.removeTaskFromDay(date, taskId);
-
-      // Publish event
-      const event = new TaskRemovedFromTodayEvent(taskId, date);
-      await this.eventBus.publish(event);
-
-      // Trigger debounced sync after successful removal
-      this.debouncedSyncService.triggerSync();
-
-      return ResultUtils.ok(undefined);
+      date =
+        request.date ??
+        this.effectiveDates.current(loaded.data.workspace.state.settings);
     } catch (error) {
       return ResultUtils.error(
         new RemoveTaskFromTodayError(
-          `Failed to remove task from today: ${error instanceof Error ? error.message : "Unknown error"}`,
-          "REMOVE_FAILED"
+          `Failed to resolve effective date: ${errorMessage(error)}`,
+          "INVALID_DATE"
         )
       );
     }
+    if (!isValidDateOnly(date)) {
+      return ResultUtils.error(
+        new RemoveTaskFromTodayError("Invalid date format", "INVALID_DATE")
+      );
+    }
+
+    const metadata = this.commandBase(loaded.data);
+    if (ResultUtils.isFailure(metadata)) {
+      return ResultUtils.error(
+        new RemoveTaskFromTodayError(
+          metadata.error.message,
+          metadata.error.code
+        )
+      );
+    }
+    const committed = await this.commit({
+      type: "RemoveFromDay",
+      ...metadata.data,
+      taskId: loaded.data.taskId,
+      date,
+    });
+    return ResultUtils.isFailure(committed)
+      ? ResultUtils.error(
+          new RemoveTaskFromTodayError(
+            committed.error.message,
+            committed.error.code
+          )
+        )
+      : ResultUtils.ok(undefined);
   }
 }

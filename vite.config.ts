@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { codecovVitePlugin } from "@codecov/vite-plugin";
+import { fileURLToPath } from "node:url";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -11,6 +12,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
       },
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "masked-icon.svg"],
       manifest: {
@@ -41,9 +43,25 @@ export default defineConfig({
     }),
   ],
   base: "./",
+  // Vite's dependency optimizer otherwise moves the Matrix WASM loader into
+  // node_modules/.vite/deps while leaving its relative `pkg/*.wasm` URL behind.
+  // Keeping this package external lets Vite serve the artifact from its real
+  // package directory in development; Rollup handles the production asset.
+  optimizeDeps: {
+    exclude: ["@matrix-org/matrix-sdk-crypto-wasm"],
+  },
   resolve: {
-    alias: {
-      "@": "/src",
-    },
+    alias: [
+      { find: "@", replacement: "/src" },
+      {
+        find: /^@automerge\/automerge$/,
+        replacement: fileURLToPath(
+          new URL(
+            "./node_modules/@automerge/automerge/dist/mjs/entrypoints/fullfat_base64.js",
+            import.meta.url
+          )
+        ),
+      },
+    ],
   },
 });

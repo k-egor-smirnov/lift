@@ -1,39 +1,22 @@
 import { create } from "zustand";
-import {
-  TodayTaskInfo,
-  GetTodayTasksUseCase,
-  GetTodayTasksRequest,
-} from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
-import {
-  AddTaskToTodayUseCase,
-  AddTaskToTodayRequest,
-} from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
-import {
-  RemoveTaskFromTodayUseCase,
-  RemoveTaskFromTodayRequest,
-} from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
-import { CompleteTaskUseCase } from "../../../../shared/application/use-cases/CompleteTaskUseCase";
-import { DateOnly } from "../../../../shared/domain/value-objects/DateOnly";
+import { GetTodayTasksRequest } from "../../../../shared/application/use-cases/GetTodayTasksUseCase";
+import { AddTaskToTodayRequest } from "../../../../shared/application/use-cases/AddTaskToTodayUseCase";
+import { RemoveTaskFromTodayRequest } from "../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
+import { ResultUtils } from "../../../../shared/domain/Result";
+import type { WorkspaceTaskReadModel } from "../../../workspaces/application/ports/WorkspaceRepository";
 import { taskEventBus } from "../../../../shared/infrastructure/events/TaskEventBus";
 import {
   TaskEventType,
   AnyTaskEvent,
 } from "../../../../shared/domain/events/TaskEvent";
 import { TodayViewModelDependencies } from "./TodayViewModel";
-import {
-  DEFAULT_USER_SETTINGS,
-  USER_SETTINGS_KEYS,
-  UserSettingsService,
-} from "../../../onboarding/application/services/UserSettingsService";
-import { UserSettingsRepositoryImpl } from "../../../../shared/infrastructure/repositories/UserSettingsRepositoryImpl";
-import { todoDatabase } from "../../../../shared/infrastructure/database/TodoDatabase";
 
 /**
  * Today view model state
  */
 export interface TodayViewModelState {
   // State
-  tasks: TodayTaskInfo[];
+  tasks: readonly WorkspaceTaskReadModel[];
   loading: boolean;
   refreshing: boolean;
   error: string | null;
@@ -43,7 +26,6 @@ export interface TodayViewModelState {
   activeCount: number;
   autoRefreshEnabled: boolean;
   initialized: boolean;
-  startOfDayTime: string;
 
   // Dependencies
   dependencies: TodayViewModelDependencies | null;
@@ -54,75 +36,32 @@ export interface TodayViewModelState {
   addTaskToToday: (taskId: string) => Promise<boolean>;
   removeTaskFromToday: (taskId: string) => Promise<boolean>;
   completeTask: (taskId: string) => Promise<boolean>;
+  revertTaskCompletion: (taskId: string) => Promise<boolean>;
   refreshToday: () => Promise<void>;
   clearError: () => void;
   enableAutoRefresh: () => void;
   disableAutoRefresh: () => void;
 
   // Computed properties
-  getActiveTasks: () => TodayTaskInfo[];
-  getCompletedTasks: () => TodayTaskInfo[];
+  getActiveTasks: () => readonly WorkspaceTaskReadModel[];
+  getCompletedTasks: () => readonly WorkspaceTaskReadModel[];
   getTodayTaskIds: () => string[];
-  isToday: () => boolean;
 }
 
 // Global event subscription management
 let unsubscribeFromEvents: (() => void) | null = null;
-
-const userSettingsRepository = new UserSettingsRepositoryImpl(todoDatabase);
-const userSettingsService = new UserSettingsService(userSettingsRepository);
-
-const parseTimeToMinutes = (time: string) => {
-  const [hours, minutes] = time.split(":").map((part) => Number(part));
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return 9 * 60;
-  }
-  return hours * 60 + minutes;
-};
-
-const getEffectiveDateValue = (startOfDayTime: string) => {
-  const now = DateOnly.getCurrentDate();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const startMinutes = parseTimeToMinutes(startOfDayTime);
-  const today = DateOnly.fromDate(now);
-  if (nowMinutes < startMinutes) {
-    return today.subtractDays(1).value;
-  }
-  return today.value;
-};
-
-const getCurrentSelectionDate = async () => {
-  try {
-    const startOfDayTime = await userSettingsService.getStartOfDayTime();
-    return {
-      date: getEffectiveDateValue(startOfDayTime),
-      startOfDayTime,
-    };
-  } catch (error) {
-    console.warn("Failed to load start of day time:", error);
-    const fallback =
-      DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME];
-    return {
-      date: getEffectiveDateValue(fallback),
-      startOfDayTime: fallback,
-    };
-  }
-};
 
 /**
  * Global TodayViewModel store that persists across component remounts
  */
 export const useTodayViewModelStore = create<TodayViewModelState>(
   (set, get) => ({
-    startOfDayTime: DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME],
     // Initial state
     tasks: [],
     loading: false,
     refreshing: false,
     error: null,
-    currentDate: getEffectiveDateValue(
-      DEFAULT_USER_SETTINGS[USER_SETTINGS_KEYS.START_OF_DAY_TIME]
-    ),
+    currentDate: "",
     totalCount: 0,
     completedCount: 0,
     activeCount: 0,
@@ -152,26 +91,17 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
     // Computed properties
     getActiveTasks: () => {
       const { tasks } = get();
-      return tasks.filter(
-        (info) => !info.completedInSelection && info.task.isActive
-      );
+      return tasks.filter((task) => task.completion === "active");
     },
 
     getCompletedTasks: () => {
       const { tasks } = get();
-      return tasks.filter(
-        (info) => info.completedInSelection || info.task.isCompleted
-      );
+      return tasks.filter((task) => task.completion === "completed");
     },
 
     getTodayTaskIds: () => {
       const { tasks } = get();
-      return tasks.map((info) => info.task.id.value);
-    },
-
-    isToday: () => {
-      const { currentDate, startOfDayTime } = get();
-      return currentDate === getEffectiveDateValue(startOfDayTime);
+      return tasks.map((task) => task.taskId);
     },
 
     // Actions
@@ -191,20 +121,14 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
       }
 
       try {
-        let resolvedDate = date;
-        if (!resolvedDate) {
-          const selection = await getCurrentSelectionDate();
-          resolvedDate = selection.date;
-          set({ startOfDayTime: selection.startOfDayTime });
-        }
         const request: GetTodayTasksRequest = {
-          date: resolvedDate,
+          ...(date === undefined ? {} : { date }),
           includeCompleted: true,
         };
 
         const result = await dependencies.getTodayTasksUseCase.execute(request);
 
-        if (result.success) {
+        if (ResultUtils.isSuccess(result)) {
           set({
             tasks: result.data.tasks,
             currentDate: result.data.date,
@@ -214,9 +138,11 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
             loading: false,
             refreshing: false,
           });
-        } else {
+        }
+
+        if (ResultUtils.isFailure(result)) {
           set({
-            error: (result as any).error.message,
+            error: result.error.message,
             loading: false,
             refreshing: false,
           });
@@ -252,14 +178,14 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
         const result =
           await dependencies.addTaskToTodayUseCase.execute(request);
 
-        if (result.success) {
+        if (ResultUtils.isSuccess(result)) {
           // Reload today's tasks to get the updated list (silent refresh)
           await get().loadTodayTasks(currentDate, true);
           return true;
-        } else {
-          set({ error: (result as any).error.message });
-          return false;
         }
+
+        set({ error: result.error.message });
+        return false;
       } catch (error) {
         set({
           error:
@@ -290,14 +216,14 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
         const result =
           await dependencies.removeTaskFromTodayUseCase.execute(request);
 
-        if (result.success) {
+        if (ResultUtils.isSuccess(result)) {
           // Reload today's tasks to get the updated list (silent refresh)
           await get().loadTodayTasks(currentDate, true);
           return true;
-        } else {
-          set({ error: (result as any).error.message });
-          return false;
         }
+
+        set({ error: result.error.message });
+        return false;
       } catch (error) {
         set({
           error:
@@ -319,19 +245,20 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
       set({ error: null });
 
       try {
+        const { currentDate } = get();
         const result = await dependencies.completeTaskUseCase.execute({
           taskId,
+          effectiveDate: currentDate,
         });
 
-        if (result.success) {
+        if (ResultUtils.isSuccess(result)) {
           // Reload today's tasks to get the updated list (silent refresh)
-          const { currentDate } = get();
           await get().loadTodayTasks(currentDate, true);
           return true;
-        } else {
-          set({ error: (result as any).error.message });
-          return false;
         }
+
+        set({ error: result.error.message });
+        return false;
       } catch (error) {
         set({
           error:
@@ -341,13 +268,42 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
       }
     },
 
+    revertTaskCompletion: async (taskId: string) => {
+      const { dependencies } = get();
+      if (!dependencies) {
+        console.error("TodayViewModel not initialized with dependencies");
+        return false;
+      }
+
+      set({ error: null });
+
+      try {
+        const { currentDate } = get();
+        const result = await dependencies.revertTaskCompletionUseCase.execute({
+          taskId,
+          effectiveDate: currentDate,
+        });
+
+        if (ResultUtils.isSuccess(result)) {
+          await get().loadTodayTasks(currentDate, true);
+          return true;
+        }
+
+        set({ error: result.error.message });
+        return false;
+      } catch (error) {
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to revert task completion",
+        });
+        return false;
+      }
+    },
+
     refreshToday: async () => {
-      const selection = await getCurrentSelectionDate();
-      set({
-        currentDate: selection.date,
-        startOfDayTime: selection.startOfDayTime,
-      });
-      await get().loadTodayTasks(selection.date);
+      await get().loadTodayTasks(undefined, true);
     },
 
     clearError: () => {
@@ -385,8 +341,7 @@ export const useTodayViewModelStore = create<TodayViewModelState>(
 
               // Set new timer to batch events within 200ms window
               debounceTimer = setTimeout(async () => {
-                const { currentDate } = get();
-                await get().loadTodayTasks(currentDate, true);
+                await get().loadTodayTasks(undefined, true);
                 debounceTimer = null;
               }, 200);
             }

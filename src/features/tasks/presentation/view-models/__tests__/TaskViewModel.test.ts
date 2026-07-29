@@ -1,485 +1,320 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { ulid } from "ulid";
-import { Task } from "../../../../../shared/domain/entities/Task";
-import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
-import { NonEmptyTitle } from "../../../../../shared/domain/value-objects/NonEmptyTitle";
-import { TaskCategory, TaskStatus } from "../../../../../shared/domain/types";
-import { TaskRepository } from "../../../../../shared/domain/repositories/TaskRepository";
-import { CreateTaskUseCase } from "../../../../../shared/application/use-cases/CreateTaskUseCase";
-import { UpdateTaskUseCase } from "../../../../../shared/application/use-cases/UpdateTaskUseCase";
-import { CompleteTaskUseCase } from "../../../../../shared/application/use-cases/CompleteTaskUseCase";
-import { GetTodayTasksUseCase } from "../../../../../shared/application/use-cases/GetTodayTasksUseCase";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { WorkspaceTaskReadModel } from "../../../../workspaces/application/ports/WorkspaceRepository";
+import {
+  CreateTaskUseCase,
+  TaskCreationError,
+} from "../../../../../shared/application/use-cases/CreateTaskUseCase";
+import {
+  DeleteTaskUseCase,
+  TaskDeletionError,
+} from "../../../../../shared/application/use-cases/DeleteTaskUseCase";
+import {
+  GetTodayTasksError,
+  GetTodayTasksUseCase,
+} from "../../../../../shared/application/use-cases/GetTodayTasksUseCase";
+import {
+  TaskUpdateError,
+  UpdateTaskUseCase,
+} from "../../../../../shared/application/use-cases/UpdateTaskUseCase";
+import {
+  CompleteTaskUseCase,
+  TaskCompletionError,
+} from "../../../../../shared/application/use-cases/CompleteTaskUseCase";
 import { ResultUtils } from "../../../../../shared/domain/Result";
+import { Task } from "../../../../../shared/domain/entities/Task";
+import type { TaskRepository } from "../../../../../shared/domain/repositories/TaskRepository";
+import { TaskCategory, TaskStatus } from "../../../../../shared/domain/types";
+import { NonEmptyTitle } from "../../../../../shared/domain/value-objects/NonEmptyTitle";
+import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
 import {
   createTaskViewModel,
-  TaskViewModelDependencies,
+  type TaskViewModelDependencies,
 } from "../TaskViewModel";
-import { TestTaskIdUtils } from "../../../../../test/utils/testHelpers";
 
-// Mock Date to ensure consistent test results
-vi.useFakeTimers();
-vi.setSystemTime(new Date("2023-12-01T00:00:00.000Z"));
-
-// Mock dependencies
-const mockTaskRepository: TaskRepository = {
-  findById: vi.fn(),
+const taskRepository: Pick<TaskRepository, "findAll"> = {
   findAll: vi.fn(),
-  findByCategory: vi.fn(),
-  findByStatus: vi.fn(),
-  findByCategoryAndStatus: vi.fn(),
-  findOverdueTasks: vi.fn(),
-  save: vi.fn(),
-  saveMany: vi.fn(),
-  delete: vi.fn(),
-  count: vi.fn(),
-  countByCategory: vi.fn(),
-  exists: vi.fn(),
 };
-
-const mockCreateTaskUseCase: CreateTaskUseCase = {
+const createTaskUseCase: Pick<CreateTaskUseCase, "execute"> = {
   execute: vi.fn(),
-} as any;
-
-const mockUpdateTaskUseCase: UpdateTaskUseCase = {
+};
+const updateTaskUseCase: Pick<UpdateTaskUseCase, "execute"> = {
   execute: vi.fn(),
-} as any;
-
-const mockCompleteTaskUseCase: CompleteTaskUseCase = {
+};
+const completeTaskUseCase: Pick<CompleteTaskUseCase, "execute"> = {
   execute: vi.fn(),
-} as any;
-
-const mockGetTodayTasksUseCase: GetTodayTasksUseCase = {
+};
+const deleteTaskUseCase: Pick<DeleteTaskUseCase, "execute"> = {
   execute: vi.fn(),
-} as any;
-
-const mockDeleteTaskUseCase = {
+};
+const getTodayTasksUseCase: Pick<GetTodayTasksUseCase, "execute"> = {
   execute: vi.fn(),
-} as any;
-
-const mockChangeTaskNoteUseCase = {
-  execute: vi.fn(),
-} as any;
+};
 
 const dependencies: TaskViewModelDependencies = {
-  taskRepository: mockTaskRepository,
-  createTaskUseCase: mockCreateTaskUseCase,
-  updateTaskUseCase: mockUpdateTaskUseCase,
-  completeTaskUseCase: mockCompleteTaskUseCase,
-  deleteTaskUseCase: mockDeleteTaskUseCase,
-  changeTaskNoteUseCase: mockChangeTaskNoteUseCase,
-  getTodayTasksUseCase: mockGetTodayTasksUseCase,
+  taskRepository,
+  createTaskUseCase,
+  updateTaskUseCase,
+  completeTaskUseCase,
+  deleteTaskUseCase,
+  getTodayTasksUseCase,
 };
 
-// Helper function to create test tasks
-const createTestTask = (
-  title: string,
-  category: TaskCategory,
-  status: TaskStatus = TaskStatus.ACTIVE,
-  createdDaysAgo: number = 0
-): Task => {
-  // Use fixed date from mock (2023-12-01) instead of current date
-  const createdAt = new Date("2023-12-01T12:00:00Z");
-  createdAt.setDate(createdAt.getDate() - createdDaysAgo);
+const projectedTask = (
+  taskId: string,
+  completion: WorkspaceTaskReadModel["completion"] = "active"
+): WorkspaceTaskReadModel => ({
+  workspaceId: "workspace-1",
+  taskId,
+  title: `Task ${taskId}`,
+  note: "",
+  tags: [],
+  category: "SIMPLE",
+  completion,
+  positionKey: taskId,
+  deferredUntil: null,
+  inboxEnteredOn: null,
+});
 
-  return new Task(
-    TaskId.fromString(ulid()),
-    NonEmptyTitle.fromString(title),
+const legacyTask = (
+  taskId: string,
+  category: TaskCategory,
+  status: TaskStatus = TaskStatus.ACTIVE
+): Task =>
+  new Task(
+    TaskId.fromString(taskId),
+    NonEmptyTitle.fromString(`Task ${taskId}`),
     category,
     status,
-    createdAt.getTime(), // order parameter should be number
-    createdAt,
-    createdAt,
-    undefined,
-    category === TaskCategory.INBOX ? createdAt : undefined
+    1,
+    new Date("2026-07-22T00:00:00.000Z"),
+    new Date("2026-07-22T00:00:00.000Z")
   );
-};
 
-describe("TaskViewModel", () => {
+describe("TaskViewModel Task-8 contracts", () => {
   let viewModel: ReturnType<typeof createTaskViewModel>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(taskRepository.findAll).mockResolvedValue([]);
     viewModel = createTaskViewModel(dependencies);
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  describe("Initial State", () => {
-    it("should have correct initial state", () => {
-      const state = viewModel.getState();
-
-      expect(state.tasks).toEqual([]);
-      expect(state.loading).toBe(false);
-      expect(state.error).toBe(null);
-      expect(state.filter).toEqual({});
-      expect(state.overdueDays).toBe(3);
+  it("starts with an explicit empty, idle state", () => {
+    expect(viewModel.getState()).toMatchObject({
+      tasks: [],
+      loading: false,
+      error: null,
+      filter: {},
+      overdueDays: 3,
     });
   });
 
-  describe("loadTasks", () => {
-    it("should load tasks successfully", async () => {
-      const mockTasks = [
-        createTestTask("Task 1", TaskCategory.SIMPLE),
-        createTestTask("Task 2", TaskCategory.FOCUS),
-      ];
+  it("loads the legacy read view and clears the loading flag", async () => {
+    const tasks = [
+      legacyTask("01J00000000000000000000001", TaskCategory.SIMPLE),
+      legacyTask("01J00000000000000000000002", TaskCategory.FOCUS),
+    ];
+    vi.mocked(taskRepository.findAll).mockResolvedValue(tasks);
 
-      vi.mocked(mockTaskRepository.findAll).mockResolvedValue(mockTasks);
+    const loading = viewModel.getState().loadTasks();
+    expect(viewModel.getState().loading).toBe(true);
+    await loading;
 
-      await viewModel.getState().loadTasks();
-
-      const state = viewModel.getState();
-      expect(state.tasks).toEqual(mockTasks);
-      expect(state.loading).toBe(false);
-      expect(state.error).toBe(null);
-    });
-
-    it("should handle loading error", async () => {
-      const error = new Error("Database error");
-      vi.mocked(mockTaskRepository.findAll).mockRejectedValue(error);
-
-      await viewModel.getState().loadTasks();
-
-      const state = viewModel.getState();
-      expect(state.tasks).toEqual([]);
-      expect(state.loading).toBe(false);
-      expect(state.error).toBe("Database error");
-    });
-
-    it("should set loading state during operation", async () => {
-      let resolvePromise: (value: Task[]) => void;
-      const promise = new Promise<Task[]>((resolve) => {
-        resolvePromise = resolve;
-      });
-
-      vi.mocked(mockTaskRepository.findAll).mockReturnValue(promise);
-
-      const loadPromise = viewModel.getState().loadTasks();
-
-      // Check loading state is true during operation
-      expect(viewModel.getState().loading).toBe(true);
-
-      resolvePromise!([]);
-      await loadPromise;
-
-      // Check loading state is false after operation
-      expect(viewModel.getState().loading).toBe(false);
-    });
-
-    it("should support silent reload without toggling loading state", async () => {
-      vi.mocked(mockTaskRepository.findAll).mockResolvedValue([]);
-
-      // Ensure loading starts as false
-      expect(viewModel.getState().loading).toBe(false);
-
-      await viewModel.getState().loadTasks({ silent: true });
-
-      expect(viewModel.getState().loading).toBe(false);
+    expect(viewModel.getState()).toMatchObject({
+      tasks,
+      loading: false,
+      error: null,
     });
   });
 
-  describe("createTask", () => {
-    it("should create task successfully", async () => {
-      const request = { title: "New Task", category: TaskCategory.SIMPLE };
-      const mockResponse = { taskId: TestTaskIdUtils.getValidTaskIdString() };
+  it("keeps silent reloads silent and surfaces repository failures", async () => {
+    vi.mocked(taskRepository.findAll).mockResolvedValueOnce([]);
+    await viewModel.getState().loadTasks({ silent: true });
+    expect(viewModel.getState().loading).toBe(false);
 
-      vi.mocked(mockCreateTaskUseCase.execute).mockResolvedValue(
-        ResultUtils.ok(mockResponse)
-      );
-      vi.mocked(mockTaskRepository.findAll).mockResolvedValue([]);
-
-      const result = await viewModel.getState().createTask(request);
-
-      expect(result).toBe(true);
-      expect(mockCreateTaskUseCase.execute).toHaveBeenCalledWith(request);
-      expect(mockTaskRepository.findAll).toHaveBeenCalled(); // loadTasks called
-    });
-
-    it("should handle creation error", async () => {
-      const request = { title: "New Task", category: TaskCategory.SIMPLE };
-      const error = { message: "Creation failed", code: "CREATION_FAILED" };
-
-      vi.mocked(mockCreateTaskUseCase.execute).mockResolvedValue(
-        ResultUtils.error(error as any)
-      );
-
-      const result = await viewModel.getState().createTask(request);
-
-      expect(result).toBe(false);
-      expect(viewModel.getState().error).toBe("Creation failed");
+    vi.mocked(taskRepository.findAll).mockRejectedValueOnce(
+      new Error("Database unavailable")
+    );
+    await viewModel.getState().loadTasks();
+    expect(viewModel.getState()).toMatchObject({
+      loading: false,
+      error: "Database unavailable",
     });
   });
 
-  describe("completeTask", () => {
-    it("should complete task successfully", async () => {
-      const taskId = TestTaskIdUtils.getValidTaskIdString();
-      const mockResponse = { taskId };
+  it("exposes no legacy note mutation or fake completion-revert action", () => {
+    const stateKeys = Object.keys(viewModel.getState());
+    const dependencyKeys = Object.keys(dependencies);
 
-      vi.mocked(mockCompleteTaskUseCase.execute).mockResolvedValue(
-        ResultUtils.ok(mockResponse)
-      );
-      vi.mocked(mockTaskRepository.findAll).mockResolvedValue([]);
+    expect(stateKeys).not.toContain("changeTaskNote");
+    expect(stateKeys).not.toContain("revertTaskCompletion");
+    expect(dependencyKeys).not.toContain("changeTaskNoteUseCase");
+  });
 
-      const result = await viewModel.getState().completeTask(taskId);
+  it("returns the exact created task ID and refreshes the legacy read view", async () => {
+    vi.mocked(createTaskUseCase.execute).mockResolvedValue(
+      ResultUtils.ok({ taskId: "01J00000000000000000000020" })
+    );
 
-      expect(result).toBe(true);
-      expect(mockCompleteTaskUseCase.execute).toHaveBeenCalledWith({ taskId });
-      expect(mockTaskRepository.findAll).toHaveBeenCalled(); // loadTasks called
+    const taskId = await viewModel.getState().createTask({
+      title: "New task",
+      category: TaskCategory.SIMPLE,
     });
 
-    it("should handle completion error", async () => {
-      const taskId = "task-1";
-      const error = { message: "Completion failed", code: "COMPLETION_FAILED" };
+    expect(taskId).toBe("01J00000000000000000000020");
+    expect(taskRepository.findAll).toHaveBeenCalledOnce();
+  });
 
-      vi.mocked(mockCompleteTaskUseCase.execute).mockResolvedValue(
-        ResultUtils.error(error as any)
-      );
+  it("returns null on create failure without searching tasks by timestamp", async () => {
+    vi.mocked(createTaskUseCase.execute).mockResolvedValue(
+      ResultUtils.error(
+        new TaskCreationError("Creation failed", "CREATION_FAILED")
+      )
+    );
 
-      const result = await viewModel.getState().completeTask(taskId);
+    const taskId = await viewModel.getState().createTask({
+      title: "New task",
+      category: TaskCategory.SIMPLE,
+    });
 
-      expect(result).toBe(false);
-      expect(viewModel.getState().error).toBe("Completion failed");
+    expect(taskId).toBeNull();
+    expect(viewModel.getState().error).toBe("Creation failed");
+    expect(taskRepository.findAll).not.toHaveBeenCalled();
+  });
+
+  it("updates only category with the exact Application request", async () => {
+    vi.mocked(updateTaskUseCase.execute).mockResolvedValue(
+      ResultUtils.ok(undefined)
+    );
+    const request = {
+      taskId: "01J00000000000000000000021",
+      category: TaskCategory.FOCUS,
+    };
+
+    await viewModel.getState().updateTask(request);
+
+    expect(updateTaskUseCase.execute).toHaveBeenCalledWith(request);
+  });
+
+  it("maps Today IDs directly from workspace projections", async () => {
+    vi.mocked(getTodayTasksUseCase.execute).mockResolvedValue(
+      ResultUtils.ok({
+        tasks: [projectedTask("task-a"), projectedTask("task-b", "completed")],
+        date: "2026-07-22",
+        totalCount: 2,
+        completedCount: 1,
+        activeCount: 1,
+      })
+    );
+
+    await expect(viewModel.getState().getTodayTaskIds()).resolves.toEqual([
+      "task-a",
+      "task-b",
+    ]);
+  });
+
+  it("keeps Result failures inside update and Today state boundaries", async () => {
+    vi.mocked(updateTaskUseCase.execute).mockResolvedValue(
+      ResultUtils.error(new TaskUpdateError("Cannot update", "UPDATE_FAILED"))
+    );
+
+    await expect(
+      viewModel.getState().updateTask({
+        taskId: "01J00000000000000000000022",
+        category: TaskCategory.INBOX,
+      })
+    ).resolves.toBe(false);
+    expect(viewModel.getState().error).toBe("Cannot update");
+
+    vi.mocked(getTodayTasksUseCase.execute).mockResolvedValue(
+      ResultUtils.error(new GetTodayTasksError("Cannot read", "GET_FAILED"))
+    );
+    await expect(viewModel.getState().getTodayTaskIds()).resolves.toEqual([]);
+    expect(viewModel.getState().error).toBe("Cannot read");
+  });
+
+  it("completes through the string-ID command and refreshes", async () => {
+    vi.mocked(completeTaskUseCase.execute).mockResolvedValue(
+      ResultUtils.ok(undefined)
+    );
+
+    await expect(
+      viewModel.getState().completeTask("01J00000000000000000000025")
+    ).resolves.toBe(true);
+    expect(completeTaskUseCase.execute).toHaveBeenCalledWith({
+      taskId: "01J00000000000000000000025",
+    });
+    expect(taskRepository.findAll).toHaveBeenCalledOnce();
+  });
+
+  it("surfaces completion failures without refreshing", async () => {
+    vi.mocked(completeTaskUseCase.execute).mockResolvedValue(
+      ResultUtils.error(
+        new TaskCompletionError("Cannot complete", "COMPLETION_FAILED")
+      )
+    );
+
+    await expect(
+      viewModel.getState().completeTask("01J00000000000000000000026")
+    ).resolves.toBe(false);
+    expect(viewModel.getState().error).toBe("Cannot complete");
+    expect(taskRepository.findAll).not.toHaveBeenCalled();
+  });
+
+  it("filters and groups only active legacy read entities", () => {
+    const simple = legacyTask(
+      "01J00000000000000000000003",
+      TaskCategory.SIMPLE
+    );
+    const focus = legacyTask("01J00000000000000000000004", TaskCategory.FOCUS);
+    const completed = legacyTask(
+      "01J00000000000000000000005",
+      TaskCategory.SIMPLE,
+      TaskStatus.COMPLETED
+    );
+    viewModel.setState({ tasks: [simple, focus, completed] });
+
+    expect(viewModel.getState().getFilteredTasks()).toEqual([simple, focus]);
+    viewModel.getState().setFilter({ category: TaskCategory.FOCUS });
+    expect(viewModel.getState().getFilteredTasks()).toEqual([focus]);
+    expect(viewModel.getState().getTasksByCategory()).toMatchObject({
+      [TaskCategory.SIMPLE]: [simple],
+      [TaskCategory.FOCUS]: [focus],
+      [TaskCategory.INBOX]: [],
+      [TaskCategory.DEFERRED]: [],
     });
   });
 
-  describe("updateTask", () => {
-    it("should update task successfully", async () => {
-      const request = {
-        taskId: TestTaskIdUtils.getValidTaskIdString(),
-        title: "Updated Task",
-      };
-
-      vi.mocked(mockUpdateTaskUseCase.execute).mockResolvedValue(
-        ResultUtils.ok(undefined)
-      );
-      vi.mocked(mockTaskRepository.findAll).mockResolvedValue([]);
-
-      const result = await viewModel.getState().updateTask(request);
-
-      expect(result).toBe(true);
-      expect(mockUpdateTaskUseCase.execute).toHaveBeenCalledWith(request);
-      expect(mockTaskRepository.findAll).toHaveBeenCalled(); // loadTasks called
-    });
+  it("clears a displayed error", () => {
+    viewModel.setState({ error: "Visible error" });
+    viewModel.getState().clearError();
+    expect(viewModel.getState().error).toBeNull();
   });
 
-  describe("Computed Properties", () => {
-    let mockTasks: Task[];
+  it("deletes through the string-ID command and refreshes", async () => {
+    vi.mocked(deleteTaskUseCase.execute).mockResolvedValue(
+      ResultUtils.ok({ taskId: "01J00000000000000000000023" })
+    );
 
-    beforeEach(() => {
-      mockTasks = [
-        createTestTask("Simple Task", TaskCategory.SIMPLE, TaskStatus.ACTIVE),
-        createTestTask("Focus Task", TaskCategory.FOCUS, TaskStatus.ACTIVE),
-        createTestTask("Inbox Task", TaskCategory.INBOX, TaskStatus.ACTIVE),
-        createTestTask(
-          "Completed Task",
-          TaskCategory.SIMPLE,
-          TaskStatus.COMPLETED
-        ),
-        createTestTask(
-          "Overdue Inbox",
-          TaskCategory.INBOX,
-          TaskStatus.ACTIVE,
-          5
-        ), // 5 days old
-      ];
-
-      // Set tasks directly for testing computed properties using the store's setState method
-      const store = viewModel as any;
-      store.setState({ tasks: mockTasks });
+    await expect(
+      viewModel.getState().deleteTask("01J00000000000000000000023")
+    ).resolves.toBe(true);
+    expect(deleteTaskUseCase.execute).toHaveBeenCalledWith({
+      taskId: "01J00000000000000000000023",
     });
-
-    describe("getFilteredTasks", () => {
-      it("should return all active tasks when no filter is applied", () => {
-        const state = viewModel.getState();
-        const filtered = state.getFilteredTasks();
-
-        expect(filtered).toHaveLength(4); // Excludes completed task
-        expect(filtered.every((task) => task.isActive)).toBe(true);
-      });
-
-      it("should filter by category", () => {
-        viewModel.getState().setFilter({ category: TaskCategory.SIMPLE });
-
-        const state = viewModel.getState();
-        const filtered = state.getFilteredTasks();
-
-        expect(filtered).toHaveLength(1);
-        expect(filtered[0].category).toBe(TaskCategory.SIMPLE);
-        expect(filtered[0].status).toBe(TaskStatus.ACTIVE);
-      });
-
-      it("should filter by status", () => {
-        viewModel.getState().setFilter({ status: TaskStatus.COMPLETED });
-
-        const state = viewModel.getState();
-        const filtered = state.getFilteredTasks();
-
-        expect(filtered).toHaveLength(0); // No completed tasks in active filter
-      });
-
-      it("should filter overdue tasks", () => {
-        viewModel.getState().setFilter({ showOverdue: true });
-
-        const state = viewModel.getState();
-        const filtered = state.getFilteredTasks();
-
-        expect(filtered).toHaveLength(1);
-        expect(filtered[0].category).toBe(TaskCategory.INBOX);
-        expect(filtered[0].isOverdue(3)).toBe(true);
-      });
-    });
-
-    describe("getTasksByCategory", () => {
-      it("should group active tasks by category", () => {
-        const state = viewModel.getState();
-        const grouped = state.getTasksByCategory();
-
-        expect(grouped[TaskCategory.SIMPLE]).toHaveLength(1);
-        expect(grouped[TaskCategory.FOCUS]).toHaveLength(1);
-        expect(grouped[TaskCategory.INBOX]).toHaveLength(2);
-      });
-    });
-
-    describe("getOverdueTasks", () => {
-      it("should return overdue inbox tasks", () => {
-        const state = viewModel.getState();
-        const overdue = state.getOverdueTasks();
-
-        expect(overdue).toHaveLength(1);
-        expect(overdue[0].category).toBe(TaskCategory.INBOX);
-        expect(overdue[0].isOverdue(3)).toBe(true);
-      });
-
-      it("should respect overdueDays setting", () => {
-        viewModel.getState().setOverdueDays(10); // Increase threshold
-
-        const state = viewModel.getState();
-        const overdue = state.getOverdueTasks();
-
-        expect(overdue).toHaveLength(0); // No tasks are 10+ days old
-      });
-    });
-
-    describe("getOverdueCount", () => {
-      it("should return count of overdue tasks", () => {
-        const state = viewModel.getState();
-
-        expect(state.getOverdueCount()).toBe(1);
-      });
-    });
+    expect(taskRepository.findAll).toHaveBeenCalledOnce();
   });
 
-  describe("Filter Management", () => {
-    it("should set filter correctly", () => {
-      const filter = { category: TaskCategory.FOCUS, showOverdue: true };
+  it("surfaces delete failures without refreshing", async () => {
+    vi.mocked(deleteTaskUseCase.execute).mockResolvedValue(
+      ResultUtils.error(new TaskDeletionError("Missing", "TASK_NOT_FOUND"))
+    );
 
-      viewModel.getState().setFilter(filter);
-
-      expect(viewModel.getState().filter).toEqual(filter);
-    });
-
-    it("should set overdue days correctly", () => {
-      viewModel.getState().setOverdueDays(7);
-
-      expect(viewModel.getState().overdueDays).toBe(7);
-    });
-  });
-
-  describe("Error Management", () => {
-    it("should clear error", () => {
-      const store = viewModel as any;
-      store.setState({ error: "Some error" });
-
-      viewModel.getState().clearError();
-
-      expect(viewModel.getState().error).toBe(null);
-    });
-  });
-
-  describe("deleteTask", () => {
-    it("should delete task successfully", async () => {
-      const taskId = TestTaskIdUtils.getValidTaskIdString();
-      const mockResponse = { taskId };
-
-      vi.mocked(mockDeleteTaskUseCase.execute).mockResolvedValue(
-        ResultUtils.ok(mockResponse)
-      );
-      vi.mocked(mockTaskRepository.findAll).mockResolvedValue([]);
-
-      const result = await viewModel.getState().deleteTask(taskId);
-
-      expect(result).toBe(true);
-      expect(mockDeleteTaskUseCase.execute).toHaveBeenCalledWith({ taskId });
-      expect(mockTaskRepository.findAll).toHaveBeenCalled(); // loadTasks called
-    });
-
-    it("should handle delete error when task not found", async () => {
-      const taskId = TestTaskIdUtils.getValidTaskIdString();
-      const error = { message: "Task not found", code: "TASK_NOT_FOUND" };
-
-      vi.mocked(mockDeleteTaskUseCase.execute).mockResolvedValue(
-        ResultUtils.error(error as any)
-      );
-
-      const result = await viewModel.getState().deleteTask(taskId);
-
-      expect(result).toBe(false);
-      expect(viewModel.getState().error).toBe("Task not found");
-    });
-  });
-
-  describe("getTodayTaskIds", () => {
-    it("should return today task ids successfully", async () => {
-      const expectedTaskIds = [
-        TestTaskIdUtils.getValidTaskIdString(),
-        TestTaskIdUtils.getValidTaskIdString(),
-        TestTaskIdUtils.getValidTaskIdString(),
-      ];
-      const mockTasks = expectedTaskIds.map((id) =>
-        createTestTask(`Task ${id}`, TaskCategory.SIMPLE)
-      );
-      // Override the task IDs to match expected values
-      mockTasks.forEach((task, index) => {
-        (task as any).id = { value: expectedTaskIds[index] };
-      });
-
-      const mockResponse = {
-        tasks: mockTasks.map((task) => ({
-          task,
-          completedInSelection: false,
-          selectedAt: new Date(),
-        })),
-        date: "2024-01-01",
-        totalCount: 3,
-        completedCount: 0,
-        activeCount: 3,
-      };
-
-      vi.mocked(mockGetTodayTasksUseCase.execute).mockResolvedValue(
-        ResultUtils.ok(mockResponse)
-      );
-
-      const result = await viewModel.getState().getTodayTaskIds();
-
-      expect(result).toEqual(expectedTaskIds);
-      expect(mockGetTodayTasksUseCase.execute).toHaveBeenCalled();
-    });
-
-    it("should handle error when getting today task ids", async () => {
-      const error = {
-        message: "Failed to get today tasks",
-        code: "GET_TODAY_TASKS_FAILED",
-      };
-
-      vi.mocked(mockGetTodayTasksUseCase.execute).mockResolvedValue(
-        ResultUtils.error(error as any)
-      );
-
-      const result = await viewModel.getState().getTodayTaskIds();
-
-      expect(result).toEqual([]);
-      expect(viewModel.getState().error).toBe("Failed to get today tasks");
-    });
+    await expect(
+      viewModel.getState().deleteTask("01J00000000000000000000024")
+    ).resolves.toBe(false);
+    expect(viewModel.getState().error).toBe("Missing");
+    expect(taskRepository.findAll).not.toHaveBeenCalled();
   });
 });

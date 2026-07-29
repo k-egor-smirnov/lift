@@ -1,16 +1,27 @@
-import { describe, it, expect, beforeEach, vi, Mock } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  vi,
+  type Mocked,
+} from "vitest";
 import { OnboardingService } from "../OnboardingService";
 import { TaskRepository } from "../../../../../shared/domain/repositories/TaskRepository";
 import { DailySelectionRepository } from "../../../../../shared/domain/repositories/DailySelectionRepository";
-import { TaskLogService } from "../../../../../shared/application/services/TaskLogService";
 import { Task } from "../../../../../shared/domain/entities/Task";
 import { TaskId } from "../../../../../shared/domain/value-objects/TaskId";
 import { NonEmptyTitle } from "../../../../../shared/domain/value-objects/NonEmptyTitle";
 import { DateOnly } from "../../../../../shared/domain/value-objects/DateOnly";
 import { TaskCategory, TaskStatus } from "../../../../../shared/domain/types";
+import { AddTaskToTodayUseCase } from "../../../../../shared/application/use-cases/AddTaskToTodayUseCase";
+import { GetTodayTasksUseCase } from "../../../../../shared/application/use-cases/GetTodayTasksUseCase";
+import { RemoveTaskFromTodayUseCase } from "../../../../../shared/application/use-cases/RemoveTaskFromTodayUseCase";
+import { CreateSystemLogUseCase } from "../../../../../shared/application/use-cases/CreateSystemLogUseCase";
 
 // Mock repositories
-const mockTaskRepository: Mock<TaskRepository> = {
+const mockTaskRepository: Mocked<TaskRepository> = {
   findById: vi.fn(),
   findAll: vi.fn(),
   findByCategory: vi.fn(),
@@ -25,7 +36,7 @@ const mockTaskRepository: Mock<TaskRepository> = {
   exists: vi.fn(),
 };
 
-const mockDailySelectionRepository: Mock<DailySelectionRepository> = {
+const mockDailySelectionRepository: Mocked<DailySelectionRepository> = {
   addTaskToDay: vi.fn(),
   removeTaskFromDay: vi.fn(),
   getTasksForDay: vi.fn(),
@@ -34,20 +45,36 @@ const mockDailySelectionRepository: Mock<DailySelectionRepository> = {
   markTaskCompleted: vi.fn(),
   getTaskCompletionStatus: vi.fn(),
   getDailySelectionsForRange: vi.fn(),
-  clearDay: vi.fn(),
   countTasksForDay: vi.fn(),
   getLastSelectionDateForTask: vi.fn(),
+  removeTaskFromAllDays: vi.fn(),
 };
 
-const mockLogService: Mock<TaskLogService> = {
-  createLog: vi.fn(),
-  getLogs: vi.fn(),
-  getLogsByType: vi.fn(),
-  getLogsByDateRange: vi.fn(),
-  clearLogs: vi.fn(),
-  clearLogsByType: vi.fn(),
+const mockAddTaskToTodayUseCase: Pick<AddTaskToTodayUseCase, "execute"> = {
+  execute: vi.fn(),
 };
-
+const mockGetTodayTasksUseCase: Pick<GetTodayTasksUseCase, "execute"> = {
+  execute: vi.fn(),
+};
+const mockRemoveTaskFromTodayUseCase: Pick<
+  RemoveTaskFromTodayUseCase,
+  "execute"
+> = {
+  execute: vi.fn(),
+};
+const mockCreateSystemLogUseCase: Pick<CreateSystemLogUseCase, "execute"> = {
+  execute: vi.fn(),
+};
+const dateContext = {
+  current: vi.fn(async () => {
+    const now = DateOnly.getCurrentDate();
+    const today = DateOnly.fromDate(now);
+    return now.getHours() < 9 ? today.subtractDays(1) : today;
+  }),
+  isAfterStartOfDay: vi.fn(
+    async () => DateOnly.getCurrentDate().getHours() >= 9
+  ),
+};
 describe("OnboardingService", () => {
   let onboardingService: OnboardingService;
 
@@ -57,8 +84,16 @@ describe("OnboardingService", () => {
     onboardingService = new OnboardingService(
       mockTaskRepository,
       mockDailySelectionRepository,
-      mockLogService
+      mockGetTodayTasksUseCase,
+      mockAddTaskToTodayUseCase,
+      mockRemoveTaskFromTodayUseCase,
+      mockCreateSystemLogUseCase,
+      dateContext
     );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("isInMorningWindow", () => {
@@ -120,7 +155,7 @@ describe("OnboardingService", () => {
 
       const yesterday = DateOnly.yesterday();
       const taskId = TaskId.generate();
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
+      const fixedDate = new Date();
       const task = new Task(
         taskId,
         new NonEmptyTitle("Test Task"),
@@ -192,7 +227,7 @@ describe("OnboardingService", () => {
 
       const yesterday = DateOnly.yesterday();
       const taskId = TaskId.generate();
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
+      const fixedDate = new Date();
       const deletedTask = new Task(
         taskId,
         new NonEmptyTitle("Deleted Task"),
@@ -251,7 +286,7 @@ describe("OnboardingService", () => {
 
   describe("getRegularInboxTasks", () => {
     it("should return regular inbox tasks", async () => {
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
+      const fixedDate = new Date("2023-12-01T12:00:00.000Z");
       const regularTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Regular Inbox Task"),
@@ -279,7 +314,7 @@ describe("OnboardingService", () => {
     });
 
     it("should filter out overdue tasks", async () => {
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
+      const fixedDate = new Date("2023-12-01T12:00:00.000Z");
       const regularTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Regular Inbox Task"),
@@ -292,7 +327,9 @@ describe("OnboardingService", () => {
         fixedDate // inboxEnteredAt - recent date
       );
 
-      const overdueDate = new Date("2023-11-27T12:00:00Z"); // 4 days before 2023-12-01
+      const overdueDate = new Date(
+        fixedDate.getTime() - 4 * 24 * 60 * 60 * 1000
+      );
       const overdueTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Overdue Inbox Task"),
@@ -322,7 +359,7 @@ describe("OnboardingService", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2023-01-02T09:00:00"));
 
-      const fixedDate = new Date("2023-12-01T12:00:00Z");
+      const fixedDate = new Date("2023-01-01T12:00:00Z");
       const unfinishedTask = new Task(
         TaskId.generate(),
         new NonEmptyTitle("Unfinished Task"),
@@ -464,13 +501,14 @@ describe("OnboardingService", () => {
       vi.useRealTimers();
     });
 
-    it("should return false when not in morning window", async () => {
+    it("should return true after the start-of-day time", async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2023-01-02T15:00:00"));
 
+      expect(DateOnly.getCurrentDate().getHours()).toBe(15);
       const result = await onboardingService.shouldShowDailyModal(3);
 
-      expect(result).toBe(false);
+      expect(result).toBe(true);
 
       vi.useRealTimers();
     });

@@ -1,237 +1,97 @@
-import { test, expect } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-test.describe("Lift MVP", () => {
+import {
+  createInlineTask,
+  openInbox,
+  startOfflineTestApp,
+} from "./helpers/secure-test-app";
+
+const taskCard = (page: Page, title: string) =>
+  page.locator('[data-testid="task-card"]').filter({ hasText: title });
+
+test.describe("Lift secure local-first UI", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await startOfflineTestApp(page);
   });
 
-  test("should display the main page with correct title", async ({ page }) => {
-    // Check page title
+  test("renders the preserved application shell", async ({ page }) => {
     await expect(page).toHaveTitle(/Lift/);
-
-    // Check main heading
     await expect(
-      page.getByRole("heading", { name: /Lift - MVP/ })
+      page.getByRole("navigation", { name: "Main navigation" })
     ).toBeVisible();
-
-    // Check navigation tabs
-    await expect(page.getByTestId("all-tasks-tab")).toBeVisible();
-    await expect(page.getByTestId("today-tab")).toBeVisible();
-
-    // Check new task button
-    await expect(page.getByTestId("new-task-button")).toBeVisible();
-  });
-
-  test("should show stats cards", async ({ page }) => {
-    // Check all stats cards are visible
-    await expect(page.getByText("Total Tasks")).toBeVisible();
-    await expect(page.getByText("Inbox")).toBeVisible();
-    await expect(page.getByText("Focus")).toBeVisible();
-    await expect(page.getByText("Overdue")).toBeVisible();
-
-    // Initially should show 0 tasks
-    await expect(page.getByTestId("total-tasks-count")).toHaveText("0");
-  });
-
-  test("should create a new task", async ({ page }) => {
-    // Click new task button
-    await page.getByTestId("new-task-button").click();
-
-    // Modal should be visible
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByText("Create New Task")).toBeVisible();
-
-    // Fill in task details
-    await page.getByPlaceholder("Enter task title").fill("Test Task 1");
-    await page.getByRole("combobox").selectOption("SIMPLE");
-
-    // Submit the form
-    await page.getByRole("button", { name: "Create Task" }).click();
-
-    // Modal should close
-    await expect(page.getByRole("dialog")).not.toBeVisible();
-
-    // Task should appear in the list
-    await expect(page.getByText("Test Task 1")).toBeVisible();
-
-    // Stats should update
-    await expect(page.getByTestId("total-tasks-count")).toHaveText("1");
-  });
-
-  test("should switch between tabs", async ({ page }) => {
-    // Initially on All Tasks tab
-    await expect(page.getByTestId("all-tasks-tab")).toHaveClass(
-      /border-blue-500/
-    );
-
-    // Switch to Today tab
-    await page.getByTestId("today-tab").click();
-    await expect(page.getByTestId("today-tab")).toHaveClass(/border-blue-500/);
-
-    // Should show Today view
     await expect(
-      page.getByText("Focus on your selected tasks for the day")
+      page.getByRole("heading", { name: "Lift", level: 2 })
     ).toBeVisible();
-    await expect(page.getByText("No Tasks Selected")).toBeVisible();
+    await expect(page.getByTestId("sidebar-today")).toBeVisible();
+    await expect(page.getByTestId("sidebar-inbox")).toBeVisible();
+    await expect(page.getByTestId("sidebar-focus")).toBeVisible();
+    await expect(page.getByTestId("sidebar-settings")).toBeVisible();
+    await expect(page.getByTestId("connection-state")).toContainText("Оффлайн");
+  });
 
-    // Switch back to All Tasks
-    await page.getByTestId("all-tasks-tab").click();
-    await expect(page.getByTestId("all-tasks-tab")).toHaveClass(
-      /border-blue-500/
+  test("creates a task and keeps it after reload", async ({ page }) => {
+    await openInbox(page);
+    await createInlineTask(page, "Persistent task");
+
+    await page.reload();
+    await openInbox(page);
+    await expect(
+      page.getByText("Persistent task", { exact: true })
+    ).toBeVisible();
+  });
+
+  test("adds an inbox task to Today and completes it", async ({ page }) => {
+    await openInbox(page);
+    await createInlineTask(page, "Daily task");
+    const card = taskCard(page, "Daily task");
+    await card.getByRole("button").first().click();
+
+    await page.getByTestId("sidebar-today").click();
+    const todayCard = taskCard(page, "Daily task");
+    await expect(todayCard).toBeVisible();
+    await todayCard.getByRole("toolbar").getByRole("button").first().click();
+
+    await expect(todayCard.locator("h3")).toHaveClass(/line-through/);
+    await expect(page.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuenow",
+      "100"
     );
   });
 
-  test("should add task to today and show in today view", async ({ page }) => {
-    // First create a task
-    await page.getByTestId("new-task-button").click();
-    await page.getByPlaceholder("Enter task title").fill("Daily Task");
-    await page.getByRole("combobox").selectOption("FOCUS");
-    await page.getByRole("button", { name: "Create Task" }).click();
-
-    // Task should be visible
-    await expect(page.getByText("Daily Task")).toBeVisible();
-
-    // Add to today using sun icon
-    await page.getByTitle("Add to Today").click();
-
-    // Switch to Today tab
-    await page.getByTestId("today-tab").click();
-
-    // Task should appear in Today view
-    await expect(page.getByText("Daily Task")).toBeVisible();
-    await expect(page.getByText("Active Tasks")).toBeVisible();
-
-    // Stats should show 1 active task
-    await expect(page.getByText("1").first()).toBeVisible(); // Total count
-  });
-
-  test("should complete a task", async ({ page }) => {
-    // Create a task first
-    await page.getByTestId("new-task-button").click();
-    await page.getByPlaceholder("Enter task title").fill("Task to Complete");
-    await page.getByRole("combobox").selectOption("SIMPLE");
-    await page.getByRole("button", { name: "Create Task" }).click();
-
-    // Complete the task
-    await page.getByRole("button", { name: "✅ Complete" }).click();
-
-    // Task should show as completed (with strikethrough)
-    await expect(
-      page.locator("h3").filter({ hasText: "Task to Complete" })
-    ).toHaveClass(/line-through/);
-
-    // Complete button should change to Revert
-    await expect(page.getByRole("button", { name: "↩️ Revert" })).toBeVisible();
-  });
-
-  test("should filter tasks by category", async ({ page }) => {
-    // Create tasks of different categories
-    const tasks = [
-      { title: "Simple Task", category: "SIMPLE" },
-      { title: "Focus Task", category: "FOCUS" },
-      { title: "Inbox Task", category: "INBOX" },
-    ];
-
-    for (const task of tasks) {
-      await page.getByTestId("new-task-button").click();
-      await page.getByPlaceholder("Enter task title").fill(task.title);
-      await page.getByRole("combobox").selectOption(task.category);
-      await page.getByRole("button", { name: "Create Task" }).click();
-    }
-
-    // All tasks should be visible initially
-    await expect(page.getByText("Simple Task")).toBeVisible();
-    await expect(page.getByText("Focus Task")).toBeVisible();
-    await expect(page.getByText("Inbox Task")).toBeVisible();
-
-    // Filter by SIMPLE
-    await page.getByTestId("filter-simple").click();
-    await expect(page.getByText("Simple Task")).toBeVisible();
-    await expect(page.getByText("Focus Task")).not.toBeVisible();
-    await expect(page.getByText("Inbox Task")).not.toBeVisible();
-
-    // Filter by FOCUS
-    await page.getByTestId("filter-focus").click();
-    await expect(page.getByText("Simple Task")).not.toBeVisible();
-    await expect(page.getByText("Focus Task")).toBeVisible();
-    await expect(page.getByText("Inbox Task")).not.toBeVisible();
-
-    // Back to all tasks
-    await page.getByTestId("filter-all").click();
-    await expect(page.getByText("Simple Task")).toBeVisible();
-    await expect(page.getByText("Focus Task")).toBeVisible();
-    await expect(page.getByText("Inbox Task")).toBeVisible();
-  });
-
-  test("should show today view with proper date formatting", async ({
+  test("edits title, category and note through the task dialog", async ({
     page,
   }) => {
-    // Switch to Today tab
-    await page.getByTestId("today-tab").click();
+    await openInbox(page);
+    await createInlineTask(page, "Edit me");
+    const card = taskCard(page, "Edit me");
+    await card.getByRole("toolbar").getByRole("button").last().click();
+    await page.getByRole("menuitem").first().click();
 
-    // Should show "Today" as the date
-    await expect(page.getByText("Today")).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "Редактирование задачи" });
+    await dialog.getByLabel("Название").fill("Edited task");
+    await dialog.getByLabel("Категория").selectOption("FOCUS");
+    await dialog.getByLabel("Заметка").fill("Encrypted collaborative note");
+    await dialog.getByRole("button", { name: "Сохранить" }).click();
 
-    // Should show sun emoji
-    await expect(
-      page.locator("span").filter({ hasText: "☀️" }).first()
-    ).toBeVisible();
-
-    // Should show refresh button
-    await expect(page.getByRole("button", { name: "Refresh" })).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByText("Edited task", { exact: true })).toHaveCount(0);
+    await page.getByTestId("sidebar-focus").click();
+    await expect(page.getByText("Edited task", { exact: true })).toBeVisible();
   });
 
-  test("should handle task removal from today", async ({ page }) => {
-    // Create and add task to today
-    await page.getByTestId("new-task-button").click();
-    await page.getByPlaceholder("Enter task title").fill("Remove Me Task");
-    await page.getByRole("combobox").selectOption("SIMPLE");
-    await page.getByRole("button", { name: "Create Task" }).click();
-
-    // Add to today
-    await page.getByTitle("Add to Today").click();
-
-    // Switch to Today tab
-    await page.getByTestId("today-tab").click();
-
-    // Task should be visible
-    await expect(page.getByText("Remove Me Task")).toBeVisible();
-
-    // Remove from today using sunrise icon
-    await page.getByTitle("Remove from Today").click();
-
-    // Task should be removed from today view
-    await expect(page.getByText("Remove Me Task")).not.toBeVisible();
-    await expect(page.getByText("No Tasks Selected")).toBeVisible();
-  });
-
-  test("should show progress bar when tasks are completed", async ({
+  test("shows security, sync and deterministic-day settings", async ({
     page,
   }) => {
-    // Create a task and add to today
-    await page.getByTestId("new-task-button").click();
-    await page.getByPlaceholder("Enter task title").fill("Progress Task");
-    await page.getByRole("combobox").selectOption("SIMPLE");
-    await page.getByRole("button", { name: "Create Task" }).click();
-
-    await page.getByTitle("Add to Today").click();
-
-    // Switch to Today tab
-    await page.getByTestId("today-tab").click();
-
-    // Should show 0% progress initially
-    await expect(page.getByText("0% complete")).toBeVisible();
-
-    // Complete the task
-    await page.getByRole("button", { name: "✅ Complete" }).click();
-
-    // Should show 100% progress
-    await expect(page.getByText("100% complete")).toBeVisible();
-
-    // Progress bar should be full
-    await expect(page.locator(".bg-green-600")).toHaveAttribute(
-      "style",
-      "width: 100%;"
-    );
+    await page.getByTestId("sidebar-settings").click();
+    await expect(
+      page.getByRole("heading", { name: "Сквозное шифрование" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Синхронизация" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Рабочий день" })
+    ).toBeVisible();
+    await expect(page.getByText(/мастер-клиент не нужен/)).toBeVisible();
   });
 });

@@ -1,99 +1,101 @@
-import { injectable, inject } from "tsyringe";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import { TaskRepository } from "../../domain/repositories/TaskRepository";
-import { EventBus } from "../../domain/events/EventBus";
+import type { CurrentActor } from "../../../features/workspaces/application/ports/CurrentActor";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
+import type { EffectiveDateProvider } from "../../../features/workspaces/application/ports/EffectiveDateProvider";
+import type { WorkspaceRepository } from "../../../features/workspaces/application/ports/WorkspaceRepository";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
+import { isValidDateOnly } from "../../../features/workspaces/domain/EffectiveDate";
 import { Result, ResultUtils } from "../../domain/Result";
-import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
-import { hashTask } from "../../infrastructure/utils/hashUtils";
-import * as tokens from "../../infrastructure/di/tokens";
+import {
+  BaseTaskUseCase,
+  errorMessage,
+  TaskOperationError,
+} from "./BaseTaskUseCase";
 
-/**
- * Request for reverting task completion
- */
 export interface RevertTaskCompletionRequest {
-  taskId: string;
+  readonly taskId: string;
+  readonly effectiveDate?: string;
 }
 
-/**
- * Error thrown when task completion revert fails
- */
-export class TaskCompletionRevertError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string
-  ) {
-    super(message);
+export class TaskCompletionRevertError extends TaskOperationError {
+  constructor(message: string, code: string) {
+    super(message, code);
     this.name = "TaskCompletionRevertError";
   }
 }
 
-/**
- * Use case for reverting task completion
- */
-@injectable()
-export class RevertTaskCompletionUseCase {
+export class RevertTaskCompletionUseCase extends BaseTaskUseCase {
   constructor(
-    @inject(tokens.TASK_REPOSITORY_TOKEN)
-    private readonly taskRepository: TaskRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) private readonly eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) private readonly database: TodoDatabase
-  ) {}
+    workspace: CurrentWorkspace,
+    repository: WorkspaceRepository,
+    unitOfWork: WorkspaceUnitOfWork,
+    actor: CurrentActor,
+    private readonly effectiveDates: EffectiveDateProvider
+  ) {
+    super(workspace, repository, unitOfWork, actor);
+  }
 
   async execute(
     request: RevertTaskCompletionRequest
   ): Promise<Result<void, TaskCompletionRevertError>> {
-    try {
-      // Parse and validate task ID
-      let taskId: TaskId;
-      try {
-        taskId = TaskId.fromString(request.taskId);
-      } catch (error) {
-        return ResultUtils.error(
-          new TaskCompletionRevertError(
-            "Invalid task ID format",
-            "INVALID_TASK_ID"
-          )
-        );
-      }
-
-      // Execute in transaction
-      await this.database.transaction(
-        "rw",
-        [this.database.tasks, this.database.eventStore],
-        async () => {
-          // Find the task
-          const task = await this.taskRepository.findById(taskId);
-          if (!task) {
-            throw new TaskCompletionRevertError(
-              "Task not found",
-              "TASK_NOT_FOUND"
-            );
-          }
-
-          // Revert completion
-          const events = task.revertCompletion();
-
-          // Save the updated task
-          await this.taskRepository.save(task);
-
-          // Publish domain events
-          await this.eventBus.publishAll(events);
-        }
+    if (
+      request.effectiveDate !== undefined &&
+      !isValidDateOnly(request.effectiveDate)
+    ) {
+      return ResultUtils.error(
+        new TaskCompletionRevertError("Invalid date format", "INVALID_DATE")
       );
-
+    }
+    const loaded = await this.findTaskById(request.taskId);
+    if (ResultUtils.isFailure(loaded)) {
+      return ResultUtils.error(
+        new TaskCompletionRevertError(loaded.error.message, loaded.error.code)
+      );
+    }
+    if (loaded.data.task.completion === "active") {
       return ResultUtils.ok(undefined);
-    } catch (error) {
-      if (error instanceof TaskCompletionRevertError) {
-        return ResultUtils.error(error);
-      }
+    }
 
-      console.error("Unexpected error in RevertTaskCompletionUseCase:", error);
+    let effectiveDate: string;
+    try {
+      effectiveDate =
+        request.effectiveDate ??
+        this.effectiveDates.current(loaded.data.workspace.state.settings);
+    } catch (error) {
       return ResultUtils.error(
         new TaskCompletionRevertError(
-          "An unexpected error occurred while reverting task completion",
-          "UNEXPECTED_ERROR"
+          `Failed to resolve effective date: ${errorMessage(error)}`,
+          "INVALID_DATE"
         )
       );
     }
+    if (!isValidDateOnly(effectiveDate)) {
+      return ResultUtils.error(
+        new TaskCompletionRevertError("Invalid date format", "INVALID_DATE")
+      );
+    }
+
+    const metadata = this.commandBase(loaded.data, true);
+    if (ResultUtils.isFailure(metadata)) {
+      return ResultUtils.error(
+        new TaskCompletionRevertError(
+          metadata.error.message,
+          metadata.error.code
+        )
+      );
+    }
+    const committed = await this.commit({
+      type: "ReopenTask",
+      ...metadata.data,
+      taskId: loaded.data.taskId,
+      effectiveDate,
+    });
+    return ResultUtils.isFailure(committed)
+      ? ResultUtils.error(
+          new TaskCompletionRevertError(
+            committed.error.message,
+            committed.error.code
+          )
+        )
+      : ResultUtils.ok(undefined);
   }
 }

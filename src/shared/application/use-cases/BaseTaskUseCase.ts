@@ -1,18 +1,19 @@
-import { injectable, inject } from "tsyringe";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import { Task } from "../../domain/entities/Task";
-import { TaskRepository } from "../../domain/repositories/TaskRepository";
-import { EventBus } from "../../domain/events/EventBus";
+import type { WorkspaceCommand } from "../../../features/workspaces/application/commands/WorkspaceCommand";
+import type {
+  CurrentActor,
+  CurrentActorIdentity,
+} from "../../../features/workspaces/application/ports/CurrentActor";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
+import type {
+  WorkspaceReadModel,
+  WorkspaceRepository,
+} from "../../../features/workspaces/application/ports/WorkspaceRepository";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
+import { isDeleted } from "../../../features/workspaces/domain/ConflictPolicy";
+import type { TaskCrdtState } from "../../../features/workspaces/domain/WorkspaceState";
 import { Result, ResultUtils } from "../../domain/Result";
-import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
-import { hashTask } from "../../infrastructure/utils/hashUtils";
-import { DomainEvent } from "../../domain/events/DomainEvent";
-import { DebouncedSyncService } from "../services/DebouncedSyncService";
-import * as tokens from "../../infrastructure/di/tokens";
+import { TaskId } from "../../domain/value-objects/TaskId";
 
-/**
- * Base error for task operations
- */
 export class TaskOperationError extends Error {
   constructor(
     message: string,
@@ -23,147 +24,141 @@ export class TaskOperationError extends Error {
   }
 }
 
-/**
- * Base class for task-related use cases
- * Provides common functionality for task operations
- */
+export interface LoadedWorkspaceTask {
+  readonly workspaceId: string;
+  readonly identity: CurrentActorIdentity;
+  readonly workspace: WorkspaceReadModel;
+  readonly task: Readonly<TaskCrdtState>;
+  readonly taskId: string;
+}
+
+export interface CommandBaseMetadata {
+  readonly workspaceId: string;
+  readonly actorId: string;
+  readonly operationId: string;
+}
+
+export interface AuditedCommandBaseMetadata extends CommandBaseMetadata {
+  readonly auditTime: string;
+}
+
+/** Common Application-port helpers for task scenarios. */
 export abstract class BaseTaskUseCase {
   constructor(
-    @inject(tokens.TASK_REPOSITORY_TOKEN)
-    protected readonly taskRepository: TaskRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) protected readonly eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) protected readonly database: TodoDatabase,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
-    protected readonly debouncedSyncService: DebouncedSyncService
+    protected readonly workspace: CurrentWorkspace,
+    protected readonly repository: WorkspaceRepository,
+    protected readonly unitOfWork: WorkspaceUnitOfWork,
+    protected readonly actor: CurrentActor
   ) {}
 
-  /**
-   * Find task by ID with proper validation and error handling
-   */
-  protected async findTaskById(
-    taskIdString: string
-  ): Promise<Result<Task, TaskOperationError>> {
+  protected parseTaskId(
+    taskIdValue: string
+  ): Result<string, TaskOperationError> {
     try {
-      // Parse and validate task ID
-      let taskId: TaskId;
-      try {
-        taskId = TaskId.fromString(taskIdString);
-      } catch (error) {
+      return ResultUtils.ok(TaskId.fromString(taskIdValue).value);
+    } catch {
+      return ResultUtils.error(
+        new TaskOperationError("Invalid task ID format", "INVALID_TASK_ID")
+      );
+    }
+  }
+
+  protected async findTaskById(
+    taskIdValue: string,
+    options: { readonly includeDeleted?: boolean } = {}
+  ): Promise<Result<LoadedWorkspaceTask, TaskOperationError>> {
+    const parsed = this.parseTaskId(taskIdValue);
+    if (ResultUtils.isFailure(parsed)) return parsed;
+
+    try {
+      const workspaceId = this.workspace.requireId();
+      const identity = this.actor.require();
+      const workspace = await this.repository.getWorkspace(
+        workspaceId,
+        identity.actorId
+      );
+      if (workspace === undefined) {
         return ResultUtils.error(
-          new TaskOperationError("Invalid task ID format", "INVALID_TASK_ID")
+          new TaskOperationError("Workspace not found", "WORKSPACE_NOT_FOUND")
         );
       }
-
-      // Find the task
-      const task = await this.taskRepository.findById(taskId);
-      if (!task) {
+      const task = workspace.state.tasks[parsed.data];
+      if (
+        task === undefined ||
+        (!options.includeDeleted && isDeleted(task.deletionDots))
+      ) {
         return ResultUtils.error(
           new TaskOperationError("Task not found", "TASK_NOT_FOUND")
         );
       }
 
-      return ResultUtils.ok(task);
+      return ResultUtils.ok({
+        workspaceId,
+        identity,
+        workspace,
+        task,
+        taskId: parsed.data,
+      });
     } catch (error) {
       return ResultUtils.error(
         new TaskOperationError(
-          `Failed to find task: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
+          `Failed to find task: ${errorMessage(error)}`,
           "FIND_FAILED"
         )
       );
     }
   }
 
-  /**
-   * Execute operation in transaction with sync queue and event store
-   */
-  protected async executeInTransaction<T>(
-    task: Task,
-    operation: "create" | "update" | "delete",
-    events: DomainEvent[],
-    additionalOperations?: () => Promise<void>
-  ): Promise<Result<T, TaskOperationError>> {
+  protected commandBase(
+    loaded: Pick<LoadedWorkspaceTask, "workspaceId" | "identity">,
+    audited?: false
+  ): Result<CommandBaseMetadata, TaskOperationError>;
+  protected commandBase(
+    loaded: Pick<LoadedWorkspaceTask, "workspaceId" | "identity">,
+    audited: true
+  ): Result<AuditedCommandBaseMetadata, TaskOperationError>;
+  protected commandBase(
+    loaded: Pick<LoadedWorkspaceTask, "workspaceId" | "identity">,
+    audited = false
+  ): Result<
+    CommandBaseMetadata | AuditedCommandBaseMetadata,
+    TaskOperationError
+  > {
     try {
-      let result: T | undefined;
-
-      await this.database.transaction(
-        "rw",
-        [
-          this.database.tasks,
-          this.database.syncQueue,
-          this.database.eventStore,
-          this.database.dailySelectionEntries,
-        ],
-        async () => {
-          // 1. Save task (if not delete operation)
-          if (operation !== "delete") {
-            await this.taskRepository.save(task);
-          } else {
-            await this.taskRepository.delete(task.id);
-          }
-
-          // 2. Add sync queue entry
-          await this.database.syncQueue.add({
-            entityType: "task",
-            entityId: task.id.value,
-            operation,
-            payloadHash: operation !== "delete" ? hashTask(task) : "",
-            attemptCount: 0,
-            createdAt: new Date(),
-            nextAttemptAt: Date.now(),
-          });
-
-          // 3. Execute additional operations if provided
-          if (additionalOperations) {
-            const additionalResult = await additionalOperations();
-            if (additionalResult !== undefined) {
-              result = additionalResult as T;
-            }
-          }
-
-          // 4. Publish domain events
-          if (events.length > 0) {
-            await this.eventBus.publishAll(events);
-          }
-        }
+      const base: CommandBaseMetadata = {
+        workspaceId: loaded.workspaceId,
+        actorId: loaded.identity.actorId,
+        operationId: this.actor.nextOperationId(),
+      };
+      return ResultUtils.ok(
+        audited ? { ...base, auditTime: this.actor.auditTime() } : base
       );
-
-      // 5. Trigger debounced sync after successful transaction
-      this.debouncedSyncService.triggerSync();
-
-      return ResultUtils.ok(result as T);
     } catch (error) {
       return ResultUtils.error(
         new TaskOperationError(
-          `Transaction failed: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
-          "TRANSACTION_FAILED"
+          `Failed to acquire command authorship: ${errorMessage(error)}`,
+          "AUTHORSHIP_FAILED"
         )
       );
     }
   }
 
-  /**
-   * Wrapper for safe execution with error handling
-   */
-  protected async safeExecute<T, E extends Error>(
-    operation: () => Promise<Result<T, E>>,
-    errorMessage: string,
-    errorCode: string
-  ): Promise<Result<T, E | TaskOperationError>> {
+  protected async commit(
+    command: WorkspaceCommand
+  ): Promise<Result<void, TaskOperationError>> {
     try {
-      return await operation();
+      await this.unitOfWork.commit(command);
+      return ResultUtils.ok(undefined);
     } catch (error) {
       return ResultUtils.error(
         new TaskOperationError(
-          `${errorMessage}: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
-          errorCode
-        ) as unknown as E
+          `Transaction failed: ${errorMessage(error)}`,
+          "TRANSACTION_FAILED"
+        )
       );
     }
   }
 }
+
+export const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : "Unknown error";

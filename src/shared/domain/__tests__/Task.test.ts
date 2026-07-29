@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Task, InvalidTaskOperationError } from "../entities/Task";
 import { TaskId } from "../value-objects/TaskId";
 import { NonEmptyTitle } from "../value-objects/NonEmptyTitle";
@@ -21,6 +21,10 @@ describe("Task Entity", () => {
   beforeEach(() => {
     taskId = TaskId.generate();
     title = new NonEmptyTitle("Test Task");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("constructor", () => {
@@ -188,15 +192,13 @@ describe("Task Entity", () => {
       );
     });
 
-    it("should update updatedAt timestamp", async () => {
+    it("should update updatedAt timestamp", () => {
       const originalUpdatedAt = task.updatedAt;
 
-      // Wait a bit to ensure timestamp difference
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      vi.useFakeTimers();
+      vi.setSystemTime(originalUpdatedAt.getTime() + 1);
       task.changeCategory(TaskCategory.SIMPLE);
-      expect(task.updatedAt.getTime()).toBeGreaterThanOrEqual(
-        originalUpdatedAt.getTime()
-      );
+      expect(task.updatedAt.getTime()).toBe(originalUpdatedAt.getTime() + 1);
     });
   });
 
@@ -236,14 +238,13 @@ describe("Task Entity", () => {
       expect(() => task.complete()).toThrow(InvalidTaskOperationError);
     });
 
-    it("should update updatedAt timestamp", async () => {
+    it("should update updatedAt timestamp", () => {
       const originalUpdatedAt = task.updatedAt;
 
-      await new Promise((resolve) => setTimeout(resolve, 1));
+      vi.useFakeTimers();
+      vi.setSystemTime(originalUpdatedAt.getTime() + 1);
       task.complete();
-      expect(task.updatedAt.getTime()).toBeGreaterThan(
-        originalUpdatedAt.getTime()
-      );
+      expect(task.updatedAt.getTime()).toBe(originalUpdatedAt.getTime() + 1);
     });
   });
 
@@ -450,14 +451,13 @@ describe("Task Entity", () => {
       task = createdTask;
     });
 
-    it("should update updatedAt timestamp", async () => {
+    it("should update updatedAt timestamp", () => {
       const originalUpdatedAt = task.updatedAt;
 
-      await new Promise((resolve) => setTimeout(resolve, 1));
+      vi.useFakeTimers();
+      vi.setSystemTime(originalUpdatedAt.getTime() + 1);
       task.touch();
-      expect(task.updatedAt.getTime()).toBeGreaterThan(
-        originalUpdatedAt.getTime()
-      );
+      expect(task.updatedAt.getTime()).toBe(originalUpdatedAt.getTime() + 1);
     });
   });
 

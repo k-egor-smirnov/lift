@@ -5,7 +5,6 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-    "noCheck": true,
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -19,12 +18,17 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "types": ["vite/client", "@testing-library/jest-dom", "vitest/globals"],
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "src/test/vitest.d.ts"],
-  "types": ["@testing-library/jest-dom", "vitest/globals"],
+  "include": [
+    "src",
+    "src/test/vitest.d.ts",
+    "vitest.config.ts",
+    "vitest.integration.config.ts"
+  ],
   "references": [
     {
       "path": "./tsconfig.node.json"

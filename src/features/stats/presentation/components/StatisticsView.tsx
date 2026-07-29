@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import {
   useStatsViewModel,
-  StatsPeriod,
   formatPeriodLabel,
 } from "../view-models/StatsViewModel";
 import { StatsCards } from "./StatsCards";
@@ -27,7 +26,7 @@ export const StatisticsView: React.FC = () => {
   useEffect(() => {
     loadStatistics();
     loadChartData();
-  }, []);
+  }, [loadChartData, loadStatistics]);
 
   const getCurrentStats = () => {
     switch (selectedPeriod) {

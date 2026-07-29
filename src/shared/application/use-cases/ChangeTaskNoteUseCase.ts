@@ -1,61 +1,75 @@
-import { injectable, inject } from "tsyringe";
-import { TaskId } from "../../domain/value-objects/TaskId";
-import { BaseTaskUseCase } from "./BaseTaskUseCase";
-import { type Result, ResultUtils } from "../../domain/Result";
-import { TaskRepository } from "../../domain/repositories/TaskRepository";
-import { EventBus } from "../../domain/events/EventBus";
-import { TodoDatabase } from "../../infrastructure/database/TodoDatabase";
-import { DebouncedSyncService } from "../services/DebouncedSyncService";
-import * as tokens from "../../infrastructure/di/tokens";
+import type { CurrentActor } from "../../../features/workspaces/application/ports/CurrentActor";
+import type { CurrentWorkspace } from "../../../features/workspaces/application/ports/CurrentWorkspace";
+import type { WorkspaceRepository } from "../../../features/workspaces/application/ports/WorkspaceRepository";
+import type { WorkspaceUnitOfWork } from "../../../features/workspaces/application/ports/WorkspaceUnitOfWork";
+import { minimalTextSplice } from "../../../features/workspaces/application/text/minimalTextSplice";
+import { Result, ResultUtils } from "../../domain/Result";
+import {
+  BaseTaskUseCase,
+  errorMessage,
+  TaskOperationError,
+} from "./BaseTaskUseCase";
 
-/**
- * Request for changing a task's note
- */
 export interface ChangeTaskNoteRequest {
-  taskId: TaskId;
-  note?: string;
+  readonly taskId: string;
+  readonly note?: string;
 }
 
-/**
- * Use case for changing a task's note
- */
-@injectable()
+export class TaskNoteChangeError extends TaskOperationError {
+  constructor(message: string, code: string) {
+    super(message, code);
+    this.name = "TaskNoteChangeError";
+  }
+}
+
 export class ChangeTaskNoteUseCase extends BaseTaskUseCase {
   constructor(
-    @inject(tokens.TASK_REPOSITORY_TOKEN)
-    taskRepository: TaskRepository,
-    @inject(tokens.EVENT_BUS_TOKEN) eventBus: EventBus,
-    @inject(tokens.DATABASE_TOKEN) database: TodoDatabase,
-    @inject(tokens.DEBOUNCED_SYNC_SERVICE_TOKEN)
-    debouncedSyncService: DebouncedSyncService
+    workspace: CurrentWorkspace,
+    repository: WorkspaceRepository,
+    unitOfWork: WorkspaceUnitOfWork,
+    actor: CurrentActor
   ) {
-    super(taskRepository, eventBus, database, debouncedSyncService);
+    super(workspace, repository, unitOfWork, actor);
   }
-  async execute(request: ChangeTaskNoteRequest): Promise<Result<void>> {
-    try {
-      if (!request.taskId) {
-        return ResultUtils.error(new Error("Task ID is required"));
-      }
 
-      const task = await this.taskRepository.findById(request.taskId);
-
-      if (!task) {
-        return ResultUtils.error(new Error("Task not found"));
-      }
-
-      const events = task.changeNote(request.note);
-      await this.taskRepository.save(task);
-      if (events.length > 0) {
-        await this.eventBus.publishAll(events);
-      }
-      this.debouncedSyncService.triggerSync();
-
-      return ResultUtils.ok(undefined);
-    } catch (error) {
-      console.error("Failed to change task note:", error);
+  async execute(
+    request: ChangeTaskNoteRequest
+  ): Promise<Result<void, TaskNoteChangeError>> {
+    const loaded = await this.findTaskById(request.taskId);
+    if (ResultUtils.isFailure(loaded)) {
       return ResultUtils.error(
-        error instanceof Error ? error : new Error(String(error))
+        new TaskNoteChangeError(loaded.error.message, loaded.error.code)
       );
     }
+
+    let splice;
+    try {
+      splice = minimalTextSplice(loaded.data.task.note, request.note ?? "");
+    } catch (error) {
+      return ResultUtils.error(
+        new TaskNoteChangeError(errorMessage(error), "INVALID_NOTE")
+      );
+    }
+    if (splice === null) return ResultUtils.ok(undefined);
+
+    const metadata = this.commandBase(loaded.data);
+    if (ResultUtils.isFailure(metadata)) {
+      return ResultUtils.error(
+        new TaskNoteChangeError(metadata.error.message, metadata.error.code)
+      );
+    }
+    const committed = await this.commit({
+      type: "SpliceTaskText",
+      ...metadata.data,
+      taskId: loaded.data.taskId,
+      path: "note",
+      baseHeads: [...loaded.data.workspace.heads],
+      ...splice,
+    });
+    return ResultUtils.isFailure(committed)
+      ? ResultUtils.error(
+          new TaskNoteChangeError(committed.error.message, committed.error.code)
+        )
+      : ResultUtils.ok(undefined);
   }
 }

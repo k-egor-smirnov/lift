@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Zap, Target, Inbox, ChevronDown } from "lucide-react";
+import { Plus, Zap, Target, Inbox, Clock, ChevronDown } from "lucide-react";
 import { TaskCategory } from "../../domain/types";
 
 interface MobileTaskInputProps {
@@ -27,7 +27,19 @@ const categoryConfig = {
     color: "text-blue-600",
     bgColor: "bg-blue-100",
   },
+  [TaskCategory.DEFERRED]: {
+    icon: Clock,
+    label: "Deferred",
+    color: "text-purple-600",
+    bgColor: "bg-purple-100",
+  },
 };
+
+const creationCategories = [
+  TaskCategory.INBOX,
+  TaskCategory.SIMPLE,
+  TaskCategory.FOCUS,
+] as const;
 
 export const MobileTaskInput: React.FC<MobileTaskInputProps> = ({
   onCreateTask,
@@ -71,14 +83,15 @@ export const MobileTaskInput: React.FC<MobileTaskInputProps> = ({
       {showCategoryPicker && (
         <div className="absolute bottom-full left-0 right-0 bg-white border-t border-gray-200 shadow-lg animate-in slide-in-from-bottom">
           <div className="p-2 grid grid-cols-3 gap-2">
-            {Object.entries(categoryConfig).map(([cat, config]) => {
+            {creationCategories.map((cat) => {
+              const config = categoryConfig[cat];
               const Icon = config.icon;
               const isSelected = cat === category;
               return (
                 <button
                   key={cat}
                   onClick={() => {
-                    setCategory(cat as TaskCategory);
+                    setCategory(cat);
                     setShowCategoryPicker(false);
                     inputRef.current?.focus();
                   }}

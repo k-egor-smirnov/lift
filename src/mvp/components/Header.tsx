@@ -5,10 +5,10 @@ import {
   Target,
   Inbox,
   FileText,
-  Plus,
   Menu,
   Clock,
   Settings,
+  BarChart3,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TaskCategory } from "../../shared/domain/types";
@@ -25,6 +25,7 @@ const getViewTitle = (view: ActiveView, t: any, activeTagName?: string) => {
   if (view === "today") return t("navigation.today");
   if (view === "logs") return t("logs.title", "Activity Logs");
   if (view === "settings") return t("settings.title");
+  if (view === "stats") return t("statistics.title", "Statistics");
   if (view.startsWith("tag:")) return activeTagName ?? "Тэг";
 
   switch (view) {
@@ -41,15 +42,12 @@ const getViewTitle = (view: ActiveView, t: any, activeTagName?: string) => {
   }
 };
 
-const getViewDescription = (
-  view: ActiveView,
-  t: any,
-  activeTagName?: string
-) => {
+const getViewDescription = (view: ActiveView, t: any) => {
   if (view === "today") return t("navigation.descriptions.today");
   if (view === "logs")
     return t("logs.subtitle", "View all system and user activity");
   if (view === "settings") return t("settings.app.description");
+  if (view === "stats") return t("statistics.subtitle", "Productivity trends");
   if (view.startsWith("tag:")) {
     return "";
   }
@@ -72,6 +70,7 @@ const getViewIcon = (view: ActiveView) => {
   if (view === "today") return Sun;
   if (view === "logs") return FileText;
   if (view === "settings") return Settings;
+  if (view === "stats") return BarChart3;
   if (view.startsWith("tag:")) return FileText;
 
   switch (view) {
@@ -94,14 +93,12 @@ export const Header: React.FC<HeaderProps> = ({
   onMobileMenuToggle,
 }) => {
   const { t } = useTranslation();
-  const [scrollY, setScrollY] = useState(0);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const IconComponent = getViewIcon(activeView);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      setScrollY(currentScrollY);
 
       // Collapse header when scrolling down on mobile
       const isMobile = window.innerWidth <= 768;
@@ -118,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const headerHeight = isCollapsed ? "h-14" : "";
 
-  const description = getViewDescription(activeView, t, activeTagName);
+  const description = getViewDescription(activeView, t);
 
   return (
     <>

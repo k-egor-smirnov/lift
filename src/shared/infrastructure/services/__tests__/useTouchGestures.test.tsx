@@ -15,8 +15,11 @@ beforeAll(() => {
       this.targetTouches = params.targetTouches || [];
     }
   }
-  // @ts-ignore
-  global.TouchEvent = FakeTouchEvent;
+  Object.defineProperty(globalThis, "TouchEvent", {
+    configurable: true,
+    writable: true,
+    value: FakeTouchEvent,
+  });
 });
 
 describe("useTouchGestures", () => {

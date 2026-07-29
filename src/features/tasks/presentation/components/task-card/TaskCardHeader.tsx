@@ -1,12 +1,11 @@
 import React from "react";
 import { TaskCategory } from "../../../../../shared/domain/types";
 import { useTranslation } from "react-i18next";
-import { Zap, Target, Inbox, FileText, AlertTriangle } from "lucide-react";
+import { Zap, Target, Inbox, FileText } from "lucide-react";
 
 interface TaskCardHeaderProps {
   category: TaskCategory;
   currentCategory?: TaskCategory;
-  isOverdue: boolean;
 }
 
 const getCategoryColor = (category: TaskCategory): string => {
@@ -38,7 +37,6 @@ const getCategoryIcon = (category: TaskCategory) => {
 export const TaskCardHeader: React.FC<TaskCardHeaderProps> = ({
   category,
   currentCategory,
-  isOverdue,
 }) => {
   const { t } = useTranslation();
   const categoryColor = getCategoryColor(category);
@@ -56,12 +54,6 @@ export const TaskCardHeader: React.FC<TaskCardHeaderProps> = ({
         >
           <CategoryIcon className="w-2.5 h-2.5 mr-1" />
           {t(`categories.${category.toLowerCase()}`)}
-        </span>
-      )}
-      {isOverdue && (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800 border border-red-200">
-          <AlertTriangle className="w-2.5 h-2.5 mr-1" />
-          {t("taskCard.overdue")}
         </span>
       )}
     </div>

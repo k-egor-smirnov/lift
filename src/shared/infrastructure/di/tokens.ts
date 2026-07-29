@@ -1,49 +1,7 @@
-/**
- * DI Tokens for dependency injection
- */
-
-// Database
-export const DATABASE_TOKEN = Symbol("Database");
+/** Tokens are named after inward-facing capabilities, never concrete adapters. */
+export const DATABASE_TOKEN = Symbol("SecureLocalDatabase");
+export const WORKSPACE_REPOSITORY_TOKEN = Symbol("WorkspaceRepository");
+export const WORKSPACE_UNIT_OF_WORK_TOKEN = Symbol("WorkspaceUnitOfWork");
+export const EFFECTIVE_DATE_PROVIDER_TOKEN = Symbol("EffectiveDateProvider");
 export const EVENT_BUS_TOKEN = Symbol("EventBus");
-export const TASK_EVENT_ADAPTER_TOKEN = Symbol("TaskEventAdapter");
-
-// Repositories
-export const TASK_REPOSITORY_TOKEN = Symbol("TaskRepository");
-export const DAILY_SELECTION_REPOSITORY_TOKEN = Symbol(
-  "DailySelectionRepository"
-);
-
-// Use Cases
-export const CREATE_TASK_USE_CASE_TOKEN = Symbol("CreateTaskUseCase");
-export const UPDATE_TASK_USE_CASE_TOKEN = Symbol("UpdateTaskUseCase");
-export const DELETE_TASK_USE_CASE_TOKEN = Symbol("DeleteTaskUseCase");
-export const REORDER_TASKS_USE_CASE_TOKEN = Symbol("ReorderTasksUseCase");
-export const COMPLETE_TASK_USE_CASE_TOKEN = Symbol("CompleteTaskUseCase");
-export const REVERT_TASK_COMPLETION_USE_CASE_TOKEN = Symbol(
-  "RevertTaskCompletionUseCase"
-);
-export const GET_TODAY_TASKS_USE_CASE_TOKEN = Symbol("GetTodayTasksUseCase");
-export const ADD_TASK_TO_TODAY_USE_CASE_TOKEN = Symbol("AddTaskToTodayUseCase");
-export const REMOVE_TASK_FROM_TODAY_USE_CASE_TOKEN = Symbol(
-  "RemoveTaskFromTodayUseCase"
-);
-export const GET_TASK_LOGS_USE_CASE_TOKEN = Symbol("GetTaskLogsUseCase");
-export const CREATE_USER_LOG_USE_CASE_TOKEN = Symbol("CreateUserLogUseCase");
-export const CREATE_SYSTEM_LOG_USE_CASE_TOKEN = Symbol(
-  "CreateSystemLogUseCase"
-);
-export const DEFER_TASK_USE_CASE_TOKEN = Symbol("DeferTaskUseCase");
-export const UNDEFER_TASK_USE_CASE_TOKEN = Symbol("UndeferTaskUseCase");
-export const CHANGE_TASK_NOTE_USE_CASE_TOKEN = Symbol("ChangeTaskNoteUseCase");
-
-// Services
-export const DEFERRED_TASK_SERVICE_TOKEN = Symbol("DeferredTaskService");
-export const SYNC_SERVICE_TOKEN = Symbol("SyncService");
-export const DEBOUNCED_SYNC_SERVICE_TOKEN = Symbol("DebouncedSyncService");
-export const SUPABASE_REALTIME_SERVICE_TOKEN = Symbol(
-  "SupabaseRealtimeService"
-);
-
-// Supabase
-export const SUPABASE_CLIENT_FACTORY_TOKEN = Symbol("SupabaseClientFactory");
-export const SYNC_REPOSITORY_TOKEN = Symbol("SyncRepository");
+export const SECURE_RUNTIME_TOKEN = Symbol("SecureRuntime");

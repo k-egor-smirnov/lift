@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { startOfflineTestApp } from "./helpers/secure-test-app";
 
 const openInbox = async (page: Page) => {
   await page.getByTestId("sidebar-inbox").click();
@@ -88,7 +89,7 @@ const createTagFromSidebar = async (page: Page, tagName: string) => {
 
 test.describe("Drag and Drop Functionality", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await startOfflineTestApp(page);
     await openInbox(page);
   });
 

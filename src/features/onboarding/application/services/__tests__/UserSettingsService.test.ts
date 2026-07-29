@@ -7,8 +7,10 @@ import {
 import { UserSettingsRepository } from "../../../../../shared/domain/repositories/UserSettingsRepository";
 
 // Mock repository
-const mockUserSettingsRepository: jest.Mocked<UserSettingsRepository> = {
-  get: vi.fn(),
+const mockGetSetting = vi.fn();
+const mockUserSettingsRepository = {
+  get: async <T = any>(key: string): Promise<T | null> =>
+    await mockGetSetting(key),
   set: vi.fn(),
   getMany: vi.fn(),
   setMany: vi.fn(),
@@ -16,7 +18,7 @@ const mockUserSettingsRepository: jest.Mocked<UserSettingsRepository> = {
   remove: vi.fn(),
   getAll: vi.fn(),
   clear: vi.fn(),
-};
+} satisfies UserSettingsRepository;
 
 describe("UserSettingsService", () => {
   let userSettingsService: UserSettingsService;
@@ -102,18 +104,18 @@ describe("UserSettingsService", () => {
 
   describe("getInboxOverdueDays", () => {
     it("should return stored value when it exists", async () => {
-      mockUserSettingsRepository.get.mockResolvedValue(7);
+      mockGetSetting.mockResolvedValue(7);
 
       const result = await userSettingsService.getInboxOverdueDays();
 
       expect(result).toBe(7);
-      expect(mockUserSettingsRepository.get).toHaveBeenCalledWith(
+      expect(mockGetSetting).toHaveBeenCalledWith(
         USER_SETTINGS_KEYS.INBOX_OVERDUE_DAYS
       );
     });
 
     it("should return default value when no value is stored", async () => {
-      mockUserSettingsRepository.get.mockResolvedValue(null);
+      mockGetSetting.mockResolvedValue(null);
 
       const result = await userSettingsService.getInboxOverdueDays();
 
@@ -148,18 +150,18 @@ describe("UserSettingsService", () => {
 
   describe("getKeyboardShortcutsEnabled", () => {
     it("should return stored value when it exists", async () => {
-      mockUserSettingsRepository.get.mockResolvedValue(false);
+      mockGetSetting.mockResolvedValue(false);
 
       const result = await userSettingsService.getKeyboardShortcutsEnabled();
 
       expect(result).toBe(false);
-      expect(mockUserSettingsRepository.get).toHaveBeenCalledWith(
+      expect(mockGetSetting).toHaveBeenCalledWith(
         USER_SETTINGS_KEYS.KEYBOARD_SHORTCUTS_ENABLED
       );
     });
 
     it("should return default value when no value is stored", async () => {
-      mockUserSettingsRepository.get.mockResolvedValue(null);
+      mockGetSetting.mockResolvedValue(null);
 
       const result = await userSettingsService.getKeyboardShortcutsEnabled();
 
@@ -180,18 +182,18 @@ describe("UserSettingsService", () => {
 
   describe("getStartOfDayTime", () => {
     it("should return stored value when it exists", async () => {
-      mockUserSettingsRepository.get.mockResolvedValue("08:15");
+      mockGetSetting.mockResolvedValue("08:15");
 
       const result = await userSettingsService.getStartOfDayTime();
 
       expect(result).toBe("08:15");
-      expect(mockUserSettingsRepository.get).toHaveBeenCalledWith(
+      expect(mockGetSetting).toHaveBeenCalledWith(
         USER_SETTINGS_KEYS.START_OF_DAY_TIME
       );
     });
 
     it("should return default value when no value is stored", async () => {
-      mockUserSettingsRepository.get.mockResolvedValue(null);
+      mockGetSetting.mockResolvedValue(null);
 
       const result = await userSettingsService.getStartOfDayTime();
 

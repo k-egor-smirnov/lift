@@ -10,7 +10,6 @@ interface TaskTitleDisplayProps {
   status: TaskStatus;
   showTodayButton: boolean;
   isInTodaySelection: boolean;
-  onEdit: () => void;
   onAddToToday?: (taskId: string) => void;
 }
 
@@ -20,7 +19,6 @@ export const TaskTitleDisplay: React.FC<TaskTitleDisplayProps> = ({
   status,
   showTodayButton,
   isInTodaySelection,
-  onEdit,
   onAddToToday,
 }) => {
   const { t } = useTranslation();
@@ -59,24 +57,8 @@ export const TaskTitleDisplay: React.FC<TaskTitleDisplayProps> = ({
         className={`
             text-sm leading-snug font-medium text-gray-900 flex-1
             ${isCompleted ? "line-through" : ""}
-            ${
-              isMobile
-                ? ""
-                : "cursor-pointer hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded px-1 py-0.5"
-            }
+            ${isMobile ? "" : "rounded px-1 py-0.5"}
           `}
-        {...(!isMobile && {
-          onClick: onEdit,
-          onKeyDown: (e: React.KeyboardEvent) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onEdit();
-            }
-          },
-          tabIndex: 0,
-          role: "button",
-          "aria-label": t("taskCard.editTask", { title }),
-        })}
       >
         {title}
       </h3>
